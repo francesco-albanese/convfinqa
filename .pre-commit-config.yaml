@@ -1,0 +1,35 @@
+# Hooks for the `prek` runner — see https://github.com/j178/prek.
+# Activate with `prek install`. Tooling versions are owned by pyproject.toml /
+# uv.lock; `uv run --frozen` ensures every hook hits the locked binary.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check --fix
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: pyright
+        name: pyright (strict)
+        entry: uv run --frozen pyright
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true
+
+      - id: pytest
+        name: pytest -q
+        entry: uv run --frozen pytest -q
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true
