@@ -1,0 +1,81 @@
+[project]
+name = "convfinqa"
+version = "0.1.0"
+description = "Financial related conversational chatbot"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.1.8",
+    "fastapi>=0.136.1",
+    "langfuse>=4.5.1",
+    "litellm>=1.83.14",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.14.0",
+    "typer>=0.23.1",
+    "uvicorn>=0.46.0",
+]
+
+[dependency-groups]
+lint = [
+    "pyright>=1.1.409",
+    "pytest>=9.0.3",
+    "ruff>=0.15.12",
+]
+
+
+[tool.ruff]
+fix = true
+unsafe-fixes = false
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "F",  # default Ruff rules
+    "E",  # pycodestyle Errors
+    "W",  # pycodestyle Warnings
+    "I",  # import sorting
+    "UP", # modern syntax updates
+    "B",  # flake8 common pitfalls & best practices
+    "Q",  # flake8 consistent quotes
+    "N",  # naming conventions,
+]
+
+ignore = [
+    "B008",
+    "D413",
+    "E501",
+    "W293",
+    "W291",
+    "PLR2004",
+    "D101",
+    "D400",
+]
+
+fixable = ["ALL"]
+
+extend-select = [
+    "PLR2004",
+    "D101",
+    "D102",
+    "D103",
+    "D201",
+    "D202",
+    "D215",
+    "T201",
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13.7"
+pythonPlatform = "All"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
