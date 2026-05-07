@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "convfinqa",
+  "project_id": "f584e670-8469-4d87-a385-dc715d10aa13"
+}
