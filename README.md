@@ -23,3 +23,7 @@ The app provides both a CLI and a simple UI to chat with the LLM. It requires po
 - FastAPI with streaming
 - `typer` CLI
 - `Next.js` typescript app for the UI
+
+## Software architecture
+
+The system is implemented with [hexagonal architecture](./docs/hexagonal.md)
