@@ -1,0 +1,2 @@
+- self explanatory and clear variable names
+- no underscores in variable names or constants. Example: NO _LITELLM , YES LITELLM

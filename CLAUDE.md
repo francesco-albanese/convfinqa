@@ -60,3 +60,8 @@ _Add your build and test commands here_
 ## Architecture Overview
 
 [Hexagonal](./docs/hexagonal.md)
+
+## Testing locally
+
+Run `aws-login` followed by `switch-aws-env sandbox-admin` before you are able
+to test in AWS. Verify with `AWS_PROFILE=sandbox-admin aws sts get-caller-identity`
