@@ -130,6 +130,8 @@ async def test_sync_chat_empty_message_returns_422(
         )
 
     assert response.status_code == 422
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["status"] == 422
 
 
 @pytest.mark.asyncio

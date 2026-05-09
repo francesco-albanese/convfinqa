@@ -28,6 +28,7 @@ class TextDelta:
 class Finish:
     stop_reason: StopReason
     usage: Usage | None
+    created_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +116,7 @@ class SendMessageUseCase:
             stop_reason = StopReason.INTERRUPTED
             error_detail = str(exc) or exc.__class__.__name__
 
-        await self._persist_assistant(
+        finished_at = await self._persist_assistant(
             conversation.id, assistant_id, "".join(buffered), stop_reason
         )
 
@@ -123,7 +124,7 @@ class SendMessageUseCase:
             yield ErrorEvent(detail=error_detail)
             return
 
-        yield Finish(stop_reason=stop_reason, usage=usage)
+        yield Finish(stop_reason=stop_reason, usage=usage, created_at=finished_at)
 
     async def _resolve_conversation(
         self, conversation_id: str | None, user_id: str
@@ -141,13 +142,15 @@ class SendMessageUseCase:
         message_id: str,
         content: str,
         stop_reason: StopReason,
-    ) -> None:
+    ) -> datetime:
+        created_at = datetime.now(UTC)
         message = Message(
             id=message_id,
             conversation_id=conversation_id,
             role=Role.ASSISTANT,
             content=content,
-            created_at=datetime.now(UTC),
+            created_at=created_at,
             stop_reason=stop_reason,
         )
         await self._conversations.append_message(conversation_id, message)
+        return created_at

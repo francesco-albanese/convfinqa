@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, status
 from pydantic import BaseModel, Field
@@ -10,9 +10,12 @@ from src.convfinqa.application.use_cases.send_message import (
     MessageStarted,
     TextDelta,
 )
-from src.convfinqa.config import SETTINGS
 from src.convfinqa.domain.value_objects import StopReason
-from src.convfinqa.entrypoints.api.dependencies import CurrentUserId, SendMessage
+from src.convfinqa.entrypoints.api.dependencies import (
+    CurrentUserId,
+    SendMessage,
+    SettingsDep,
+)
 from src.convfinqa.entrypoints.api.errors import UpstreamLLMError
 
 chat_router = APIRouter(prefix="/v1", tags=["chat"])
@@ -48,12 +51,14 @@ async def sync_chat(
     body: ChatRequest,
     user_id: CurrentUserId,
     send_message: SendMessage,
+    settings: SettingsDep,
 ) -> ChatResponse:
     conversation_id = ""
     message_id = ""
     parts: list[str] = []
     stop_reason = StopReason.END_TURN
     usage_payload: ChatUsage | None = None
+    created_at: datetime | None = None
 
     async for event in send_message.stream(
         user_id=user_id,
@@ -67,8 +72,9 @@ async def sync_chat(
                 message_id = mid
             case TextDelta(text=text):
                 parts.append(text)
-            case Finish(stop_reason=sr, usage=u):
+            case Finish(stop_reason=sr, usage=u, created_at=ts):
                 stop_reason = sr
+                created_at = ts
                 if u is not None:
                     usage_payload = ChatUsage(
                         input_tokens=u.input_tokens,
@@ -77,13 +83,14 @@ async def sync_chat(
             case ErrorEvent(detail=detail):
                 raise UpstreamLLMError(detail)
 
+    assert created_at is not None
     return ChatResponse(
         id=message_id,
         conversation_id=conversation_id,
         role="assistant",
         content="".join(parts),
-        model=SETTINGS.llm_model,
+        model=settings.llm_model,
         stop_reason=stop_reason.value,
         usage=usage_payload,
-        created_at=datetime.now(UTC),
+        created_at=created_at,
     )

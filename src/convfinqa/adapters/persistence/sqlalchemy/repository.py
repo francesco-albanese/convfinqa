@@ -17,10 +17,6 @@ def new_conversation_id() -> str:
     return f"conv_{uuid4().hex}"
 
 
-def new_message_id() -> str:
-    return f"msg_{uuid4().hex}"
-
-
 def _to_message(orm: MessageOrm) -> Message:
     stop = StopReason(orm.stop_reason) if orm.stop_reason else None
     return Message(

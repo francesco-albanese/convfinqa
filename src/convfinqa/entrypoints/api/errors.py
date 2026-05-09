@@ -1,7 +1,5 @@
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
-from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -158,9 +156,6 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
         user_id=request.headers.get("x-user-id"),
     )
     return _problem_response(problem)
-
-
-Handler = Callable[[Request, Exception], Awaitable[Any]]
 
 
 def install_exception_handlers(app: FastAPI) -> None:

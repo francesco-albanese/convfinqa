@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Request
 
 from src.convfinqa.application.use_cases.send_message import SendMessageUseCase
+from src.convfinqa.config import Settings
 from src.convfinqa.container import Container
 from src.convfinqa.entrypoints.api.errors import MissingUserIdError
 
@@ -26,5 +27,12 @@ def get_send_message(
     return container.send_message
 
 
+def get_settings(
+    container: Annotated[Container, Depends(get_container)],
+) -> Settings:
+    return container.settings
+
+
 CurrentUserId = Annotated[str, Depends(current_user_id)]
 SendMessage = Annotated[SendMessageUseCase, Depends(get_send_message)]
+SettingsDep = Annotated[Settings, Depends(get_settings)]
