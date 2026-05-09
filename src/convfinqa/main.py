@@ -1,24 +1,28 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
-from .config import Settings
-from .container import Container
-from .entrypoints.api.router import health_router
+from src.convfinqa.config import SETTINGS
+from src.convfinqa.container import Container
+from src.convfinqa.entrypoints.api.errors import install_exception_handlers
+from src.convfinqa.entrypoints.api.router import api_router
+from src.convfinqa.logging import configure_logging
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """
-    Implemented a lifespan so we can tear down
-    the database later
-    """
-    settings = Settings()
-    app.state.container = Container.bootstrap_application(settings=settings)
-    yield
-    # teardown DB later
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    container = Container.bootstrap_application(settings=SETTINGS)
+    app.state.container = container
+    try:
+        yield
+    finally:
+        await container.engine.dispose()
+
 
 def create_app() -> FastAPI:
+    configure_logging()
     app = FastAPI(title="convfinqa", lifespan=lifespan)
-    app.include_router(router=health_router)
+    install_exception_handlers(app)
+    app.include_router(router=api_router)
     return app
