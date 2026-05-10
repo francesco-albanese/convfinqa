@@ -1,5 +1,6 @@
 import logging
 import uuid
+from typing import cast
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -113,12 +114,12 @@ async def _handle_conversation_not_found(
 
 
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
-    assert isinstance(exc, RequestValidationError)
+    validation_exc = cast(RequestValidationError, exc)
     problem = Problem(
         type=f"{PROBLEM_BASE}/validation-error",
         title="Request validation failed",
         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=str(exc.errors()),
+        detail=str(validation_exc.errors()),
     )
     _log(
         level=logging.INFO,
@@ -148,14 +149,14 @@ async def _handle_upstream(request: Request, exc: Exception) -> JSONResponse:
 
 
 async def _handle_conversation_busy(request: Request, exc: Exception) -> JSONResponse:
-    assert isinstance(exc, ConversationBusyError)
+    busy_exc = cast(ConversationBusyError, exc)
     problem = Problem(
         type=f"{PROBLEM_BASE}/conversation-busy",
         title="Conversation busy",
         status=status.HTTP_409_CONFLICT,
         detail=(
             f"Another request is already in flight for conversation "
-            f"{exc.conversation_id}."
+            f"{busy_exc.conversation_id}."
         ),
     )
     _log(

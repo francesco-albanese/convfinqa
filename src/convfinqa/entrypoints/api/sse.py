@@ -1,5 +1,6 @@
 import json
 from collections.abc import AsyncIterator
+from typing import cast
 
 from convfinqa.application.use_cases.send_message import (
     ConcurrentRequest,
@@ -53,8 +54,9 @@ async def to_ui_message_stream(
                 )
                 yield _frame({"type": "text-start", "id": mid})
             case TextDelta(text=text):
-                assert text_id is not None
-                yield _frame({"type": "text-delta", "id": text_id, "delta": text})
+                yield _frame(
+                    {"type": "text-delta", "id": cast(str, text_id), "delta": text}
+                )
             case Finish():
                 if text_id is not None:
                     yield _frame({"type": "text-end", "id": text_id})
