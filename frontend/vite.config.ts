@@ -11,7 +11,11 @@ const backendProxy = {
 
 export default defineConfig({
 	plugins: [
-		tanstackRouter({ target: "react", autoCodeSplitting: true }),
+		tanstackRouter({
+			target: "react",
+			autoCodeSplitting: true,
+			routeFileIgnorePattern: "(__tests__|\\.test\\.)",
+		}),
 		react(),
 		tailwindcss(),
 	],
