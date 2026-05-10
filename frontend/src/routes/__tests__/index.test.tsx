@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-	RouterProvider,
 	createMemoryHistory,
 	createRouter,
+	RouterProvider,
 } from "@tanstack/react-router";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { routeTree } from "@/routeTree.gen";
 
 function renderApp(initialPath: string) {
