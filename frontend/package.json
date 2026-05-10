@@ -15,6 +15,10 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "pnpm build && bddgen && playwright test",
+    "e2e:gen": "bddgen",
+    "e2e:run": "playwright test",
+    "e2e:install": "playwright install chromium",
     "hooks:install": "sh ./scripts/install-hooks.sh",
     "prepare": "sh ./scripts/install-hooks.sh"
   },
@@ -37,6 +41,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.14",
+    "@playwright/test": "^1.59.1",
     "@tanstack/router-plugin": "^1.167.32",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -47,6 +52,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.1.1",
     "lefthook": "2.1.6",
+    "playwright-bdd": "^8.5.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.10",
     "vitest": "^4.1.5"

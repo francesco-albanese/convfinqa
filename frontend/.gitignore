@@ -16,6 +16,11 @@ dist-ssr
 # TanStack Router generated route tree
 src/routeTree.gen.ts
 
+# Playwright + playwright-bdd
+tests/e2e/.features-gen/
+playwright-report/
+test-results/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
