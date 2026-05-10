@@ -2,18 +2,18 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from src.convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
-from src.convfinqa.adapters.persistence.sqlalchemy.engine import (
+from convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
+from convfinqa.adapters.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
-from src.convfinqa.adapters.persistence.sqlalchemy.repository import (
+from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyConversationRepository,
 )
-from src.convfinqa.application.use_cases.send_message import SendMessageUseCase
-from src.convfinqa.config import Settings
-from src.convfinqa.domain.ports.llm import LLMPort
-from src.convfinqa.domain.ports.repository import ConversationRepository
+from convfinqa.application.use_cases.send_message import SendMessageUseCase
+from convfinqa.config import Settings
+from convfinqa.domain.ports.llm import LLMPort
+from convfinqa.domain.ports.repository import ConversationRepository
 
 
 @dataclass(frozen=True, slots=True)

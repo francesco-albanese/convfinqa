@@ -3,11 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.convfinqa.config import SETTINGS
-from src.convfinqa.container import Container
-from src.convfinqa.entrypoints.api.errors import install_exception_handlers
-from src.convfinqa.entrypoints.api.router import api_router
-from src.convfinqa.logging import configure_logging
+from convfinqa.config import SETTINGS
+from convfinqa.container import Container
+from convfinqa.entrypoints.api.errors import install_exception_handlers
+from convfinqa.entrypoints.api.router import api_router
+from convfinqa.logging import configure_logging
 
 
 @asynccontextmanager

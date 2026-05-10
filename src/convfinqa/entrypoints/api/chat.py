@@ -1,22 +1,29 @@
+from collections.abc import AsyncIterator
 from datetime import datetime
 
 from fastapi import APIRouter, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.convfinqa.application.use_cases.send_message import (
+from convfinqa.application.use_cases.send_message import (
     ConversationCreated,
     ErrorEvent,
     Finish,
     MessageStarted,
+    StreamEvent,
     TextDelta,
 )
-from src.convfinqa.domain.value_objects import StopReason
-from src.convfinqa.entrypoints.api.dependencies import (
+from convfinqa.domain.value_objects import StopReason
+from convfinqa.entrypoints.api.dependencies import (
     CurrentUserId,
     SendMessage,
     SettingsDep,
 )
-from src.convfinqa.entrypoints.api.errors import UpstreamLLMError
+from convfinqa.entrypoints.api.errors import UpstreamLLMError
+from convfinqa.entrypoints.api.sse import (
+    UI_MESSAGE_STREAM_HEADERS,
+    to_ui_message_stream,
+)
 
 chat_router = APIRouter(prefix="/v1", tags=["chat"])
 
@@ -93,4 +100,35 @@ async def sync_chat(
         stop_reason=stop_reason.value,
         usage=usage_payload,
         created_at=created_at,
+    )
+
+
+async def _prepend(
+    first: StreamEvent, rest: AsyncIterator[StreamEvent]
+) -> AsyncIterator[StreamEvent]:
+    yield first
+    async for event in rest:
+        yield event
+
+
+@chat_router.post(
+    "/chat/stream",
+    status_code=status.HTTP_200_OK,
+)
+async def stream_chat(
+    body: ChatRequest,
+    user_id: CurrentUserId,
+    send_message: SendMessage,
+) -> StreamingResponse:
+    events = send_message.stream(
+        user_id=user_id,
+        conversation_id=body.conversation_id,
+        user_text=body.message,
+    )
+    first_event = await anext(events)
+
+    return StreamingResponse(
+        to_ui_message_stream(_prepend(first_event, events)),
+        media_type="text/event-stream",
+        headers=UI_MESSAGE_STREAM_HEADERS,
     )

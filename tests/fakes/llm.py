@@ -1,8 +1,8 @@
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 
-from src.convfinqa.domain.ports.llm import LLMChunk, LLMMessage
-from src.convfinqa.domain.value_objects import Usage
+from convfinqa.domain.ports.llm import LLMChunk, LLMMessage
+from convfinqa.domain.value_objects import Usage
 
 
 @dataclass(slots=True)

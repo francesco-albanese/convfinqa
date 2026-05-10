@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from src.convfinqa.domain.value_objects import Role, StopReason
+from convfinqa.domain.value_objects import Role, StopReason
 
 
 @dataclass(frozen=True, slots=True)

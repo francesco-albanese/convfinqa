@@ -4,7 +4,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
+from convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
 from tests.fakes.llm import FakeLLMPort
 
 

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from src.convfinqa.domain.entities import Conversation, Message
+from convfinqa.domain.entities import Conversation, Message
 
 
 class ConversationRepository(Protocol):

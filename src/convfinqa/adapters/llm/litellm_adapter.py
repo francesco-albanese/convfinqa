@@ -3,8 +3,8 @@ from typing import Any, Protocol, cast
 
 import litellm
 
-from src.convfinqa.domain.ports.llm import LLMChunk, LLMMessage
-from src.convfinqa.domain.value_objects import Usage
+from convfinqa.domain.ports.llm import LLMChunk, LLMMessage
+from convfinqa.domain.value_objects import Usage
 
 
 class _LiteLLMDelta(Protocol):

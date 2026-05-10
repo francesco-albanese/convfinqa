@@ -1,12 +1,12 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from src.convfinqa.domain.entities import Conversation, Message
-from src.convfinqa.domain.ports.llm import LLMMessage, LLMPort
-from src.convfinqa.domain.ports.repository import ConversationRepository
-from src.convfinqa.domain.value_objects import Role, StopReason, Usage
+from convfinqa.domain.entities import Conversation, Message
+from convfinqa.domain.ports.llm import LLMMessage, LLMPort
+from convfinqa.domain.ports.repository import ConversationRepository
+from convfinqa.domain.value_objects import Role, StopReason, Usage
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +73,7 @@ class SendMessageUseCase:
         user_id: str,
         conversation_id: str | None,
         user_text: str,
-    ) -> AsyncIterator[StreamEvent]:
+    ) -> AsyncGenerator[StreamEvent]:
         conversation = await self._resolve_conversation(conversation_id, user_id)
         yield ConversationCreated(conversation_id=conversation.id)
 

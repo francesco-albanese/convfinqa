@@ -45,6 +45,7 @@ main = "convfinqa.main:create_app"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 
 [tool.ruff]
@@ -97,7 +98,7 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13.7"
 pythonPlatform = "All"
-pythonpath = ["."]
+extraPaths = ["src"]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 reportUnknownMemberType = false

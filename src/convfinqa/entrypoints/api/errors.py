@@ -6,10 +6,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.convfinqa.application.use_cases.send_message import (
+from convfinqa.application.use_cases.send_message import (
     ConversationNotFoundError,
 )
-from src.convfinqa.logging import get_logger
+from convfinqa.logging import get_logger
 
 PROBLEM_BASE = "https://convfinqa.local/problems"
 PROBLEM_CONTENT_TYPE = "application/problem+json"

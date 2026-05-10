@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from src.convfinqa.domain.value_objects import Usage
+from convfinqa.domain.value_objects import Usage
 
 
 @dataclass(frozen=True, slots=True)
