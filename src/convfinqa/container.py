@@ -7,12 +7,14 @@ from convfinqa.adapters.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
+from convfinqa.adapters.persistence.sqlalchemy.lock import SqlAlchemyConversationLock
 from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyConversationRepository,
 )
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
 from convfinqa.domain.ports.llm import LLMPort
+from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.repository import ConversationRepository
 
 
@@ -23,6 +25,7 @@ class Container:
     session_factory: async_sessionmaker[AsyncSession]
     llm: LLMPort
     conversations: ConversationRepository
+    locks: ConversationLockPort
     send_message: SendMessageUseCase
 
     @classmethod
@@ -33,9 +36,11 @@ class Container:
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
         )
+        locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
         send_message = SendMessageUseCase(
             llm=llm,
             conversations=conversations,
+            locks=locks,
             system_prompt=settings.system_prompt,
         )
         return cls(
@@ -44,6 +49,7 @@ class Container:
             session_factory=session_factory,
             llm=llm,
             conversations=conversations,
+            locks=locks,
             send_message=send_message,
         )
 
@@ -58,9 +64,11 @@ class Container:
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
         )
+        locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
         send_message = SendMessageUseCase(
             llm=llm,
             conversations=conversations,
+            locks=locks,
             system_prompt=settings.system_prompt,
         )
         return cls(
@@ -69,5 +77,6 @@ class Container:
             session_factory=session_factory,
             llm=llm,
             conversations=conversations,
+            locks=locks,
             send_message=send_message,
         )

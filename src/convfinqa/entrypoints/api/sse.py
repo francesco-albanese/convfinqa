@@ -2,6 +2,7 @@ import json
 from collections.abc import AsyncIterator
 
 from convfinqa.application.use_cases.send_message import (
+    ConcurrentRequest,
     ConversationCreated,
     ErrorEvent,
     Finish,
@@ -9,6 +10,15 @@ from convfinqa.application.use_cases.send_message import (
     StreamEvent,
     TextDelta,
 )
+
+
+async def prepend_event(
+    first: StreamEvent, rest: AsyncIterator[StreamEvent]
+) -> AsyncIterator[StreamEvent]:
+    yield first
+    async for event in rest:
+        yield event
+
 
 DONE_FRAME = "data: [DONE]\n\n"
 UI_MESSAGE_STREAM_HEADERS = {
@@ -53,3 +63,8 @@ async def to_ui_message_stream(
             case ErrorEvent(detail=detail):
                 yield _frame({"type": "error", "errorText": detail})
                 yield DONE_FRAME
+            case ConcurrentRequest():
+                # exhaustiveness only: the route peeks the first event and converts
+                # ConcurrentRequest into a 409 problem+json before constructing
+                # StreamingResponse, so this branch cannot be reached at runtime.
+                return

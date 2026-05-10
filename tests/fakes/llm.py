@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 
@@ -17,6 +18,8 @@ class FakeLLMPort:
         default_factory=list[Sequence[LLMMessage]]
     )
     seen_systems: list[str] = field(default_factory=list[str])
+    gate: asyncio.Event | None = None
+    stream_started: asyncio.Event | None = None
 
     async def stream(
         self,
@@ -25,6 +28,10 @@ class FakeLLMPort:
     ) -> AsyncIterator[LLMChunk]:
         self.seen_messages.append(list(messages))
         self.seen_systems.append(system)
+        if self.stream_started is not None:
+            self.stream_started.set()
+        if self.gate is not None:
+            await self.gate.wait()
         for index, delta in enumerate(self.deltas):
             if self.raise_after is not None and index >= self.raise_after:
                 raise self.raise_with or RuntimeError("fake llm boom")

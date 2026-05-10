@@ -47,6 +47,12 @@ class UpstreamLLMError(Exception):
     pass
 
 
+class ConversationBusyError(Exception):
+    def __init__(self, conversation_id: str) -> None:
+        super().__init__(conversation_id)
+        self.conversation_id = conversation_id
+
+
 def _log(
     *,
     level: int,
@@ -141,6 +147,27 @@ async def _handle_upstream(request: Request, exc: Exception) -> JSONResponse:
     return _problem_response(problem)
 
 
+async def _handle_conversation_busy(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, ConversationBusyError)
+    problem = Problem(
+        type=f"{PROBLEM_BASE}/conversation-busy",
+        title="Conversation busy",
+        status=status.HTTP_409_CONFLICT,
+        detail=(
+            f"Another request is already in flight for conversation "
+            f"{exc.conversation_id}."
+        ),
+    )
+    _log(
+        level=logging.INFO,
+        request=request,
+        exc=exc,
+        status_code=problem.status,
+        user_id=request.headers.get("x-user-id"),
+    )
+    return _problem_response(problem)
+
+
 async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
     problem = Problem(
         type=f"{PROBLEM_BASE}/internal-server-error",
@@ -163,4 +190,5 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ConversationNotFoundError, _handle_conversation_not_found)
     app.add_exception_handler(RequestValidationError, _handle_validation)
     app.add_exception_handler(UpstreamLLMError, _handle_upstream)
+    app.add_exception_handler(ConversationBusyError, _handle_conversation_busy)
     app.add_exception_handler(Exception, _handle_unexpected)

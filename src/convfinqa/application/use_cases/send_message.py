@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from convfinqa.domain.entities import Conversation, Message
 from convfinqa.domain.ports.llm import LLMMessage, LLMPort
+from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.repository import ConversationRepository
 from convfinqa.domain.value_objects import Role, StopReason, Usage
 
@@ -36,7 +37,19 @@ class ErrorEvent:
     detail: str
 
 
-StreamEvent = ConversationCreated | MessageStarted | TextDelta | Finish | ErrorEvent
+@dataclass(frozen=True, slots=True)
+class ConcurrentRequest:
+    conversation_id: str
+
+
+StreamEvent = (
+    ConversationCreated
+    | MessageStarted
+    | TextDelta
+    | Finish
+    | ErrorEvent
+    | ConcurrentRequest
+)
 
 
 class ConversationNotFoundError(Exception):
@@ -62,10 +75,12 @@ class SendMessageUseCase:
         self,
         llm: LLMPort,
         conversations: ConversationRepository,
+        locks: ConversationLockPort,
         system_prompt: str,
     ) -> None:
         self._llm = llm
         self._conversations = conversations
+        self._locks = locks
         self._system_prompt = system_prompt
 
     async def stream(
@@ -75,7 +90,6 @@ class SendMessageUseCase:
         user_text: str,
     ) -> AsyncGenerator[StreamEvent]:
         conversation = await self._resolve_conversation(conversation_id, user_id)
-        yield ConversationCreated(conversation_id=conversation.id)
 
         now = datetime.now(UTC)
         user_message = Message(
@@ -87,44 +101,51 @@ class SendMessageUseCase:
         )
         await self._conversations.append_message(conversation.id, user_message)
 
-        assistant_id = _new_message_id()
-        yield MessageStarted(message_id=assistant_id)
+        async with self._locks.try_acquire(conversation.id) as acquired:
+            if not acquired:
+                yield ConcurrentRequest(conversation_id=conversation.id)
+                return
 
-        buffered: list[str] = []
-        usage: Usage | None = None
-        stop_reason = StopReason.END_TURN
-        errored = False
-        error_detail = ""
+            yield ConversationCreated(conversation_id=conversation.id)
 
-        llm_messages = _to_llm_messages(conversation, user_text)
+            assistant_id = _new_message_id()
+            yield MessageStarted(message_id=assistant_id)
 
-        try:
-            async for chunk in self._llm.stream(llm_messages, self._system_prompt):
-                if chunk.text:
-                    buffered.append(chunk.text)
-                    yield TextDelta(text=chunk.text)
-                if chunk.usage is not None:
-                    usage = chunk.usage
-        except GeneratorExit:
-            stop_reason = StopReason.INTERRUPTED
-            await self._persist_assistant(
+            buffered: list[str] = []
+            usage: Usage | None = None
+            stop_reason = StopReason.END_TURN
+            errored = False
+            error_detail = ""
+
+            llm_messages = _to_llm_messages(conversation, user_text)
+
+            try:
+                async for chunk in self._llm.stream(llm_messages, self._system_prompt):
+                    if chunk.text:
+                        buffered.append(chunk.text)
+                        yield TextDelta(text=chunk.text)
+                    if chunk.usage is not None:
+                        usage = chunk.usage
+            except GeneratorExit:
+                stop_reason = StopReason.INTERRUPTED
+                await self._persist_assistant(
+                    conversation.id, assistant_id, "".join(buffered), stop_reason
+                )
+                raise
+            except Exception as exc:  # noqa: BLE001
+                errored = True
+                stop_reason = StopReason.INTERRUPTED
+                error_detail = str(exc) or exc.__class__.__name__
+
+            finished_at = await self._persist_assistant(
                 conversation.id, assistant_id, "".join(buffered), stop_reason
             )
-            raise
-        except Exception as exc:  # noqa: BLE001
-            errored = True
-            stop_reason = StopReason.INTERRUPTED
-            error_detail = str(exc) or exc.__class__.__name__
 
-        finished_at = await self._persist_assistant(
-            conversation.id, assistant_id, "".join(buffered), stop_reason
-        )
+            if errored:
+                yield ErrorEvent(detail=error_detail)
+                return
 
-        if errored:
-            yield ErrorEvent(detail=error_detail)
-            return
-
-        yield Finish(stop_reason=stop_reason, usage=usage, created_at=finished_at)
+            yield Finish(stop_reason=stop_reason, usage=usage, created_at=finished_at)
 
     async def _resolve_conversation(
         self, conversation_id: str | None, user_id: str
