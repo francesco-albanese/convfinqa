@@ -54,14 +54,16 @@ class LiteLLMAdapter:
 
         async for chunk in stream:
             if chunk.choices:
-                text = chunk.choices[0].delta.content
+                delta = chunk.choices[0].delta
+                text = getattr(delta, "content", None)
                 if text:
                     yield LLMChunk(text=text)
 
-            if chunk.usage is not None:
+            usage: _LiteLLMUsage | None = getattr(chunk, "usage", None)
+            if usage is not None:
                 yield LLMChunk(
                     usage=Usage(
-                        input_tokens=chunk.usage.prompt_tokens,
-                        output_tokens=chunk.usage.completion_tokens,
+                        input_tokens=usage.prompt_tokens,
+                        output_tokens=usage.completion_tokens,
                     )
                 )

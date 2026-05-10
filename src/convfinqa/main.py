@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+import uvicorn
 
 from convfinqa.config import SETTINGS
 from convfinqa.container import Container
@@ -26,3 +27,12 @@ def create_app() -> FastAPI:
     install_exception_handlers(app)
     app.include_router(router=api_router)
     return app
+
+def serve_app() -> None:
+    uvicorn.run(
+        "convfinqa.main:create_app",
+        factory=True,
+        host=SETTINGS.api_host,
+        port=SETTINGS.api_port,
+        reload=SETTINGS.api_reload
+    )

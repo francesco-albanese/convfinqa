@@ -62,7 +62,7 @@ async def _repl(*, user_id: str, base_url: str) -> None:
             stripped = line.strip()
             if not stripped:
                 continue
-            if stripped == "/exit":
+            if stripped == "/exit" or stripped == "exit":
                 return
             if stripped == "/new":
                 conversation_id = None

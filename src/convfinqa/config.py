@@ -23,5 +23,22 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://convfinqa:convfinqa@localhost:5432/convfinqa"
     )
 
+    api_host: str = Field(
+        default="127.0.0.1"
+    )
+
+    api_port: int = Field(
+        description="the port to run the uvicorn server",
+        default=8000,
+        ge=1,
+        le=65535
+    )
+
+    api_reload: bool = Field(
+        description="whether to automatically reload the server at every file change (dev only)",
+        default = False
+    )
+
+
 
 SETTINGS = Settings()
