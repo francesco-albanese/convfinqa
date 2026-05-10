@@ -21,11 +21,13 @@ This applies to every frontend workspace in this repo (`frontend/` and any futur
 `frontend/pnpm-workspace.yaml` MUST include:
 
 ```yaml
-packages:
-  - .
 minimumReleaseAge: 10080      # 1 week, in minutes — blocks freshly-published versions (supply-chain attack window)
 blockExoticSubdeps: true      # block git/http/file: sub-dependencies sneaking in via transitive deps
 ```
+
+For the current single-package layout, OMIT the `packages:` key. shadcn CLI v4.7's "monorepo root" gate refuses every command when any `packages:` key is present in `pnpm-workspace.yaml` — even `packages: [.]` (a single-package workspace) trips it, and `-c .` does not help because the resolved workspace path equals the monorepo root. The key is functionally inert for a single-package layout (pnpm treats the project as a workspace member by default), so dropping it loses nothing and unblocks `pnpm dlx shadcn@latest add <component>`.
+
+If/when a real multi-package workspace is introduced (e.g. `frontend/apps/web`, `frontend/packages/ui`), re-add `packages:` listing the actual subdirectories and invoke shadcn with `-c apps/web`.
 
 `minimumReleaseAge` can equivalently live in `.npmrc` as `minimum-release-age=10080`; the workspace YAML is preferred (single source of truth, version-controlled, applies to the whole workspace).
 
