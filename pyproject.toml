@@ -48,6 +48,11 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "--strict-markers"
+markers = [
+    "unit: fast in-process tests",
+    "integration: tests that boot a Postgres testcontainer or external service",
+]
 
 
 [tool.ruff]
