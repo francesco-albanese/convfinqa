@@ -107,4 +107,3 @@ pythonPlatform = "All"
 extraPaths = ["src"]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
-reportUnknownMemberType = false

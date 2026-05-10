@@ -91,20 +91,19 @@ class SendMessageUseCase:
     ) -> AsyncGenerator[StreamEvent]:
         conversation = await self._resolve_conversation(conversation_id, user_id)
 
-        now = datetime.now(UTC)
-        user_message = Message(
-            id=_new_message_id(),
-            conversation_id=conversation.id,
-            role=Role.USER,
-            content=user_text,
-            created_at=now,
-        )
-        await self._conversations.append_message(conversation.id, user_message)
-
         async with self._locks.try_acquire(conversation.id) as acquired:
             if not acquired:
                 yield ConcurrentRequest(conversation_id=conversation.id)
                 return
+
+            user_message = Message(
+                id=_new_message_id(),
+                conversation_id=conversation.id,
+                role=Role.USER,
+                content=user_text,
+                created_at=datetime.now(UTC),
+            )
+            await self._conversations.append_message(conversation.id, user_message)
 
             yield ConversationResolved(conversation_id=conversation.id)
 
@@ -164,6 +163,8 @@ class SendMessageUseCase:
         content: str,
         stop_reason: StopReason,
     ) -> datetime:
+        # Distinct timestamp from the user-message write: assistant completion
+        # arrives after the LLM stream finishes (seconds to minutes later).
         created_at = datetime.now(UTC)
         message = Message(
             id=message_id,

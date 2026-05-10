@@ -9,6 +9,8 @@ import typer
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
+CLI_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+
 
 @app.callback()
 def main(ctx: typer.Context) -> None:
@@ -33,16 +35,7 @@ def chat(
         str,
         typer.Option("--base-url", help="Base URL of the convfinqa API."),
     ] = "http://localhost:8000",
-    system: Annotated[
-        str | None,
-        typer.Option(
-            "--system",
-            help="Optional system-prompt override (reserved; not yet wired to API).",
-        ),
-    ] = None,
 ) -> None:
-    if system is not None:
-        sys.stderr.write("note: --system is reserved and currently ignored.\n")
     try:
         asyncio.run(_repl(user_id=user_id or _default_user_id(), base_url=base_url))
     except KeyboardInterrupt:
@@ -51,7 +44,7 @@ def chat(
 
 async def _repl(*, user_id: str, base_url: str) -> None:
     conversation_id: str | None = None
-    async with httpx.AsyncClient(base_url=base_url, timeout=None) as client:
+    async with httpx.AsyncClient(base_url=base_url, timeout=CLI_HTTP_TIMEOUT) as client:
         while True:
             try:
                 line = input("> ")

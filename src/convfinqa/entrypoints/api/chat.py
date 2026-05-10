@@ -29,7 +29,7 @@ chat_router = APIRouter(prefix="/v1", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1)
+    message: str = Field(min_length=1, max_length=32_000)
     conversation_id: str | None = None
 
 

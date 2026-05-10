@@ -32,7 +32,11 @@ class Container:
     def bootstrap_application(cls, settings: Settings) -> "Container":
         engine = create_engine(settings.database_url)
         session_factory = create_session_factory(engine)
-        llm: LLMPort = LiteLLMAdapter(model=settings.llm_model)
+        llm: LLMPort = LiteLLMAdapter(
+            model=settings.llm_model,
+            request_timeout_seconds=settings.llm_request_timeout_seconds,
+            max_output_tokens=settings.llm_max_output_tokens,
+        )
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
         )

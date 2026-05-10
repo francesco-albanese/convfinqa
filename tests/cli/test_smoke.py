@@ -11,4 +11,3 @@ def test_chat_help_lists_documented_options() -> None:
     assert result.exit_code == 0
     assert "--user-id" in result.output
     assert "--base-url" in result.output
-    assert "--system" in result.output

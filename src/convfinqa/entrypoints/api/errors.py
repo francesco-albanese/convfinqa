@@ -1,5 +1,8 @@
+import json
 import logging
+import traceback
 import uuid
+from collections.abc import Iterable
 from typing import cast
 
 from fastapi import FastAPI, Request, status
@@ -61,20 +64,20 @@ def _log(
     exc: Exception,
     status_code: int,
     user_id: str | None,
+    include_traceback: bool = False,
 ) -> None:
-    logger.log(
-        level,
-        "request_failed",
-        extra={
-            "exc_type": exc.__class__.__name__,
-            "exc_message": str(exc) or exc.__class__.__name__,
-            "route": request.url.path,
-            "method": request.method,
-            "status": status_code,
-            "request_id": _request_id(request),
-            "user_id": user_id,
-        },
-    )
+    extra: dict[str, object] = {
+        "exc_type": exc.__class__.__name__,
+        "exc_message": str(exc) or exc.__class__.__name__,
+        "route": request.url.path,
+        "method": request.method,
+        "status": status_code,
+        "request_id": _request_id(request),
+        "user_id": user_id,
+    }
+    if include_traceback:
+        extra["traceback"] = "".join(traceback.format_exception(exc, limit=-3))
+    logger.log(level, "request_failed", extra=extra)
 
 
 async def _handle_missing_user_id(request: Request, exc: Exception) -> JSONResponse:
@@ -115,11 +118,20 @@ async def _handle_conversation_not_found(
 
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
     validation_exc = cast(RequestValidationError, exc)
+    raw_errors = cast(list[dict[str, object]], validation_exc.errors())
+    safe_errors: list[dict[str, object]] = [
+        {
+            "loc": list(cast(Iterable[object], err.get("loc") or [])),
+            "type": err.get("type"),
+            "msg": err.get("msg"),
+        }
+        for err in raw_errors
+    ]
     problem = Problem(
         type=f"{PROBLEM_BASE}/validation-error",
         title="Request validation failed",
         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=str(validation_exc.errors()),
+        detail=json.dumps(safe_errors, separators=(",", ":")),
     )
     _log(
         level=logging.INFO,
@@ -182,6 +194,7 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
         exc=exc,
         status_code=problem.status,
         user_id=request.headers.get("x-user-id"),
+        include_traceback=True,
     )
     return _problem_response(problem)
 

@@ -39,6 +39,18 @@ class Settings(BaseSettings):
         default = False
     )
 
+    llm_request_timeout_seconds: float = Field(
+        description="upper bound on a single LLM streaming call; releases the per-conversation lock if upstream hangs",
+        default=60.0,
+        gt=0.0,
+    )
+
+    llm_max_output_tokens: int = Field(
+        description="hard ceiling on tokens the LLM may emit per turn",
+        default=1024,
+        ge=1,
+    )
+
 
 
 SETTINGS = Settings()

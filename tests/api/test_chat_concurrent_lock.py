@@ -71,7 +71,7 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
 
     user_messages = [r for r in rows if r.role == "user"]
     user_contents = [r.content for r in user_messages]
-    assert user_contents.count("second") == 2
+    assert user_contents.count("second") == 1
 
     assistant_messages = [r for r in rows if r.role == "assistant"]
     assert len(assistant_messages) == 2

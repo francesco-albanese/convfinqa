@@ -26,7 +26,10 @@ class _LiteLLMChunk(Protocol):
 
 
 async def _open_stream(
-    model: str, wire_messages: Sequence[dict[str, str]]
+    model: str,
+    wire_messages: Sequence[dict[str, str]],
+    timeout_seconds: float,
+    max_output_tokens: int,
 ) -> AsyncIterable[_LiteLLMChunk]:
     acompletion: Any = litellm.acompletion  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
     response = await acompletion(
@@ -34,13 +37,22 @@ async def _open_stream(
         messages=list(wire_messages),
         stream=True,
         stream_options={"include_usage": True},
+        timeout=timeout_seconds,
+        max_tokens=max_output_tokens,
     )
     return cast(AsyncIterable[_LiteLLMChunk], response)
 
 
 class LiteLLMAdapter:
-    def __init__(self, model: str) -> None:
+    def __init__(
+        self,
+        model: str,
+        request_timeout_seconds: float,
+        max_output_tokens: int,
+    ) -> None:
         self._model = model
+        self._request_timeout_seconds = request_timeout_seconds
+        self._max_output_tokens = max_output_tokens
 
     async def stream(
         self,
@@ -50,7 +62,12 @@ class LiteLLMAdapter:
         wire_messages: list[dict[str, str]] = [{"role": "system", "content": system}]
         wire_messages.extend({"role": m.role, "content": m.content} for m in messages)
 
-        stream = await _open_stream(self._model, wire_messages)
+        stream = await _open_stream(
+            self._model,
+            wire_messages,
+            self._request_timeout_seconds,
+            self._max_output_tokens,
+        )
 
         async for chunk in stream:
             if chunk.choices:
