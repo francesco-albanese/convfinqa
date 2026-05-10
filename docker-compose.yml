@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - convfinqa-postgres-data:/var/lib/postgresql/data
+      - convfinqa-postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U convfinqa -d convfinqa"]
       interval: 2s

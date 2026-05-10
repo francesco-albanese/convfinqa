@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.13",
     "asyncpg>=0.30",
+    "boto3>=1.43.6",
     "click>=8.1.8",
     "fastapi>=0.136.1",
     "httpx==0.28.1",
@@ -39,12 +40,14 @@ packages = ["src/convfinqa"]
 
 
 [project.scripts]
-main = "convfinqa.main:create_app"
+main = "convfinqa.main:serve_app"
+convfinqa = "convfinqa.entrypoints.cli.app:app"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 
 [tool.ruff]
@@ -89,7 +92,11 @@ extend-select = [
     "D202",
     "D215",
     "T201",
+    "S101",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
 
 [tool.pyright]
 include = ["src", "tests"]
@@ -97,7 +104,6 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13.7"
 pythonPlatform = "All"
-pythonpath = ["."]
+extraPaths = ["src"]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
-reportUnknownMemberType = false

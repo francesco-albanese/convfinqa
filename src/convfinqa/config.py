@@ -23,5 +23,34 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://convfinqa:convfinqa@localhost:5432/convfinqa"
     )
 
+    api_host: str = Field(
+        default="127.0.0.1"
+    )
+
+    api_port: int = Field(
+        description="the port to run the uvicorn server",
+        default=8000,
+        ge=1,
+        le=65535
+    )
+
+    api_reload: bool = Field(
+        description="whether to automatically reload the server at every file change (dev only)",
+        default = False
+    )
+
+    llm_request_timeout_seconds: float = Field(
+        description="upper bound on a single LLM streaming call; releases the per-conversation lock if upstream hangs",
+        default=60.0,
+        gt=0.0,
+    )
+
+    llm_max_output_tokens: int = Field(
+        description="hard ceiling on tokens the LLM may emit per turn",
+        default=1024,
+        ge=1,
+    )
+
+
 
 SETTINGS = Settings()

@@ -5,12 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
-from src.convfinqa.adapters.persistence.sqlalchemy.models import (
+from convfinqa.adapters.persistence.sqlalchemy.models import (
     ConversationOrm,
     MessageOrm,
 )
-from src.convfinqa.domain.entities import Conversation, Message
-from src.convfinqa.domain.value_objects import Role, StopReason
+from convfinqa.domain.entities import Conversation, Message
+from convfinqa.domain.value_objects import Role, StopReason
 
 
 def new_conversation_id() -> str:

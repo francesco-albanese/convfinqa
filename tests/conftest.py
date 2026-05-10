@@ -16,12 +16,12 @@ from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
 
 from alembic import command
-from src.convfinqa.adapters.persistence.sqlalchemy.models import Base
-from src.convfinqa.config import Settings
-from src.convfinqa.container import Container
-from src.convfinqa.domain.ports.llm import LLMPort
-from src.convfinqa.entrypoints.api.errors import install_exception_handlers
-from src.convfinqa.entrypoints.api.router import api_router
+from convfinqa.adapters.persistence.sqlalchemy.models import Base
+from convfinqa.config import Settings
+from convfinqa.container import Container
+from convfinqa.domain.ports.llm import LLMPort
+from convfinqa.entrypoints.api.errors import install_exception_handlers
+from convfinqa.entrypoints.api.router import api_router
 from tests.fakes.llm import FakeLLMPort
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

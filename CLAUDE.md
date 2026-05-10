@@ -49,13 +49,15 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+uv sync
+docker compose up -d postgres
+uv run alembic upgrade head
+AWS_PROFILE=sandbox-admin uv run uvicorn convfinqa.main:create_app --factory --reload
+uv run pytest -q tests/
 ```
+
+Full walkthrough (AWS login, env file, cURL verification, CLI REPL) lives in [docs/how-to-run-the-app.md](./docs/how-to-run-the-app.md).
 
 ## Architecture Overview
 

@@ -2,10 +2,10 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Request
 
-from src.convfinqa.application.use_cases.send_message import SendMessageUseCase
-from src.convfinqa.config import Settings
-from src.convfinqa.container import Container
-from src.convfinqa.entrypoints.api.errors import MissingUserIdError
+from convfinqa.application.use_cases.send_message import SendMessageUseCase
+from convfinqa.config import Settings
+from convfinqa.container import Container
+from convfinqa.entrypoints.api.errors import MissingUserIdError
 
 
 def current_user_id(

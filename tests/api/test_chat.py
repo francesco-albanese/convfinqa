@@ -4,7 +4,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
+from convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
 from tests.fakes.llm import FakeLLMPort
 
 
@@ -131,7 +131,11 @@ async def test_sync_chat_empty_message_returns_422(
 
     assert response.status_code == 422
     assert response.headers["content-type"].startswith("application/problem+json")
-    assert response.json()["status"] == 422
+    body = response.json()
+    assert body["status"] == 422
+    detail = body["detail"]
+    assert "input" not in detail
+    assert "pydantic.dev" not in detail
 
 
 @pytest.mark.asyncio

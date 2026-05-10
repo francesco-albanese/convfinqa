@@ -12,8 +12,8 @@ container    →  adapters + application + domain (composition root)
 
 - **`src/convfinqa/domain/`** — zero framework imports. Allowed: `dataclasses`, `datetime`, `enum`, `typing`, `collections.abc`. Forbidden: `fastapi`, `sqlalchemy`, `litellm`, `pydantic_settings`, `pythonjsonlogger`. Pydantic only for value objects (none today — frozen dataclasses).
 - **`src/convfinqa/domain/ports/`** — every port is a `typing.Protocol` (NOT an ABC). Methods are async where I/O is involved.
-- **`src/convfinqa/application/`** — imports only `src.convfinqa.domain.*`. Never `sqlalchemy`, `fastapi`, `litellm`.
-- **`src/convfinqa/adapters/`** — implements ports. Adapters import `src.convfinqa.domain.*` only. NEVER import from `application/` or `entrypoints/`.
+- **`src/convfinqa/application/`** — imports only `convfinqa.domain.*`. Never `sqlalchemy`, `fastapi`, `litellm`.
+- **`src/convfinqa/adapters/`** — implements ports. Adapters import `convfinqa.domain.*` only. NEVER import from `application/` or `entrypoints/`.
 - **`src/convfinqa/entrypoints/`** — depends on `application/`, `domain/`, `container/`, FastAPI/Typer. Never imports from `adapters/` directly — composition happens in `container.py`.
 - **`src/convfinqa/container.py`** — the only place where adapters are instantiated and wired into the use case.
 

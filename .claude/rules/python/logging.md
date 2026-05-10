@@ -5,7 +5,7 @@
 `src/convfinqa/logging.py` exposes:
 
 ```python
-from src.convfinqa.logging import get_logger
+from convfinqa.logging import get_logger
 logger = get_logger("convfinqa.errors")
 ```
 

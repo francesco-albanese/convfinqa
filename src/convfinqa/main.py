@@ -1,13 +1,14 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI
 
-from src.convfinqa.config import SETTINGS
-from src.convfinqa.container import Container
-from src.convfinqa.entrypoints.api.errors import install_exception_handlers
-from src.convfinqa.entrypoints.api.router import api_router
-from src.convfinqa.logging import configure_logging
+from convfinqa.config import SETTINGS
+from convfinqa.container import Container
+from convfinqa.entrypoints.api.errors import install_exception_handlers
+from convfinqa.entrypoints.api.router import api_router
+from convfinqa.logging import configure_logging
 
 
 @asynccontextmanager
@@ -26,3 +27,12 @@ def create_app() -> FastAPI:
     install_exception_handlers(app)
     app.include_router(router=api_router)
     return app
+
+def serve_app() -> None:
+    uvicorn.run(
+        "convfinqa.main:create_app",
+        factory=True,
+        host=SETTINGS.api_host,
+        port=SETTINGS.api_port,
+        reload=SETTINGS.api_reload
+    )

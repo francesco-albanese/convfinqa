@@ -6,14 +6,14 @@
 
 ```python
 # WRONG — leaks a hard-coded global into a route, breaks tests that override Settings
-from src.convfinqa.config import SETTINGS
+from convfinqa.config import SETTINGS
 
 @router.post("/chat")
 async def chat(...) -> ...:
     return ChatResponse(model=SETTINGS.llm_model, ...)
 
 # RIGHT — Settings injected via container
-from src.convfinqa.entrypoints.api.dependencies import SettingsDep
+from convfinqa.entrypoints.api.dependencies import SettingsDep
 
 @router.post("/chat")
 async def chat(..., settings: SettingsDep) -> ...:

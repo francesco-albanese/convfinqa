@@ -1,15 +1,19 @@
+import json
 import logging
+import traceback
 import uuid
+from collections.abc import Iterable
+from typing import cast
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.convfinqa.application.use_cases.send_message import (
+from convfinqa.application.use_cases.send_message import (
     ConversationNotFoundError,
 )
-from src.convfinqa.logging import get_logger
+from convfinqa.logging import get_logger
 
 PROBLEM_BASE = "https://convfinqa.local/problems"
 PROBLEM_CONTENT_TYPE = "application/problem+json"
@@ -47,6 +51,12 @@ class UpstreamLLMError(Exception):
     pass
 
 
+class ConversationBusyError(Exception):
+    def __init__(self, conversation_id: str) -> None:
+        super().__init__(conversation_id)
+        self.conversation_id = conversation_id
+
+
 def _log(
     *,
     level: int,
@@ -54,20 +64,20 @@ def _log(
     exc: Exception,
     status_code: int,
     user_id: str | None,
+    include_traceback: bool = False,
 ) -> None:
-    logger.log(
-        level,
-        "request_failed",
-        extra={
-            "exc_type": exc.__class__.__name__,
-            "exc_message": str(exc) or exc.__class__.__name__,
-            "route": request.url.path,
-            "method": request.method,
-            "status": status_code,
-            "request_id": _request_id(request),
-            "user_id": user_id,
-        },
-    )
+    extra: dict[str, object] = {
+        "exc_type": exc.__class__.__name__,
+        "exc_message": str(exc) or exc.__class__.__name__,
+        "route": request.url.path,
+        "method": request.method,
+        "status": status_code,
+        "request_id": _request_id(request),
+        "user_id": user_id,
+    }
+    if include_traceback:
+        extra["traceback"] = "".join(traceback.format_exception(exc, limit=-3))
+    logger.log(level, "request_failed", extra=extra)
 
 
 async def _handle_missing_user_id(request: Request, exc: Exception) -> JSONResponse:
@@ -107,12 +117,21 @@ async def _handle_conversation_not_found(
 
 
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
-    assert isinstance(exc, RequestValidationError)
+    validation_exc = cast(RequestValidationError, exc)
+    raw_errors = cast(list[dict[str, object]], validation_exc.errors())
+    safe_errors: list[dict[str, object]] = [
+        {
+            "loc": list(cast(Iterable[object], err.get("loc") or [])),
+            "type": err.get("type"),
+            "msg": err.get("msg"),
+        }
+        for err in raw_errors
+    ]
     problem = Problem(
         type=f"{PROBLEM_BASE}/validation-error",
         title="Request validation failed",
         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=str(exc.errors()),
+        detail=json.dumps(safe_errors, separators=(",", ":")),
     )
     _log(
         level=logging.INFO,
@@ -141,6 +160,27 @@ async def _handle_upstream(request: Request, exc: Exception) -> JSONResponse:
     return _problem_response(problem)
 
 
+async def _handle_conversation_busy(request: Request, exc: Exception) -> JSONResponse:
+    busy_exc = cast(ConversationBusyError, exc)
+    problem = Problem(
+        type=f"{PROBLEM_BASE}/conversation-busy",
+        title="Conversation busy",
+        status=status.HTTP_409_CONFLICT,
+        detail=(
+            f"Another request is already in flight for conversation "
+            f"{busy_exc.conversation_id}."
+        ),
+    )
+    _log(
+        level=logging.INFO,
+        request=request,
+        exc=exc,
+        status_code=problem.status,
+        user_id=request.headers.get("x-user-id"),
+    )
+    return _problem_response(problem)
+
+
 async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
     problem = Problem(
         type=f"{PROBLEM_BASE}/internal-server-error",
@@ -154,6 +194,7 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
         exc=exc,
         status_code=problem.status,
         user_id=request.headers.get("x-user-id"),
+        include_traceback=True,
     )
     return _problem_response(problem)
 
@@ -163,4 +204,5 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ConversationNotFoundError, _handle_conversation_not_found)
     app.add_exception_handler(RequestValidationError, _handle_validation)
     app.add_exception_handler(UpstreamLLMError, _handle_upstream)
+    app.add_exception_handler(ConversationBusyError, _handle_conversation_busy)
     app.add_exception_handler(Exception, _handle_unexpected)
