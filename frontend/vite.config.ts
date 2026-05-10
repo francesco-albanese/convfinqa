@@ -1,7 +1,13 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
+
+const backendProxy = {
+	target: "http://localhost:8000",
+	changeOrigin: true,
+};
 
 export default defineConfig({
 	plugins: [
@@ -9,4 +15,16 @@ export default defineConfig({
 		react(),
 		tailwindcss(),
 	],
+	resolve: {
+		alias: {
+			"@": fileURLToPath(new URL("./src", import.meta.url)),
+		},
+	},
+	server: {
+		proxy: {
+			"/v1": backendProxy,
+			"/healthz": backendProxy,
+			"/readyz": backendProxy,
+		},
+	},
 });
