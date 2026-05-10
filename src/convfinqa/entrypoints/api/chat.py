@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from convfinqa.application.use_cases.send_message import (
     ConcurrentRequest,
-    ConversationCreated,
+    ConversationResolved,
     ErrorEvent,
     Finish,
     MessageStarted,
@@ -77,7 +77,7 @@ async def sync_chat(
             match event:
                 case ConcurrentRequest(conversation_id=cid):
                     raise ConversationBusyError(cid)
-                case ConversationCreated(conversation_id=cid):
+                case ConversationResolved(conversation_id=cid):
                     conversation_id = cid
                 case MessageStarted(message_id=mid):
                     message_id = mid

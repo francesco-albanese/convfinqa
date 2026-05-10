@@ -11,7 +11,7 @@ from convfinqa.domain.value_objects import Role, StopReason, Usage
 
 
 @dataclass(frozen=True, slots=True)
-class ConversationCreated:
+class ConversationResolved:
     conversation_id: str
 
 
@@ -43,7 +43,7 @@ class ConcurrentRequest:
 
 
 StreamEvent = (
-    ConversationCreated
+    ConversationResolved
     | MessageStarted
     | TextDelta
     | Finish
@@ -106,7 +106,7 @@ class SendMessageUseCase:
                 yield ConcurrentRequest(conversation_id=conversation.id)
                 return
 
-            yield ConversationCreated(conversation_id=conversation.id)
+            yield ConversationResolved(conversation_id=conversation.id)
 
             assistant_id = _new_message_id()
             yield MessageStarted(message_id=assistant_id)

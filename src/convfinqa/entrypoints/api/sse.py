@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 
 from convfinqa.application.use_cases.send_message import (
     ConcurrentRequest,
-    ConversationCreated,
+    ConversationResolved,
     ErrorEvent,
     Finish,
     MessageStarted,
@@ -40,7 +40,7 @@ async def to_ui_message_stream(
 
     async for event in events:
         match event:
-            case ConversationCreated(conversation_id=cid):
+            case ConversationResolved(conversation_id=cid):
                 conversation_id = cid
             case MessageStarted(message_id=mid):
                 text_id = mid
