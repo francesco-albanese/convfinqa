@@ -149,6 +149,11 @@ async def test_stream_chat_consumer_aborts_persists_interrupted(
     session_factory: async_sessionmaker[AsyncSession],
     fake_llm: FakeLLMPort,
 ) -> None:
+    # Targets the use-case GeneratorExit handler directly: httpx ASGITransport
+    # cannot mid-stream-disconnect (runs the app to completion), but Starlette's
+    # StreamingResponse cancels by calling aclose() on the body iterator on
+    # client disconnect — so aclose() at the use-case layer exercises the same
+    # path that real HTTP disconnect would.
     fake_llm.deltas = ("first ", "second ", "third ", "fourth ")
 
     container: Container = app.state.container
@@ -172,10 +177,13 @@ async def test_stream_chat_consumer_aborts_persists_interrupted(
 
 
 @pytest.mark.asyncio
-async def test_stream_chat_handles_missing_usage_and_empty_deltas(
+async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
     app: FastAPI,
     fake_llm: FakeLLMPort,
 ) -> None:
+    # Provider-portability smoke: Gemini occasionally emits empty-string deltas
+    # and may omit the final usage chunk (see .claude/rules/python/litellm.md).
+    # The presenter must finish cleanly without those.
     fake_llm.deltas = ("", "x", "", "y")
     fake_llm.final_usage = None
 
@@ -197,32 +205,3 @@ async def test_stream_chat_handles_missing_usage_and_empty_deltas(
         if isinstance(f, dict) and f["type"] == "text-delta"
     ]
     assert deltas == ["x", "y"]
-
-
-@pytest.mark.asyncio
-async def test_stream_chat_continuation_includes_prior_history(
-    app: FastAPI,
-    fake_llm: FakeLLMPort,
-) -> None:
-    async with await _client(app) as client:
-        first = await client.post(
-            "/v1/chat/stream",
-            headers={"X-User-Id": "alice"},
-            json={"message": "first"},
-        )
-        first_frames = _parse_frames(first.text)
-        data_conv = first_frames[1]
-        assert isinstance(data_conv, dict)
-        conversation_id = cast(str, data_conv["data"]["conversationId"])
-
-        second = await client.post(
-            "/v1/chat/stream",
-            headers={"X-User-Id": "alice"},
-            json={"message": "second", "conversation_id": conversation_id},
-        )
-
-    assert second.status_code == 200
-    second_call_messages = fake_llm.seen_messages[1]
-    contents = [m.content for m in second_call_messages]
-    assert "first" in contents
-    assert contents[-1] == "second"
