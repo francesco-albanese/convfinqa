@@ -39,7 +39,7 @@ def pytest_collection_modifyitems(
     if unmarked:
         raise pytest.UsageError(
             f"Unmarked tests: {unmarked}. "
-            "Add a path mapping in tests/marker_policy.py "
+            "Add a path mapping in backend/tests/marker_policy.py "
             "or set pytestmark = pytest.mark.unit|integration."
         )
 

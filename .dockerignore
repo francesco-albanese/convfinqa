@@ -5,6 +5,7 @@
 __pycache__/
 *.pyc
 backend/tests/
+backend/scripts/ralph/
 .git/
 .github/
 .beads/

@@ -7,8 +7,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 # Two-step uv sync: deps first (cached while uv.lock is unchanged), project
-# second after src/ is copied. Splitting them keeps the dep layer warm across
-# code-only edits.
+# second after backend/src/ is copied. Splitting them keeps the dep layer warm
+# across code-only edits.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
