@@ -16,5 +16,24 @@ services:
       timeout: 3s
       retries: 20
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: convfinqa-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .aws.env
+        required: false
+    environment:
+      API_HOST: 0.0.0.0
+      DATABASE_URL: postgresql+asyncpg://convfinqa:convfinqa@postgres:5432/convfinqa
+      LLM_MODEL: ${LLM_MODEL:-bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+
 volumes:
   convfinqa-postgres-data:

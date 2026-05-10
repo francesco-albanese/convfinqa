@@ -50,11 +50,12 @@ bd close <id>         # Complete work
 ## Build & Test
 
 ```bash
-uv sync
-docker compose up -d postgres
-uv run alembic upgrade head
-AWS_PROFILE=sandbox-admin uv run uvicorn convfinqa.main:create_app --factory --reload
-uv run pytest -q tests/
+make sync                              # Install deps via uv
+make aws-creds                         # Refresh STS creds (only when using `make up`)
+make up                                # Build + start full stack (Postgres + app, applies migrations)
+make run                               # OR: run the API on the host (needs `docker compose up -d postgres` + `uv run alembic upgrade head` first)
+make test                              # Run unit + integration tests
+make down                              # Stop the dockerised stack
 ```
 
 Full walkthrough (AWS login, env file, cURL verification, CLI REPL) lives in [docs/how-to-run-the-app.md](./docs/how-to-run-the-app.md).
