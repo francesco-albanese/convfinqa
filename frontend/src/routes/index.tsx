@@ -1,4 +1,10 @@
-export default function App() {
+import { createFileRoute } from "@tanstack/react-router";
+
+export const Route = createFileRoute("/")({
+	component: LandingPage,
+});
+
+function LandingPage() {
 	return (
 		<main className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground">
 			<h1 className="text-2xl font-semibold">ConvFinQA — coming online</h1>
