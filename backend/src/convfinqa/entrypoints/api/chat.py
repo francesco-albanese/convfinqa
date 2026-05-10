@@ -98,7 +98,7 @@ async def sync_chat(
 
     if created_at is None:
         raise UpstreamLLMError("missing Finish event")
-    
+
     return ChatResponse(
         id=message_id,
         conversation_id=conversation_id,

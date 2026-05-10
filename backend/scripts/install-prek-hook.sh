@@ -9,7 +9,7 @@
 # replace the existing block in place.
 #
 # Usage:
-#   bash scripts/install-prek-hook.sh
+#   bash backend/scripts/install-prek-hook.sh
 #
 # Acceptance: after running this, `git commit` invokes the four hooks
 # (ruff check --fix, ruff format, pyright, pytest -q) and rejects bad code.
