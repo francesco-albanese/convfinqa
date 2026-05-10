@@ -23,8 +23,25 @@ from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.entrypoints.api.errors import install_exception_handlers
 from convfinqa.entrypoints.api.router import api_router
 from tests.fakes.llm import FakeLLMPort
+from tests.marker_policy import apply_path_markers, unmarked_node_ids
+
+pytest_plugins = ["pytester"]
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+TESTS_DIR = Path(__file__).resolve().parent
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    apply_path_markers(items, TESTS_DIR)
+    unmarked = unmarked_node_ids(items)
+    if unmarked:
+        raise pytest.UsageError(
+            f"Unmarked tests: {unmarked}. "
+            "Add a path mapping in tests/marker_policy.py "
+            "or set pytestmark = pytest.mark.unit|integration."
+        )
 
 
 @pytest.fixture(scope="session")

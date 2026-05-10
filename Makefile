@@ -2,6 +2,9 @@
 SHELL := /bin/bash
 
 include makefiles/env.mk
+include makefiles/test.mk
+include makefiles/run.mk
+include makefiles/docker.mk
 
 .PHONY: help
 help: ## Show available targets

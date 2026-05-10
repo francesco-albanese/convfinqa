@@ -6,6 +6,7 @@ __pycache__/
 
 # Virtual environments
 .env
+.aws.env
 .venv
 
 # Jupyter Notebook
@@ -26,3 +27,9 @@ coverage.xml
 
 # Beads / Dolt files (added by bd init)
 scripts/ralph
+
+# Local design references (large HTML mockups — referenced by agents locally)
+example-html/
+
+# Personal scratchpad
+TODO.md
