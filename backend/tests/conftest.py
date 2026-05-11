@@ -69,6 +69,7 @@ async def engine(database_url: str, schema: None) -> AsyncGenerator[AsyncEngine]
     async with engine.begin() as conn:
         await conn.execute(Base.metadata.tables["messages"].delete())
         await conn.execute(Base.metadata.tables["conversations"].delete())
+        await conn.execute(Base.metadata.tables["documents"].delete())
     yield engine
     await engine.dispose()
 
