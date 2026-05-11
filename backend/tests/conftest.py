@@ -4,6 +4,7 @@ from typing import cast
 
 import pytest
 import pytest_asyncio
+from alembic import command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import (
@@ -15,7 +16,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
 
-from alembic import command
 from convfinqa.adapters.persistence.sqlalchemy.models import Base
 from convfinqa.config import Settings
 from convfinqa.container import Container
@@ -27,7 +27,7 @@ from tests.marker_policy import apply_path_markers, unmarked_node_ids
 
 pytest_plugins = ["pytester"]
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TESTS_DIR = Path(__file__).resolve().parent
 
 
@@ -39,7 +39,7 @@ def pytest_collection_modifyitems(
     if unmarked:
         raise pytest.UsageError(
             f"Unmarked tests: {unmarked}. "
-            "Add a path mapping in tests/marker_policy.py "
+            "Add a path mapping in backend/tests/marker_policy.py "
             "or set pytestmark = pytest.mark.unit|integration."
         )
 
@@ -58,7 +58,7 @@ def database_url(postgres_container: PostgresContainer) -> str:
 @pytest.fixture(scope="session")
 def schema(database_url: str) -> None:
     config = AlembicConfig(str(PROJECT_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+    config.set_main_option("script_location", str(PROJECT_ROOT / "backend" / "alembic"))
     config.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(config, "head")
 

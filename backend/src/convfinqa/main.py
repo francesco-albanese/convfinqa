@@ -28,11 +28,12 @@ def create_app() -> FastAPI:
     app.include_router(router=api_router)
     return app
 
+
 def serve_app() -> None:
     uvicorn.run(
         "convfinqa.main:create_app",
         factory=True,
         host=SETTINGS.api_host,
         port=SETTINGS.api_port,
-        reload=SETTINGS.api_reload
+        reload=SETTINGS.api_reload,
     )

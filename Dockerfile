@@ -7,13 +7,13 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 # Two-step uv sync: deps first (cached while uv.lock is unchanged), project
-# second after src/ is copied. Splitting them keeps the dep layer warm across
-# code-only edits.
+# second after backend/src/ is copied. Splitting them keeps the dep layer warm
+# across code-only edits.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY src/ ./src/
-COPY alembic/ ./alembic/
+COPY backend/src/ ./backend/src/
+COPY backend/alembic/ ./backend/alembic/
 COPY alembic.ini README.md ./
 RUN uv sync --frozen --no-dev
 
@@ -25,7 +25,7 @@ RUN useradd --system --create-home --uid 1000 convfinqa
 WORKDIR /app
 
 COPY --from=builder --chown=convfinqa:convfinqa /app /app
-COPY --chown=convfinqa:convfinqa scripts/docker-entrypoint.sh /app/scripts/docker-entrypoint.sh
+COPY --chown=convfinqa:convfinqa backend/scripts/docker-entrypoint.sh /app/scripts/docker-entrypoint.sh
 RUN chmod +x /app/scripts/docker-entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH" \

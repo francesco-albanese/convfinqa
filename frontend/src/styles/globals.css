@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+	--font-sans:
+		"Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+		BlinkMacSystemFont, sans-serif;
+	--font-mono:
+		"JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+		monospace;
+
+	--radius-sm: 6px;
+	--radius-md: 10px;
+	--radius-lg: 14px;
+	--radius-xl: 20px;
+
+	--color-background: #0b0e14;
+	--color-foreground: #e6edf3;
+	--color-muted: #0f131b;
+	--color-muted-foreground: #8a93a2;
+	--color-card: #11151d;
+	--color-card-foreground: #e6edf3;
+	--color-popover: #1d2330;
+	--color-popover-foreground: #e6edf3;
+	--color-secondary: #161b25;
+	--color-secondary-foreground: #e6edf3;
+	--color-primary: #e8973c;
+	--color-primary-foreground: #0b0e14;
+	--color-accent: #e8973c;
+	--color-accent-foreground: #0b0e14;
+	--color-link: #7cc4ff;
+	--color-border: rgba(255, 255, 255, 0.06);
+	--color-border-strong: rgba(255, 255, 255, 0.1);
+	--color-input: #161b25;
+	--color-ring: #e8973c;
+}
+
+[data-theme="light"] {
+	color-scheme: light;
+	--color-background: #faf8f4;
+	--color-foreground: #1d1c1a;
+	--color-muted: #f5f2ec;
+	--color-muted-foreground: #76726a;
+	--color-card: #f1ede4;
+	--color-card-foreground: #1d1c1a;
+	--color-popover: #ffffff;
+	--color-popover-foreground: #1d1c1a;
+	--color-secondary: #ece7dd;
+	--color-secondary-foreground: #1d1c1a;
+	--color-primary: #c2671d;
+	--color-primary-foreground: #faf8f4;
+	--color-accent: #c2671d;
+	--color-accent-foreground: #faf8f4;
+	--color-link: #2e6fb8;
+	--color-border: rgba(20, 18, 14, 0.06);
+	--color-border-strong: rgba(20, 18, 14, 0.1);
+	--color-input: #ece7dd;
+	--color-ring: #c2671d;
+}
+
+@utility numeric {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums slashed-zero;
+}
+
+html {
+	background-color: var(--color-background);
+	color: var(--color-foreground);
+	font-family: var(--font-sans);
+	color-scheme: dark;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}

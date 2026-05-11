@@ -2,7 +2,7 @@
 
 ## Always use `get_logger`, never `logging.getLogger` directly
 
-`src/convfinqa/logging.py` exposes:
+`backend/src/convfinqa/logging.py` exposes:
 
 ```python
 from convfinqa.logging import get_logger

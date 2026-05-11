@@ -2,7 +2,7 @@
 
 ## Never read module-level singletons inside route handlers or use cases
 
-`src/convfinqa/config.py` exposes `SETTINGS = Settings()` so the lifespan can bootstrap the container once. Inside route handlers, use cases, and adapters, ALWAYS access settings via the container/DI dependency, never the singleton.
+`backend/src/convfinqa/config.py` exposes `SETTINGS = Settings()` so the lifespan can bootstrap the container once. Inside route handlers, use cases, and adapters, ALWAYS access settings via the container/DI dependency, never the singleton.
 
 ```python
 # WRONG — leaks a hard-coded global into a route, breaks tests that override Settings

@@ -1,0 +1,20 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "frontend/**/*.{ts,tsx,js,jsx,json,jsonc,css}"
+      root: "frontend/"
+      run: pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    typecheck:
+      glob: "frontend/**/*.{ts,tsx}"
+      root: "frontend/"
+      run: pnpm exec tsc -b
+    test:
+      glob: "frontend/**/*.{ts,tsx}"
+      root: "frontend/"
+      run: pnpm test
+    build:
+      glob: "frontend/**/*.{ts,tsx,css,json,html}"
+      root: "frontend/"
+      run: pnpm exec vite build

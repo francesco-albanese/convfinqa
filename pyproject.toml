@@ -36,7 +36,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/convfinqa"]
+packages = ["backend/src/convfinqa"]
 
 
 [project.scripts]
@@ -46,8 +46,8 @@ convfinqa = "convfinqa.entrypoints.cli.app:app"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["backend/tests"]
+pythonpath = ["backend/src"]
 addopts = "--strict-markers"
 markers = [
     "unit: fast in-process tests",
@@ -58,6 +58,7 @@ markers = [
 [tool.ruff]
 fix = true
 unsafe-fixes = false
+src = ["backend/src", "backend/tests"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -101,14 +102,14 @@ extend-select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"backend/tests/**" = ["S101"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["backend/src", "backend/tests"]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13.7"
 pythonPlatform = "All"
-extraPaths = ["src"]
+extraPaths = ["backend/src"]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false

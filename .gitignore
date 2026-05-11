@@ -26,10 +26,12 @@ coverage.xml
 
 
 # Beads / Dolt files (added by bd init)
-scripts/ralph
+backend/scripts/ralph
 
 # Local design references (large HTML mockups — referenced by agents locally)
 example-html/
 
 # Personal scratchpad
 TODO.md
+
+scripts/ralph
