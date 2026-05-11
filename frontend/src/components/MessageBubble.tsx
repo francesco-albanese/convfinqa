@@ -1,6 +1,5 @@
 import type { TextUIPart, UIMessage } from "ai";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 
 type MessageBubbleProps = {
@@ -34,8 +33,8 @@ export function MessageBubble({ message, showCursor }: MessageBubbleProps) {
 					"prose-headings:font-semibold",
 				)}
 			>
-				<Markdown
-					remarkPlugins={[remarkGfm]}
+				<Streamdown
+					controls={false}
 					components={{
 						p: ({ children }) => (
 							<p className="my-2 first:mt-0 last:mb-0">{children}</p>
@@ -74,7 +73,7 @@ export function MessageBubble({ message, showCursor }: MessageBubbleProps) {
 					}}
 				>
 					{text}
-				</Markdown>
+				</Streamdown>
 				{showCursor && (
 					<span
 						data-testid="streaming-cursor"
