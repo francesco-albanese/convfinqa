@@ -13,6 +13,9 @@ dist-ssr
 *.local
 *.bak
 
+# Vite dep pre-bundling cache (regenerated on dev/build, per-machine)
+.vite/
+
 # Playwright + playwright-bdd
 tests/e2e/.features-gen/
 playwright-report/

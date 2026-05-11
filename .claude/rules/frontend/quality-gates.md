@@ -37,6 +37,20 @@ Fix the root cause; do NOT bypass. Specifically:
 
 `lefthook.yml` runs all four gates in parallel on commit (biome write-mode + tsc + vitest + vite build). If a commit makes it through the hook, the gates were green at hook time. The rule above is the agent's pre-commit responsibility — get green before the hook fires, so the hook is a confirmation, not a discovery.
 
+## `routeTree.gen.ts` — generated but committed
+
+`frontend/src/routeTree.gen.ts` is produced by the `@tanstack/router-plugin` from the files in `src/routes/`. It is **committed to git** (decision documented in `frontend/README.md`) so `tsc -b` and IDEs work on a clean clone.
+
+Rules when touching routes:
+
+- NEVER hand-edit `routeTree.gen.ts`. The plugin regenerates it on every `vite build` / `vite dev`.
+- After adding, renaming, or deleting anything under `src/routes/`, ensure the regenerated file is committed alongside. The pre-commit `build` hook re-runs `vite build` (with `stage_fixed: true`), so if you've staged a route change, the regenerated `routeTree.gen.ts` will be auto-restaged into the same commit. You do not need to regenerate manually unless the build hook is bypassed.
+- It is excluded from Biome (`biome.json` `files.includes` has `"!src/routeTree.gen.ts"`). Do not remove that exclusion — formatting it creates churn that the next regen erases.
+
+## `.vite/` is per-machine cache
+
+Vite's dep pre-bundling cache (`frontend/.vite/deps/_metadata.json`, etc.) is gitignored. If you see it in `git status`, that gitignore entry is missing — restore it rather than committing the cache.
+
 ## Lint vs check vs ci — quick reference
 
 | Command | Mode | Use for |
