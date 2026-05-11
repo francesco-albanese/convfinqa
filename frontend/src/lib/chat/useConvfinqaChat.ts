@@ -1,5 +1,5 @@
 import { type UseChatHelpers, useChat } from "@ai-sdk/react";
-import type { UIMessage } from "ai";
+import type { ChatOnDataCallback, ChatOnFinishCallback, UIMessage } from "ai";
 import { useMemo, useRef } from "react";
 import { createChatTransport } from "@/lib/transport/createChatTransport";
 
@@ -7,6 +7,8 @@ export type UseConvfinqaChatOptions = {
 	getUserId: () => string;
 	getDocumentId: () => string | null;
 	getConversationId: () => string | null;
+	onData?: ChatOnDataCallback<UIMessage>;
+	onFinish?: ChatOnFinishCallback<UIMessage>;
 };
 
 export function useConvfinqaChat(
@@ -25,5 +27,9 @@ export function useConvfinqaChat(
 		[],
 	);
 
-	return useChat<UIMessage>({ transport });
+	return useChat<UIMessage>({
+		transport,
+		onData: (part) => optionsRef.current.onData?.(part),
+		onFinish: (event) => optionsRef.current.onFinish?.(event),
+	});
 }
