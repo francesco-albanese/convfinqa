@@ -13,9 +13,6 @@ dist-ssr
 *.local
 *.bak
 
-# TanStack Router generated route tree
-src/routeTree.gen.ts
-
 # Playwright + playwright-bdd
 tests/e2e/.features-gen/
 playwright-report/
