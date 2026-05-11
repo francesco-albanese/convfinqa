@@ -1,9 +1,6 @@
 import json
 
-from convfinqa.application.prompts.system_prompt import (
-    MAX_TEXT_BYTES,
-    build_system_prompt,
-)
+from convfinqa.application.prompts.system_prompt import build_system_prompt
 from convfinqa.domain.entities import Document
 
 
@@ -30,14 +27,16 @@ def test_prompt_embeds_framing_title_ticker_year_and_table_json() -> None:
     assert json.dumps({"rev": [1, 2]}, separators=(",", ":")) in prompt
 
 
-def test_prompt_truncates_pre_and_post_above_8kb_each() -> None:
-    huge = "A" * (MAX_TEXT_BYTES + 5000)
-    prompt = build_system_prompt("f", _document(pre_text=huge, post_text=huge))
+def test_prompt_embeds_full_pre_and_post_text_verbatim() -> None:
+    huge_pre = "PRE-" + "A" * 50_000
+    huge_post = "POST-" + "B" * 50_000
+    prompt = build_system_prompt(
+        "f", _document(pre_text=huge_pre, post_text=huge_post)
+    )
 
-    assert "[truncated]" in prompt
-    assert prompt.count("[truncated]") == 2
-    framing_overhead_bound = 4 * 1024
-    assert len(prompt.encode("utf-8")) < 2 * MAX_TEXT_BYTES + framing_overhead_bound
+    assert huge_pre in prompt
+    assert huge_post in prompt
+    assert "[truncated]" not in prompt
 
 
 def test_prompt_handles_none_text_fields_without_crashing() -> None:
@@ -45,14 +44,3 @@ def test_prompt_handles_none_text_fields_without_crashing() -> None:
 
     assert "Pre-table narrative" in prompt
     assert "Post-table narrative" in prompt
-
-
-def test_prompt_truncates_multi_byte_utf8_at_split_boundary_without_decode_error() -> (
-    None
-):
-    multi_byte = "é" * (MAX_TEXT_BYTES + 5000)
-    prompt = build_system_prompt(
-        "f", _document(pre_text=multi_byte, post_text=multi_byte)
-    )
-
-    assert prompt.count("[truncated]") == 2
