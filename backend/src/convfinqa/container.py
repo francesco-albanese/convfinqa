@@ -10,12 +10,16 @@ from convfinqa.adapters.persistence.sqlalchemy.engine import (
 from convfinqa.adapters.persistence.sqlalchemy.lock import SqlAlchemyConversationLock
 from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyConversationRepository,
+    SqlAlchemyDocumentRepository,
 )
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
-from convfinqa.domain.ports.repository import ConversationRepository
+from convfinqa.domain.ports.repository import (
+    ConversationRepository,
+    DocumentRepository,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +29,7 @@ class Container:
     session_factory: async_sessionmaker[AsyncSession]
     llm: LLMPort
     conversations: ConversationRepository
+    documents: DocumentRepository
     locks: ConversationLockPort
     send_message: SendMessageUseCase
 
@@ -40,12 +45,14 @@ class Container:
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
         )
+        documents: DocumentRepository = SqlAlchemyDocumentRepository(session_factory)
         locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
         send_message = SendMessageUseCase(
             llm=llm,
             conversations=conversations,
+            documents=documents,
             locks=locks,
-            system_prompt=settings.system_prompt,
+            system_prompt_framing=settings.system_prompt,
         )
         return cls(
             settings=settings,
@@ -53,6 +60,7 @@ class Container:
             session_factory=session_factory,
             llm=llm,
             conversations=conversations,
+            documents=documents,
             locks=locks,
             send_message=send_message,
         )
@@ -68,12 +76,14 @@ class Container:
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
         )
+        documents: DocumentRepository = SqlAlchemyDocumentRepository(session_factory)
         locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
         send_message = SendMessageUseCase(
             llm=llm,
             conversations=conversations,
+            documents=documents,
             locks=locks,
-            system_prompt=settings.system_prompt,
+            system_prompt_framing=settings.system_prompt,
         )
         return cls(
             settings=settings,
@@ -81,6 +91,7 @@ class Container:
             session_factory=session_factory,
             llm=llm,
             conversations=conversations,
+            documents=documents,
             locks=locks,
             send_message=send_message,
         )

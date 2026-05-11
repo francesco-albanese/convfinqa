@@ -15,12 +15,12 @@ async def _client(app: FastAPI) -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-async def _create_conversation(app: FastAPI) -> str:
+async def _create_conversation(app: FastAPI, document_id: str) -> str:
     async with await _client(app) as client:
         response = await client.post(
             "/v1/chat",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": document_id},
         )
         return str(response.json()["conversation_id"])
 
@@ -30,8 +30,9 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
     app: FastAPI,
     fake_llm: FakeLLMPort,
     session_factory: async_sessionmaker[AsyncSession],
+    seeded_document_id: str,
 ) -> None:
-    conversation_id = await _create_conversation(app)
+    conversation_id = await _create_conversation(app, seeded_document_id)
 
     fake_llm.gate = asyncio.Event()
     fake_llm.stream_started = asyncio.Event()
@@ -81,8 +82,9 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
 async def test_sync_chat_concurrent_returns_409(
     app: FastAPI,
     fake_llm: FakeLLMPort,
+    seeded_document_id: str,
 ) -> None:
-    conversation_id = await _create_conversation(app)
+    conversation_id = await _create_conversation(app, seeded_document_id)
 
     fake_llm.gate = asyncio.Event()
     fake_llm.stream_started = asyncio.Event()

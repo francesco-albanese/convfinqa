@@ -1,8 +1,9 @@
 from datetime import datetime
+from typing import Self
 
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from convfinqa.application.use_cases.send_message import (
     ConcurrentRequest,
@@ -31,6 +32,18 @@ chat_router = APIRouter(prefix="/v1", tags=["chat"])
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=32_000)
     conversation_id: str | None = None
+    document_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=512,
+        pattern=r"^[A-Za-z0-9._/\-]+$",
+    )
+
+    @model_validator(mode="after")
+    def _document_id_required_for_new_conversation(self) -> Self:
+        if self.conversation_id is None and self.document_id is None:
+            raise ValueError("document_id is required when starting a new conversation")
+        return self
 
 
 class ChatUsage(BaseModel):
@@ -71,6 +84,7 @@ async def sync_chat(
         user_id=user_id,
         conversation_id=body.conversation_id,
         user_text=body.message,
+        document_id=body.document_id,
     )
     try:
         async for event in events:
@@ -124,6 +138,7 @@ async def stream_chat(
         user_id=user_id,
         conversation_id=body.conversation_id,
         user_text=body.message,
+        document_id=body.document_id,
     )
     first_event = await anext(events)
 

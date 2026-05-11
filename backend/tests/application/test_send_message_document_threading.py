@@ -1,0 +1,213 @@
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import cast
+
+import pytest
+
+from convfinqa.application.use_cases.send_message import (
+    ConversationResolved,
+    DocumentIdRequiredError,
+    DocumentNotFoundError,
+    SendMessageUseCase,
+    TextDelta,
+)
+from convfinqa.domain.entities import Conversation, Document, Message
+from convfinqa.domain.ports.llm import LLMChunk, LLMMessage, LLMPort
+from convfinqa.domain.ports.lock import ConversationLockPort
+from convfinqa.domain.ports.repository import (
+    ConversationRepository,
+    DocumentRepository,
+)
+from convfinqa.domain.value_objects import Role
+
+
+@dataclass(slots=True)
+class _FakeConvRepo:
+    conversations: dict[str, Conversation] = field(
+        default_factory=dict[str, Conversation]
+    )
+    create_calls: list[tuple[str, str]] = field(default_factory=list[tuple[str, str]])
+    messages_by_conv: dict[str, list[Message]] = field(
+        default_factory=dict[str, list[Message]]
+    )
+
+    async def get(self, conversation_id: str, user_id: str) -> Conversation | None:
+        conv = self.conversations.get(conversation_id)
+        if conv is None or conv.user_id != user_id:
+            return None
+        return conv
+
+    async def create(self, user_id: str, document_id: str) -> Conversation:
+        self.create_calls.append((user_id, document_id))
+        conv = Conversation(
+            id="conv_created",
+            user_id=user_id,
+            document_id=document_id,
+            created_at=datetime.now(UTC),
+        )
+        self.conversations[conv.id] = conv
+        return conv
+
+    async def append_message(self, conversation_id: str, message: Message) -> None:
+        self.messages_by_conv.setdefault(conversation_id, []).append(message)
+
+
+@dataclass(slots=True)
+class _FakeDocRepo:
+    by_id: dict[str, Document] = field(default_factory=dict[str, Document])
+
+    async def get(self, document_id: str) -> Document | None:
+        return self.by_id.get(document_id)
+
+
+@dataclass(slots=True)
+class _AlwaysAcquireLock:
+    seen: list[str] = field(default_factory=list[str])
+
+    def try_acquire(self, conversation_id: str) -> AbstractAsyncContextManager[bool]:
+        self.seen.append(conversation_id)
+        return self._scope()
+
+    @asynccontextmanager
+    async def _scope(self) -> AsyncGenerator[bool]:
+        yield True
+
+
+@dataclass(slots=True)
+class _FakeLLM:
+    deltas: tuple[str, ...] = ("ok",)
+    seen_systems: list[str] = field(default_factory=list[str])
+
+    async def stream(
+        self, messages: Sequence[LLMMessage], system: str
+    ) -> AsyncIterator[LLMChunk]:
+        self.seen_systems.append(system)
+        del messages
+        for d in self.deltas:
+            yield LLMChunk(text=d)
+
+
+def _document(doc_id: str = "doc-1") -> Document:
+    return Document(
+        id=doc_id,
+        ticker="X",
+        year=2024,
+        page=1,
+        title="t",
+        pre_text="pre",
+        post_text="post",
+        table_data={},
+    )
+
+
+def _build_use_case(
+    convs: _FakeConvRepo, docs: _FakeDocRepo, llm: _FakeLLM
+) -> SendMessageUseCase:
+    return SendMessageUseCase(
+        llm=cast(LLMPort, llm),
+        conversations=cast(ConversationRepository, convs),
+        documents=cast(DocumentRepository, docs),
+        locks=cast(ConversationLockPort, _AlwaysAcquireLock()),
+        system_prompt_framing="framing",
+    )
+
+
+@pytest.mark.asyncio
+async def test_new_conversation_requires_document_id() -> None:
+    use_case = _build_use_case(_FakeConvRepo(), _FakeDocRepo(), _FakeLLM())
+
+    events = use_case.stream(
+        user_id="alice", conversation_id=None, user_text="hi", document_id=None
+    )
+    with pytest.raises(DocumentIdRequiredError):
+        async for _ in events:
+            pass
+
+
+@pytest.mark.asyncio
+async def test_existing_conversation_ignores_body_document_id_and_uses_stored_one() -> (
+    None
+):
+    convs = _FakeConvRepo()
+    stored = Document(
+        id="stored-doc",
+        ticker="STORED",
+        year=2020,
+        page=1,
+        title="stored title",
+        pre_text="stored-pre-marker",
+        post_text="stored-post-marker",
+        table_data={"k": 1},
+    )
+    docs = _FakeDocRepo(by_id={"stored-doc": stored})
+    llm = _FakeLLM()
+
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id="alice",
+        document_id="stored-doc",
+        created_at=datetime.now(UTC),
+    )
+    use_case = _build_use_case(convs, docs, llm)
+
+    events = use_case.stream(
+        user_id="alice",
+        conversation_id="conv_existing",
+        user_text="hi",
+        document_id="ignored-doc",
+    )
+    async for _ in events:
+        pass
+
+    assert convs.create_calls == []
+    assert "stored-pre-marker" in llm.seen_systems[0]
+    assert "STORED" in llm.seen_systems[0]
+
+
+@pytest.mark.asyncio
+async def test_new_conversation_with_unknown_document_id_raises_document_not_found() -> (
+    None
+):
+    use_case = _build_use_case(_FakeConvRepo(), _FakeDocRepo(), _FakeLLM())
+
+    events = use_case.stream(
+        user_id="alice",
+        conversation_id=None,
+        user_text="hi",
+        document_id="does-not-exist",
+    )
+    with pytest.raises(DocumentNotFoundError):
+        async for _ in events:
+            pass
+
+
+@pytest.mark.asyncio
+async def test_new_conversation_emits_resolved_event_and_persists_document_id() -> None:
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    llm = _FakeLLM(deltas=("part1", "part2"))
+    use_case = _build_use_case(convs, docs, llm)
+
+    seen_text: list[str] = []
+    seen_resolved: list[str] = []
+    events = use_case.stream(
+        user_id="alice",
+        conversation_id=None,
+        user_text="hi",
+        document_id="doc-1",
+    )
+    async for event in events:
+        if isinstance(event, TextDelta):
+            seen_text.append(event.text)
+        if isinstance(event, ConversationResolved):
+            seen_resolved.append(event.conversation_id)
+
+    assert seen_resolved == ["conv_created"]
+    assert "".join(seen_text) == "part1part2"
+    assert convs.create_calls == [("alice", "doc-1")]
+    user_msgs = [
+        m for m in convs.messages_by_conv["conv_created"] if m.role == Role.USER
+    ]
+    assert [m.content for m in user_msgs] == ["hi"]

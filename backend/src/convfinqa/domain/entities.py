@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from convfinqa.domain.value_objects import Role, StopReason
 
@@ -18,5 +19,18 @@ class Message:
 class Conversation:
     id: str
     user_id: str
+    document_id: str
     created_at: datetime
     messages: tuple[Message, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
+class Document:
+    id: str
+    ticker: str | None
+    year: int | None
+    page: int | None
+    title: str | None
+    pre_text: str | None
+    post_text: str | None
+    table_data: dict[str, Any] | None

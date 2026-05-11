@@ -7,6 +7,7 @@ import pytest_asyncio
 from alembic import command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -29,6 +30,8 @@ pytest_plugins = ["pytester"]
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TESTS_DIR = Path(__file__).resolve().parent
+
+DEFAULT_DOCUMENT_ID = "Single_TEST/2024/page_1.pdf-1"
 
 
 def pytest_collection_modifyitems(
@@ -70,6 +73,25 @@ async def engine(database_url: str, schema: None) -> AsyncGenerator[AsyncEngine]
         await conn.execute(Base.metadata.tables["messages"].delete())
         await conn.execute(Base.metadata.tables["conversations"].delete())
         await conn.execute(Base.metadata.tables["documents"].delete())
+        await conn.execute(
+            text(
+                "INSERT INTO documents "
+                "(id, ticker, year, page, title, pre_text, post_text, table_data) "
+                "VALUES "
+                "(:id, :ticker, :year, :page, :title, :pre_text, "
+                ":post_text, CAST(:table_data AS jsonb))"
+            ),
+            {
+                "id": DEFAULT_DOCUMENT_ID,
+                "ticker": "TEST",
+                "year": 2024,
+                "page": 1,
+                "title": "TEST 2024 annual report",
+                "pre_text": "fixture pre-text",
+                "post_text": "fixture post-text",
+                "table_data": '{"revenue": [100, 200]}',
+            },
+        )
     yield engine
     await engine.dispose()
 
@@ -79,6 +101,11 @@ async def session_factory(
     engine: AsyncEngine,
 ) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(bind=engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def seeded_document_id() -> str:
+    return DEFAULT_DOCUMENT_ID
 
 
 @pytest.fixture

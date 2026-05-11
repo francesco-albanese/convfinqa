@@ -56,12 +56,13 @@ async def _persisted_messages(
 async def test_stream_chat_emits_ai_sdk_v5_frames_in_order_with_streaming_headers(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
+    seeded_document_id: str,
 ) -> None:
     async with await _client(app) as client:
         response = await client.post(
             "/v1/chat/stream",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -115,6 +116,7 @@ async def test_stream_chat_mid_stream_llm_error_emits_error_frame_and_done(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
     fake_llm: FakeLLMPort,
+    seeded_document_id: str,
 ) -> None:
     fake_llm.deltas = ("partial ", "more")
     fake_llm.raise_after = 1
@@ -124,7 +126,7 @@ async def test_stream_chat_mid_stream_llm_error_emits_error_frame_and_done(
         response = await client.post(
             "/v1/chat/stream",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -148,17 +150,16 @@ async def test_stream_chat_consumer_aborts_persists_interrupted(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
     fake_llm: FakeLLMPort,
+    seeded_document_id: str,
 ) -> None:
-    # Targets the use-case GeneratorExit handler directly: httpx ASGITransport
-    # cannot mid-stream-disconnect (runs the app to completion), but Starlette's
-    # StreamingResponse cancels by calling aclose() on the body iterator on
-    # client disconnect — so aclose() at the use-case layer exercises the same
-    # path that real HTTP disconnect would.
     fake_llm.deltas = ("first ", "second ", "third ", "fourth ")
 
     container: Container = app.state.container
     events = container.send_message.stream(
-        user_id="alice", conversation_id=None, user_text="hi"
+        user_id="alice",
+        conversation_id=None,
+        user_text="hi",
+        document_id=seeded_document_id,
     )
 
     seen_delta = False
@@ -180,10 +181,8 @@ async def test_stream_chat_consumer_aborts_persists_interrupted(
 async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
     app: FastAPI,
     fake_llm: FakeLLMPort,
+    seeded_document_id: str,
 ) -> None:
-    # Provider-portability smoke: Gemini occasionally emits empty-string deltas
-    # and may omit the final usage chunk (see .claude/rules/python/litellm.md).
-    # The presenter must finish cleanly without those.
     fake_llm.deltas = ("", "x", "", "y")
     fake_llm.final_usage = None
 
@@ -191,7 +190,7 @@ async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
         response = await client.post(
             "/v1/chat/stream",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200

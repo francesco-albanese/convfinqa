@@ -102,7 +102,7 @@ def test_migration_downgrade_drops_documents_then_upgrade_recreates(
     config.set_main_option("sqlalchemy.url", database_url)
 
     try:
-        command.downgrade(config, "-1")
+        command.downgrade(config, "0001_initial")
         assert asyncio.run(_documents_table_exists(database_url)) is False
     finally:
         command.upgrade(config, "head")

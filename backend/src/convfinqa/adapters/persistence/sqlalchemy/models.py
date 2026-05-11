@@ -37,6 +37,11 @@ class ConversationOrm(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     user_id: Mapped[str] = mapped_column(String, nullable=False)
+    document_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey("documents.id", name="fk_conversations_document_id"),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -49,6 +54,7 @@ class ConversationOrm(Base):
 
     __table_args__ = (
         Index("ix_conversations_user_id_created_at", "user_id", "created_at"),
+        Index("ix_conversations_document_id", "document_id"),
     )
 
 
