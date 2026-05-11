@@ -10,3 +10,11 @@ pre-commit:
       glob: "frontend/**/*.{ts,tsx}"
       root: "frontend/"
       run: pnpm exec tsc -b
+    test:
+      glob: "frontend/**/*.{ts,tsx}"
+      root: "frontend/"
+      run: pnpm test
+    build:
+      glob: "frontend/**/*.{ts,tsx,css,json,html}"
+      root: "frontend/"
+      run: pnpm exec vite build
