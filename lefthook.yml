@@ -18,3 +18,4 @@ pre-commit:
       glob: "frontend/**/*.{ts,tsx,css,json,html}"
       root: "frontend/"
       run: pnpm exec vite build
+      stage_fixed: true
