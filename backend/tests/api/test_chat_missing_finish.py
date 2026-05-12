@@ -21,7 +21,9 @@ class _StubSendMessage:
         user_id: str,
         conversation_id: str | None,
         user_text: str,
+        document_id: str | None = None,
     ) -> AsyncGenerator[StreamEvent]:
+        del user_id, conversation_id, user_text, document_id
         yield ConversationResolved(conversation_id="conv_xyz")
         yield MessageStarted(message_id="msg_xyz")
         yield TextDelta(text="hi")
@@ -31,7 +33,7 @@ class _StubSendMessage:
 async def test_sync_chat_raises_upstream_error_when_finish_event_missing() -> None:
     with pytest.raises(UpstreamLLMError, match="missing Finish event"):
         await sync_chat(
-            body=ChatRequest(message="hi"),
+            body=ChatRequest(message="hi", document_id="doc-1"),
             user_id="alice",
             send_message=cast(SendMessageUseCase, _StubSendMessage()),
             settings=Settings(),

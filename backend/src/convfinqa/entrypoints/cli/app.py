@@ -35,14 +35,27 @@ def chat(
         str,
         typer.Option("--base-url", help="Base URL of the convfinqa API."),
     ] = "http://localhost:8000",
+    document_id: Annotated[
+        str,
+        typer.Option(
+            "--document-id",
+            help="Document id to pin for new conversations.",
+        ),
+    ] = "",
 ) -> None:
     try:
-        asyncio.run(_repl(user_id=user_id or _default_user_id(), base_url=base_url))
+        asyncio.run(
+            _repl(
+                user_id=user_id or _default_user_id(),
+                base_url=base_url,
+                document_id=document_id or None,
+            )
+        )
     except KeyboardInterrupt:
         sys.stdout.write("\n")
 
 
-async def _repl(*, user_id: str, base_url: str) -> None:
+async def _repl(*, user_id: str, base_url: str, document_id: str | None) -> None:
     conversation_id: str | None = None
     async with httpx.AsyncClient(base_url=base_url, timeout=CLI_HTTP_TIMEOUT) as client:
         while True:
@@ -67,6 +80,7 @@ async def _repl(*, user_id: str, base_url: str) -> None:
                 user_id=user_id,
                 conversation_id=conversation_id,
                 message=stripped,
+                document_id=document_id,
             )
 
 
@@ -76,10 +90,13 @@ async def _send(
     user_id: str,
     conversation_id: str | None,
     message: str,
+    document_id: str | None,
 ) -> str | None:
     payload: dict[str, object] = {"message": message}
     if conversation_id is not None:
         payload["conversation_id"] = conversation_id
+    elif document_id is not None:
+        payload["document_id"] = document_id
 
     next_conversation_id = conversation_id
     try:

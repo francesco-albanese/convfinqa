@@ -9,38 +9,61 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedAppIndexRouteImport } from './routes/_authed/app/index'
 
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedAppIndexRoute = AuthedAppIndexRouteImport.update({
+  id: '/app/',
+  path: '/app/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app/': typeof AuthedAppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AuthedAppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authed': typeof AuthedRouteWithChildren
+  '/_authed/app/': typeof AuthedAppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/app'
+  id: '__root__' | '/' | '/_authed' | '/_authed/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +71,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/app/': {
+      id: '/_authed/app/'
+      path: '/app'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AuthedAppIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
+interface AuthedRouteChildren {
+  AuthedAppIndexRoute: typeof AuthedAppIndexRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedAppIndexRoute: AuthedAppIndexRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthedRoute: AuthedRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

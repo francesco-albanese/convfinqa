@@ -28,12 +28,13 @@ async def _messages_for(
 async def test_sync_chat_happy_path_creates_conversation_and_persists_messages(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
+    seeded_document_id: str,
 ) -> None:
     async with await _client(app) as client:
         response = await client.post(
             "/v1/chat",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -57,12 +58,13 @@ async def test_sync_chat_continuation_includes_prior_history(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
     fake_llm: FakeLLMPort,
+    seeded_document_id: str,
 ) -> None:
     async with await _client(app) as client:
         first = await client.post(
             "/v1/chat",
             headers={"X-User-Id": "alice"},
-            json={"message": "first"},
+            json={"message": "first", "document_id": seeded_document_id},
         )
         conversation_id = first.json()["conversation_id"]
 
@@ -86,12 +88,13 @@ async def test_sync_chat_continuation_includes_prior_history(
 @pytest.mark.asyncio
 async def test_sync_chat_cross_tenant_returns_404_problem(
     app: FastAPI,
+    seeded_document_id: str,
 ) -> None:
     async with await _client(app) as client:
         owned = await client.post(
             "/v1/chat",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": seeded_document_id},
         )
         conversation_id = owned.json()["conversation_id"]
 
@@ -109,9 +112,13 @@ async def test_sync_chat_cross_tenant_returns_404_problem(
 @pytest.mark.asyncio
 async def test_sync_chat_missing_user_id_returns_401_problem(
     app: FastAPI,
+    seeded_document_id: str,
 ) -> None:
     async with await _client(app) as client:
-        response = await client.post("/v1/chat", json={"message": "hi"})
+        response = await client.post(
+            "/v1/chat",
+            json={"message": "hi", "document_id": seeded_document_id},
+        )
 
     assert response.status_code == 401
     assert response.headers["content-type"].startswith("application/problem+json")
@@ -121,12 +128,13 @@ async def test_sync_chat_missing_user_id_returns_401_problem(
 @pytest.mark.asyncio
 async def test_sync_chat_empty_message_returns_422(
     app: FastAPI,
+    seeded_document_id: str,
 ) -> None:
     async with await _client(app) as client:
         response = await client.post(
             "/v1/chat",
             headers={"X-User-Id": "alice"},
-            json={"message": ""},
+            json={"message": "", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 422
@@ -143,6 +151,7 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],
     fake_llm: FakeLLMPort,
+    seeded_document_id: str,
 ) -> None:
     fake_llm.deltas = ("partial ", "more")
     fake_llm.raise_after = 1
@@ -152,14 +161,16 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
         response = await client.post(
             "/v1/chat",
             headers={"X-User-Id": "alice"},
-            json={"message": "hi"},
+            json={"message": "hi", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 502
     assert response.headers["content-type"].startswith("application/problem+json")
     body = response.json()
     assert body["status"] == 502
-    assert "bedrock said no" in (body.get("detail") or "")
+    detail = body.get("detail") or ""
+    assert "bedrock said no" not in detail
+    assert detail == "The upstream LLM provider returned an error."
 
     convs = fake_llm.seen_systems
     assert len(convs) == 1

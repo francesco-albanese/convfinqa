@@ -1,11 +1,30 @@
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import (
+    CheckConstraint,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     mapped_column,
     relationship,
+)
+
+DOCUMENTS_TSVECTOR_EXPRESSION = (
+    "to_tsvector('english', "
+    "coalesce(title,'') || ' ' || "
+    "coalesce(ticker,'') || ' ' || "
+    "coalesce(pre_text,''))"
 )
 
 
@@ -18,6 +37,11 @@ class ConversationOrm(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     user_id: Mapped[str] = mapped_column(String, nullable=False)
+    document_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey("documents.id", name="fk_conversations_document_id"),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -30,6 +54,7 @@ class ConversationOrm(Base):
 
     __table_args__ = (
         Index("ix_conversations_user_id_created_at", "user_id", "created_at"),
+        Index("ix_conversations_document_id", "document_id"),
     )
 
 
@@ -58,4 +83,28 @@ class MessageOrm(Base):
         Index(
             "ix_messages_conversation_id_created_at", "conversation_id", "created_at"
         ),
+    )
+
+
+class DocumentOrm(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    ticker: Mapped[str | None] = mapped_column(Text, nullable=True)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pre_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    post_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    table_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    search_tsv: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(DOCUMENTS_TSVECTOR_EXPRESSION, persisted=True),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_documents_search_tsv", "search_tsv", postgresql_using="gin"),
+        Index("ix_documents_year", "year"),
+        Index("ix_documents_ticker_year", "ticker", "year"),
     )

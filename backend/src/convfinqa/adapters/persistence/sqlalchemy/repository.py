@@ -7,9 +7,10 @@ from sqlalchemy.orm import selectinload
 
 from convfinqa.adapters.persistence.sqlalchemy.models import (
     ConversationOrm,
+    DocumentOrm,
     MessageOrm,
 )
-from convfinqa.domain.entities import Conversation, Message
+from convfinqa.domain.entities import Conversation, Document, Message
 from convfinqa.domain.value_objects import Role, StopReason
 
 
@@ -33,8 +34,22 @@ def _to_conversation(orm: ConversationOrm) -> Conversation:
     return Conversation(
         id=orm.id,
         user_id=orm.user_id,
+        document_id=orm.document_id,
         created_at=orm.created_at,
         messages=tuple(_to_message(m) for m in orm.messages),
+    )
+
+
+def _to_document(orm: DocumentOrm) -> Document:
+    return Document(
+        id=orm.id,
+        ticker=orm.ticker,
+        year=orm.year,
+        page=orm.page,
+        title=orm.title,
+        pre_text=orm.pre_text,
+        post_text=orm.post_text,
+        table_data=orm.table_data,
     )
 
 
@@ -58,11 +73,12 @@ class SqlAlchemyConversationRepository:
                 return None
             return _to_conversation(orm)
 
-    async def create(self, user_id: str) -> Conversation:
+    async def create(self, user_id: str, document_id: str) -> Conversation:
         async with self._session_factory() as session:
             orm = ConversationOrm(
                 id=new_conversation_id(),
                 user_id=user_id,
+                document_id=document_id,
                 created_at=datetime.now(UTC),
             )
             session.add(orm)
@@ -71,6 +87,7 @@ class SqlAlchemyConversationRepository:
             return Conversation(
                 id=orm.id,
                 user_id=orm.user_id,
+                document_id=orm.document_id,
                 created_at=orm.created_at,
                 messages=(),
             )
@@ -87,3 +104,17 @@ class SqlAlchemyConversationRepository:
             )
             session.add(orm)
             await session.commit()
+
+
+class SqlAlchemyDocumentRepository:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def get(self, document_id: str) -> Document | None:
+        async with self._session_factory() as session:
+            stmt = select(DocumentOrm).where(DocumentOrm.id == document_id)
+            result = await session.execute(stmt)
+            orm = result.scalar_one_or_none()
+            if orm is None:
+                return None
+            return _to_document(orm)

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from convfinqa.application.use_cases.send_message import (
     ConversationNotFoundError,
+    DocumentNotFoundError,
 )
 from convfinqa.logging import get_logger
 
@@ -116,6 +117,23 @@ async def _handle_conversation_not_found(
     return _problem_response(problem)
 
 
+async def _handle_document_not_found(request: Request, exc: Exception) -> JSONResponse:
+    problem = Problem(
+        type=f"{PROBLEM_BASE}/document-not-found",
+        title="Document not found",
+        status=status.HTTP_404_NOT_FOUND,
+        detail="No document with that id exists.",
+    )
+    _log(
+        level=logging.INFO,
+        request=request,
+        exc=exc,
+        status_code=problem.status,
+        user_id=request.headers.get("x-user-id"),
+    )
+    return _problem_response(problem)
+
+
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
     validation_exc = cast(RequestValidationError, exc)
     raw_errors = cast(list[dict[str, object]], validation_exc.errors())
@@ -148,7 +166,7 @@ async def _handle_upstream(request: Request, exc: Exception) -> JSONResponse:
         type=f"{PROBLEM_BASE}/upstream-error",
         title="Upstream LLM error",
         status=status.HTTP_502_BAD_GATEWAY,
-        detail=str(exc) or exc.__class__.__name__,
+        detail="The upstream LLM provider returned an error.",
     )
     _log(
         level=logging.WARNING,
@@ -202,6 +220,7 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
 def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(MissingUserIdError, _handle_missing_user_id)
     app.add_exception_handler(ConversationNotFoundError, _handle_conversation_not_found)
+    app.add_exception_handler(DocumentNotFoundError, _handle_document_not_found)
     app.add_exception_handler(RequestValidationError, _handle_validation)
     app.add_exception_handler(UpstreamLLMError, _handle_upstream)
     app.add_exception_handler(ConversationBusyError, _handle_conversation_busy)
