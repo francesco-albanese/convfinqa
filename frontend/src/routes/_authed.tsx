@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { Sidebar } from "@/components/Sidebar";
+import { STUB_USER_ID } from "@/lib/auth/stubUser";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
 import { toggleSidebar, useSidebarCollapsed } from "@/lib/ui/sidebarStore";
 
@@ -34,6 +35,10 @@ function AuthedLayout() {
 		});
 	}, [navigate]);
 
+	const handleSignOut = useCallback(() => {
+		console.warn("signOut: stub — wired in convfinqa-ebw");
+	}, []);
+
 	return (
 		<div
 			data-testid="authed-shell"
@@ -47,8 +52,10 @@ function AuthedLayout() {
 			<Sidebar
 				chats={[]}
 				collapsed={collapsed}
+				userId={STUB_USER_ID}
 				onToggleCollapse={toggleSidebar}
 				onNewConversation={handleNewConversation}
+				onSignOut={handleSignOut}
 			/>
 			<div className="flex h-full min-w-0 flex-col overflow-hidden">
 				<Outlet />

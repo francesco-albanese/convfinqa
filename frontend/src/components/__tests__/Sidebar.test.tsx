@@ -8,15 +8,18 @@ function renderSidebar(
 ) {
 	const onToggleCollapse = props.onToggleCollapse ?? vi.fn();
 	const onNewConversation = props.onNewConversation ?? vi.fn();
+	const onSignOut = props.onSignOut ?? vi.fn();
 	render(
 		<Sidebar
 			chats={props.chats ?? []}
 			collapsed={props.collapsed ?? false}
+			userId={props.userId ?? "dev-user"}
 			onToggleCollapse={onToggleCollapse}
 			onNewConversation={onNewConversation}
+			onSignOut={onSignOut}
 		/>,
 	);
-	return { onToggleCollapse, onNewConversation };
+	return { onToggleCollapse, onNewConversation, onSignOut };
 }
 
 describe("Sidebar", () => {
@@ -74,5 +77,17 @@ describe("Sidebar", () => {
 		expect(
 			screen.getByRole("button", { name: /expand sidebar/i }),
 		).toBeVisible();
+	});
+
+	it("exposes a user menu that signs the user out", async () => {
+		const user = userEvent.setup();
+		const { onSignOut } = renderSidebar({ userId: "francesco" });
+
+		await user.click(screen.getByRole("button", { name: /open user menu/i }));
+		await user.click(
+			await screen.findByRole("menuitem", { name: /sign out/i }),
+		);
+
+		expect(onSignOut).toHaveBeenCalledTimes(1);
 	});
 });

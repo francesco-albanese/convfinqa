@@ -35,7 +35,9 @@ Fix the root cause; do NOT bypass. Specifically:
 
 ## Pre-commit hook coverage (defense-in-depth)
 
-`lefthook.yml` runs all four gates in parallel on commit (biome write-mode + tsc + vitest + vite build). If a commit makes it through the hook, the gates were green at hook time. The rule above is the agent's pre-commit responsibility — get green before the hook fires, so the hook is a confirmation, not a discovery.
+`lefthook.yml` runs the gates on commit (biome write-mode + tsc + a combined `build-and-test` command). `build-and-test` runs `vite build && pnpm test` as ONE shell command so build completes before vitest starts. If a commit makes it through the hook, the gates were green at hook time. The rule above is the agent's pre-commit responsibility — get green before the hook fires, so the hook is a confirmation, not a discovery.
+
+**Why build and test are chained, not parallel**: `@tanstack/router-plugin` rewrites `frontend/src/routeTree.gen.ts` during every `vite build`. When build and test ran as parallel sibling commands under `parallel: true`, vitest intermittently read a half-written or empty route tree, causing flaky failures in `authedShell.test.tsx` and `app.test.tsx` where the router rendered `<body><div/></body>` and `findByTestId("authed-shell")` timed out. Do not split `build-and-test` back into two parallel commands.
 
 ## `routeTree.gen.ts` — generated but committed
 

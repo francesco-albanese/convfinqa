@@ -2,7 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { Composer } from "@/components/Composer";
+import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
+import { STUB_USER_ID } from "@/lib/auth/stubUser";
 import {
 	type AppSearch,
 	AppSearchSchema,
@@ -10,8 +12,6 @@ import {
 	ConversationDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
-
-const STUB_USER_ID = "dev-user";
 
 export const Route = createFileRoute("/_authed/app/")({
 	validateSearch: (raw: Record<string, unknown>): AppSearch => {
@@ -74,7 +74,11 @@ function AppChatPage() {
 				aria-label="Conversation"
 				className="flex-1 overflow-y-auto px-6 py-4"
 			>
-				<MessageList messages={chat.messages} status={chat.status} />
+				{!documentId && chat.messages.length === 0 ? (
+					<EmptyState />
+				) : (
+					<MessageList messages={chat.messages} status={chat.status} />
+				)}
 			</section>
 			<section className="border-border border-t bg-background px-6 py-3">
 				<Composer onSend={handleSend} disabled={!documentId} />

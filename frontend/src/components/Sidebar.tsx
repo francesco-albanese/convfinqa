@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import { useId, useState } from "react";
+import { UserMenu } from "@/components/UserMenu";
 import { cn } from "@/lib/utils";
 
 export type SidebarChatItem = {
@@ -16,15 +17,19 @@ export type SidebarChatGroup = {
 type SidebarProps = {
 	chats: SidebarChatGroup[];
 	collapsed: boolean;
+	userId: string;
 	onToggleCollapse: () => void;
 	onNewConversation: () => void;
+	onSignOut: () => void;
 };
 
 export function Sidebar({
 	chats,
 	collapsed,
+	userId,
 	onToggleCollapse,
 	onNewConversation,
+	onSignOut,
 }: SidebarProps) {
 	const searchId = useId();
 	const [query, setQuery] = useState("");
@@ -117,6 +122,10 @@ export function Sidebar({
 						)}
 					</ul>
 				)}
+			</div>
+
+			<div className="border-border border-t px-2 pt-2">
+				<UserMenu userId={userId} collapsed={collapsed} onSignOut={onSignOut} />
 			</div>
 		</nav>
 	);
