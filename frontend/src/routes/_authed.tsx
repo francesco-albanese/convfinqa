@@ -1,6 +1,8 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useCallback } from "react";
+import { Sidebar } from "@/components/Sidebar";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
-import { useSidebarCollapsed } from "@/lib/ui/sidebarStore";
+import { toggleSidebar, useSidebarCollapsed } from "@/lib/ui/sidebarStore";
 
 const SIDEBAR_WIDTH_EXPANDED = "280px";
 const SIDEBAR_WIDTH_COLLAPSED = "64px";
@@ -18,11 +20,19 @@ function AuthedLayout() {
 	const { documentId } = Route.useSearch();
 	const isRightPanelOpen = Boolean(documentId);
 	const collapsed = useSidebarCollapsed();
+	const navigate = useNavigate();
 
 	const sidebarWidth = collapsed
 		? SIDEBAR_WIDTH_COLLAPSED
 		: SIDEBAR_WIDTH_EXPANDED;
 	const rightWidth = isRightPanelOpen ? RIGHT_PANEL_WIDTH : "0px";
+
+	const handleNewConversation = useCallback(() => {
+		void navigate({
+			to: "/app",
+			search: (prev) => ({ ...prev, chatId: undefined }),
+		});
+	}, [navigate]);
 
 	return (
 		<div
@@ -34,10 +44,11 @@ function AuthedLayout() {
 				gridTemplateColumns: `${sidebarWidth} minmax(0,1fr) ${rightWidth}`,
 			}}
 		>
-			<aside
-				aria-label="Sidebar"
-				data-testid="sidebar"
-				className="h-full border-border border-r bg-card"
+			<Sidebar
+				chats={[]}
+				collapsed={collapsed}
+				onToggleCollapse={toggleSidebar}
+				onNewConversation={handleNewConversation}
 			/>
 			<div className="flex h-full min-w-0 flex-col overflow-hidden">
 				<Outlet />
