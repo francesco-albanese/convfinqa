@@ -34,3 +34,18 @@ class Document:
     pre_text: str | None
     post_text: str | None
     table_data: dict[str, Any] | None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSummary:
+    id: str
+    ticker: str | None
+    year: int | None
+    page: int | None
+    title: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentListPage:
+    items: tuple[DocumentSummary, ...]
+    next_cursor: str | None
