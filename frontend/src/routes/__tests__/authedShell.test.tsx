@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { setSidebarCollapsed } from "@/lib/ui/sidebarStore";
 import { routeTree } from "@/routeTree.gen";
 
 vi.mock("@/lib/chat/useConvfinqaChat", () => ({
@@ -62,5 +63,16 @@ describe("/_authed layout — three-panel grid", () => {
 		renderApp("/app?documentId=");
 		const shell = await screen.findByTestId("authed-shell");
 		expect(shell).toHaveAttribute("data-right-panel", "closed");
+	});
+
+	it("reflects the sidebar collapsed state from the store", async () => {
+		setSidebarCollapsed(true);
+		try {
+			renderApp("/app");
+			const shell = await screen.findByTestId("authed-shell");
+			expect(shell).toHaveAttribute("data-sidebar", "collapsed");
+		} finally {
+			setSidebarCollapsed(false);
+		}
 	});
 });
