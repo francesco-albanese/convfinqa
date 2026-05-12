@@ -1,6 +1,19 @@
 import type { TextUIPart, UIMessage } from "ai";
 import { Streamdown } from "streamdown";
+import { safeUrlTransform } from "@/lib/markdown/safeUrl";
 import { cn } from "@/lib/utils";
+
+const DISALLOWED_ELEMENTS = [
+	"img",
+	"iframe",
+	"object",
+	"embed",
+	"form",
+	"input",
+	"button",
+	"script",
+	"style",
+] as const;
 
 type MessageBubbleProps = {
 	message: UIMessage;
@@ -35,6 +48,8 @@ export function MessageBubble({ message, showCursor }: MessageBubbleProps) {
 			>
 				<Streamdown
 					controls={false}
+					disallowedElements={DISALLOWED_ELEMENTS}
+					urlTransform={safeUrlTransform}
 					components={{
 						p: ({ children }) => (
 							<p className="my-2 first:mt-0 last:mb-0">{children}</p>

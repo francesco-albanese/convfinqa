@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -12,6 +13,11 @@ from convfinqa.domain.ports.repository import (
     DocumentRepository,
 )
 from convfinqa.domain.value_objects import Role, StopReason, Usage
+from convfinqa.logging import get_logger
+
+UPSTREAM_LLM_PUBLIC_DETAIL = "upstream LLM error"
+
+logger = get_logger("convfinqa.send_message")
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +138,6 @@ class SendMessageUseCase:
             usage: Usage | None = None
             stop_reason = StopReason.END_TURN
             errored = False
-            error_detail = ""
 
             llm_messages = _to_llm_messages(conversation, user_text)
 
@@ -152,14 +157,22 @@ class SendMessageUseCase:
             except Exception as exc:  # noqa: BLE001
                 errored = True
                 stop_reason = StopReason.INTERRUPTED
-                error_detail = str(exc) or exc.__class__.__name__
+                logger.log(
+                    logging.WARNING,
+                    "upstream_llm_error",
+                    extra={
+                        "exc_type": exc.__class__.__name__,
+                        "exc_message": str(exc) or exc.__class__.__name__,
+                        "conversation_id": conversation.id,
+                    },
+                )
 
             finished_at = await self._persist_assistant(
                 conversation.id, assistant_id, "".join(buffered), stop_reason
             )
 
             if errored:
-                yield ErrorEvent(detail=error_detail)
+                yield ErrorEvent(detail=UPSTREAM_LLM_PUBLIC_DETAIL)
                 return
 
             yield Finish(stop_reason=stop_reason, usage=usage, created_at=finished_at)

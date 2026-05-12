@@ -166,7 +166,7 @@ async def _handle_upstream(request: Request, exc: Exception) -> JSONResponse:
         type=f"{PROBLEM_BASE}/upstream-error",
         title="Upstream LLM error",
         status=status.HTTP_502_BAD_GATEWAY,
-        detail=str(exc) or exc.__class__.__name__,
+        detail="The upstream LLM provider returned an error.",
     )
     _log(
         level=logging.WARNING,

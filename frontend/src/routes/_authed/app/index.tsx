@@ -3,20 +3,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { Composer } from "@/components/Composer";
 import { MessageList } from "@/components/MessageList";
+import {
+	type AppSearch,
+	AppSearchSchema,
+	ChatDataPartSchema,
+	ConversationDataSchema,
+} from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
 
 const STUB_USER_ID = "dev-user";
 
-type AppSearch = {
-	chatId?: string;
-	documentId?: string;
-};
-
 export const Route = createFileRoute("/_authed/app/")({
-	validateSearch: (raw: Record<string, unknown>): AppSearch => ({
-		chatId: typeof raw.chatId === "string" ? raw.chatId : undefined,
-		documentId: typeof raw.documentId === "string" ? raw.documentId : undefined,
-	}),
+	validateSearch: (raw: Record<string, unknown>): AppSearch => {
+		const parsed = AppSearchSchema.safeParse(raw);
+		return parsed.success ? parsed.data : {};
+	},
 	component: AppChatPage,
 });
 
@@ -26,12 +27,17 @@ function AppChatPage() {
 	const queryClient = useQueryClient();
 
 	const handleData = useCallback(
-		(part: { type: string; data?: unknown }) => {
-			if (part.type !== "data-conversation") return;
-			const newChatId = extractConversationId(part.data);
-			if (!newChatId || newChatId === chatId) return;
+		(part: unknown) => {
+			const partResult = ChatDataPartSchema.safeParse(part);
+			if (!partResult.success || partResult.data.type !== "data-conversation") {
+				return;
+			}
+			const dataResult = ConversationDataSchema.safeParse(partResult.data.data);
+			if (!dataResult.success || dataResult.data.conversationId === chatId) {
+				return;
+			}
 			void navigate({
-				search: (prev) => ({ ...prev, chatId: newChatId }),
+				search: (prev) => ({ ...prev, chatId: dataResult.data.conversationId }),
 				replace: true,
 			});
 		},
@@ -75,10 +81,4 @@ function AppChatPage() {
 			</section>
 		</main>
 	);
-}
-
-function extractConversationId(payload: unknown): string | null {
-	if (typeof payload !== "object" || payload === null) return null;
-	const value = (payload as Record<string, unknown>).conversationId;
-	return typeof value === "string" && value.length > 0 ? value : null;
 }

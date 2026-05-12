@@ -168,7 +168,9 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
     assert response.headers["content-type"].startswith("application/problem+json")
     body = response.json()
     assert body["status"] == 502
-    assert "bedrock said no" in (body.get("detail") or "")
+    detail = body.get("detail") or ""
+    assert "bedrock said no" not in detail
+    assert detail == "The upstream LLM provider returned an error."
 
     convs = fake_llm.seen_systems
     assert len(convs) == 1

@@ -137,7 +137,9 @@ async def test_stream_chat_mid_stream_llm_error_emits_error_frame_and_done(
 
     error_frame = frames[-2]
     assert isinstance(error_frame, dict)
-    assert "bedrock said no" in str(error_frame["errorText"])
+    error_text = str(error_frame["errorText"])
+    assert "bedrock said no" not in error_text
+    assert error_text == "upstream LLM error"
 
     rows = await _persisted_messages(session_factory)
     assert [r.role for r in rows] == ["user", "assistant"]
