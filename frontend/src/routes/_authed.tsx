@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { useCallback, useEffect } from "react";
 import { DocPicker } from "@/components/DocPicker";
+import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
 import { readPersistedAuthUserId, useAuth } from "@/lib/auth/AuthProvider";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
@@ -18,7 +19,6 @@ import { toggleSidebar, useSidebarCollapsed } from "@/lib/ui/sidebarStore";
 
 const SIDEBAR_WIDTH_EXPANDED = "280px";
 const SIDEBAR_WIDTH_COLLAPSED = "64px";
-const RIGHT_PANEL_WIDTH = "380px";
 
 export const Route = createFileRoute("/_authed")({
 	beforeLoad: () => {
@@ -35,7 +35,9 @@ export const Route = createFileRoute("/_authed")({
 
 function AuthedLayout() {
 	const { documentId } = Route.useSearch();
-	const isRightPanelOpen = Boolean(documentId);
+	const pinnedDocumentId =
+		typeof documentId === "string" && documentId.length > 0 ? documentId : null;
+	const isRightPanelOpen = pinnedDocumentId !== null;
 	const collapsed = useSidebarCollapsed();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
@@ -75,7 +77,7 @@ function AuthedLayout() {
 	const sidebarWidth = collapsed
 		? SIDEBAR_WIDTH_COLLAPSED
 		: SIDEBAR_WIDTH_EXPANDED;
-	const rightWidth = isRightPanelOpen ? RIGHT_PANEL_WIDTH : "0px";
+	const rightWidth = isRightPanelOpen ? "auto" : "0px";
 
 	return (
 		<div
@@ -99,11 +101,10 @@ function AuthedLayout() {
 			<div className="flex h-full min-w-0 flex-col overflow-hidden">
 				<Outlet />
 			</div>
-			{isRightPanelOpen ? (
-				<aside
-					aria-label="Pinned document"
-					data-testid="right-panel"
-					className="h-full border-border border-l bg-card"
+			{pinnedDocumentId !== null ? (
+				<RightPanel
+					documentId={pinnedDocumentId}
+					onChangeDocument={openDocPicker}
 				/>
 			) : null}
 			<DocPicker

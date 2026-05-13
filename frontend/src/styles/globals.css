@@ -36,6 +36,8 @@
 	--color-accent: #e8973c;
 	--color-accent-foreground: #0b0e14;
 	--color-link: #7cc4ff;
+	--color-destructive: #f87171;
+	--color-destructive-foreground: #0b0e14;
 	--color-border: rgba(255, 255, 255, 0.06);
 	--color-border-strong: rgba(255, 255, 255, 0.1);
 	--color-input: #161b25;
@@ -59,6 +61,8 @@
 	--color-accent: #c2671d;
 	--color-accent-foreground: #faf8f4;
 	--color-link: #2e6fb8;
+	--color-destructive: #b91c1c;
+	--color-destructive-foreground: #faf8f4;
 	--color-border: rgba(20, 18, 14, 0.06);
 	--color-border-strong: rgba(20, 18, 14, 0.1);
 	--color-input: #ece7dd;
