@@ -5,6 +5,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useMemo } from "react";
+import { formatFinancialNumber } from "@/lib/transforms/formatFinancialNumber";
 import type {
 	RowMajorTable,
 	TableCell,
@@ -144,15 +145,6 @@ export function DocTable({ table, className }: DocTableProps) {
 
 function formatCell(value: TableCell): string {
 	if (value === null) return "—";
-	if (typeof value === "number") return formatNumber(value);
+	if (typeof value === "number") return formatFinancialNumber(value);
 	return value;
-}
-
-const NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
-	maximumFractionDigits: 4,
-});
-
-function formatNumber(value: number): string {
-	if (!Number.isFinite(value)) return String(value);
-	return NUMBER_FORMATTER.format(value);
 }
