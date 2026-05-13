@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { skipToken, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 export const DocumentSummarySchema = z.object({
@@ -8,6 +8,20 @@ export const DocumentSummarySchema = z.object({
 	page: z.number().int().nullable(),
 	title: z.string().nullable(),
 });
+
+const TableCellSchema = z.union([z.number(), z.string(), z.null()]);
+const TableDataSchema = z.record(
+	z.string(),
+	z.record(z.string(), TableCellSchema),
+);
+
+export const DocumentSchema = DocumentSummarySchema.extend({
+	pre_text: z.string().nullable(),
+	post_text: z.string().nullable(),
+	table_data: TableDataSchema.nullable(),
+});
+
+export type Document = z.infer<typeof DocumentSchema>;
 
 export const DocumentListPageSchema = z.object({
 	items: z.array(DocumentSummarySchema),
@@ -23,7 +37,7 @@ export type DocumentListFilters = {
 	yearMax?: number;
 };
 
-const DOCUMENTS_LIST_PATH = "/v1/documents";
+const DOCUMENTS_PATH = "/v1/documents";
 
 export function buildDocumentsUrl(
 	filters: DocumentListFilters,
@@ -44,7 +58,7 @@ export function buildDocumentsUrl(
 		params.set("cursor", cursor);
 	}
 	const qs = params.toString();
-	return qs ? `${DOCUMENTS_LIST_PATH}?${qs}` : DOCUMENTS_LIST_PATH;
+	return qs ? `${DOCUMENTS_PATH}?${qs}` : DOCUMENTS_PATH;
 }
 
 export async function fetchDocumentList(
@@ -80,5 +94,31 @@ export function useDocumentList(filters: DocumentListFilters) {
 		queryFn: ({ pageParam }) => fetchDocumentList(filters, pageParam),
 		initialPageParam: null as string | null,
 		getNextPageParam: (lastPage) => lastPage.next_cursor,
+	});
+}
+
+export function buildDocumentUrl(id: string): string {
+	return `${DOCUMENTS_PATH}/${encodeURI(id)}`;
+}
+
+export async function fetchDocument(id: string): Promise<Document> {
+	const response = await fetch(buildDocumentUrl(id), {
+		headers: { Accept: "application/json" },
+	});
+	if (!response.ok) {
+		throw new Error(`fetchDocument: ${response.status} ${response.statusText}`);
+	}
+	return DocumentSchema.parse(await response.json());
+}
+
+export function documentQueryKey(id: string | null | undefined) {
+	return ["documents", "detail", id ?? null] as const;
+}
+
+export function useDocument(id: string | null | undefined) {
+	return useQuery({
+		queryKey: documentQueryKey(id),
+		queryFn: id ? () => fetchDocument(id) : skipToken,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 }

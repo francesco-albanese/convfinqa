@@ -4,7 +4,10 @@ import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	buildDocumentsUrl,
+	buildDocumentUrl,
+	type Document,
 	type DocumentListPage,
+	useDocument,
 	useDocumentList,
 } from "@/lib/queries/documents";
 
@@ -116,5 +119,68 @@ describe("useDocumentList", () => {
 			"Single_JKHY/2011/page_5.pdf-1",
 		]);
 		expect(result.current.hasNextPage).toBe(false);
+	});
+});
+
+describe("buildDocumentUrl", () => {
+	it("appends the id path-style without encoding the slashes in compound ids", () => {
+		expect(buildDocumentUrl("Single_JKHY/2009/page_28.pdf-3")).toBe(
+			"/v1/documents/Single_JKHY/2009/page_28.pdf-3",
+		);
+	});
+});
+
+function documentResponse(body: Document): Response {
+	return new Response(JSON.stringify(body), {
+		status: 200,
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
+describe("useDocument", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("fetches the full document payload when an id is provided", async () => {
+		const doc: Document = {
+			id: "Single_JKHY/2009/page_28.pdf-3",
+			ticker: "JKHY",
+			year: 2009,
+			page: 28,
+			title: "JKHY 2009 page 28",
+			pre_text: "before",
+			post_text: "after",
+			table_data: { "2009": { "net income": 103102 } },
+		};
+		const fetchMock = vi.fn().mockResolvedValue(documentResponse(doc));
+		vi.stubGlobal("fetch", fetchMock);
+
+		const { result } = renderHook(() => useDocument(doc.id), {
+			wrapper: withQueryClient().wrapper,
+		});
+
+		await waitFor(() => {
+			expect(result.current.isSuccess).toBe(true);
+		});
+
+		expect(fetchMock.mock.calls[0]?.[0]).toBe(
+			"/v1/documents/Single_JKHY/2009/page_28.pdf-3",
+		);
+		expect(result.current.data?.table_data).toEqual({
+			"2009": { "net income": 103102 },
+		});
+	});
+
+	it("stays disabled (no fetch) while the id is null", () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+
+		const { result } = renderHook(() => useDocument(null), {
+			wrapper: withQueryClient().wrapper,
+		});
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(result.current.fetchStatus).toBe("idle");
 	});
 });
