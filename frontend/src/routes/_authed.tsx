@@ -4,13 +4,10 @@ import {
 	redirect,
 	useNavigate,
 } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { DocPicker } from "@/components/DocPicker";
 import { Sidebar } from "@/components/Sidebar";
-import {
-	readPersistedAuthUserId,
-	useAuthedUserId,
-} from "@/lib/auth/AuthProvider";
+import { readPersistedAuthUserId, useAuth } from "@/lib/auth/AuthProvider";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
 import {
 	openDocPicker,
@@ -42,12 +39,13 @@ function AuthedLayout() {
 	const collapsed = useSidebarCollapsed();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
-	const userId = useAuthedUserId();
+	const { userId, signOut } = useAuth();
 
-	const sidebarWidth = collapsed
-		? SIDEBAR_WIDTH_COLLAPSED
-		: SIDEBAR_WIDTH_EXPANDED;
-	const rightWidth = isRightPanelOpen ? RIGHT_PANEL_WIDTH : "0px";
+	useEffect(() => {
+		if (userId === null) {
+			void navigate({ to: "/sign-in", replace: true });
+		}
+	}, [userId, navigate]);
 
 	const handleNewConversation = useCallback(() => {
 		void navigate({
@@ -57,8 +55,8 @@ function AuthedLayout() {
 	}, [navigate]);
 
 	const handleSignOut = useCallback(() => {
-		console.warn("signOut: stub — wired in convfinqa-ebw.5");
-	}, []);
+		signOut();
+	}, [signOut]);
 
 	const handlePickDocumentSelect = useCallback(
 		(id: string) => {
@@ -69,6 +67,15 @@ function AuthedLayout() {
 		},
 		[navigate],
 	);
+
+	if (userId === null) {
+		return null;
+	}
+
+	const sidebarWidth = collapsed
+		? SIDEBAR_WIDTH_COLLAPSED
+		: SIDEBAR_WIDTH_EXPANDED;
+	const rightWidth = isRightPanelOpen ? RIGHT_PANEL_WIDTH : "0px";
 
 	return (
 		<div

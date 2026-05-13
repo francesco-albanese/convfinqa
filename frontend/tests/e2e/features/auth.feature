@@ -15,3 +15,10 @@ Feature: Sign in stub
     When I click the "Continue with Google" button
     Then I land on the app page
     And my dev user id is persisted
+
+  Scenario: Sign out clears the session and returns to /sign-in
+    Given I am signed in on the app page
+    When I open the user menu
+    And I select the "Sign out" menu item
+    Then I land on the sign-in page
+    And my dev user id is cleared
