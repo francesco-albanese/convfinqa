@@ -164,6 +164,38 @@ async def test_get_document_returns_full_payload_for_slash_bearing_id(
     assert body["year"] == 2024
     assert body["pre_text"] == "fixture pre-text"
     assert body["table_data"] == {"revenue": [100, 200]}
+    assert body["column_order"] == ["revenue"]
+
+
+@pytest.mark.asyncio
+async def test_get_document_response_includes_wire_column_order(
+    app: FastAPI, engine: AsyncEngine
+) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO documents "
+                "(id, ticker, year, page, title, pre_text, post_text, "
+                "table_data, column_order) "
+                "VALUES (:id, 'JKHY', 2009, 28, 't', '', '', "
+                "CAST(:table_data AS jsonb), :column_order) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "column_order = EXCLUDED.column_order, "
+                "table_data = EXCLUDED.table_data"
+            ),
+            {
+                "id": "doc-jkhy-wire-order-api",
+                "table_data": '{"2007":{"r":1},"2008":{"r":2}}',
+                "column_order": ["Year ended June 30, 2009", "2008", "2007"],
+            },
+        )
+
+    async with await _client(app) as client:
+        response = await client.get("/v1/documents/doc-jkhy-wire-order-api")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["column_order"] == ["Year ended June 30, 2009", "2008", "2007"]
 
 
 @pytest.mark.asyncio

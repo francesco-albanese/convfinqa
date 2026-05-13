@@ -35,6 +35,7 @@ class DocumentResponse(BaseModel):
     pre_text: str | None
     post_text: str | None
     table_data: dict[str, Any] | None
+    column_order: list[str] | None
 
 
 def _to_list_response(page: DocumentListPage) -> DocumentListResponse:
@@ -63,6 +64,9 @@ def _to_document_response(document: Document) -> DocumentResponse:
         pre_text=document.pre_text,
         post_text=document.post_text,
         table_data=document.table_data,
+        column_order=(
+            list(document.column_order) if document.column_order is not None else None
+        ),
     )
 
 

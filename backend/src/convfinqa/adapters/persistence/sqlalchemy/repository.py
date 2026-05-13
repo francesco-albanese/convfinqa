@@ -50,6 +50,9 @@ def _to_document(orm: DocumentOrm) -> Document:
         pre_text=orm.pre_text,
         post_text=orm.post_text,
         table_data=orm.table_data,
+        column_order=(
+            tuple(orm.column_order) if orm.column_order is not None else None
+        ),
     )
 
 

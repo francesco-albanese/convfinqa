@@ -12,7 +12,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -97,6 +97,9 @@ class DocumentOrm(Base):
     pre_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     post_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     table_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    column_order: Mapped[list[str] | None] = mapped_column(
+        ARRAY(Text), nullable=True
+    )
     search_tsv: Mapped[str] = mapped_column(
         TSVECTOR,
         Computed(DOCUMENTS_TSVECTOR_EXPRESSION, persisted=True),

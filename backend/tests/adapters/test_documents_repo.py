@@ -118,3 +118,38 @@ async def test_list_malformed_cursor_raises_invalid_cursor_error(
     del seeded
     with pytest.raises(InvalidCursorError):
         await repo.list(ListDocumentsQuery(cursor="not-a-valid-cursor!!"))
+
+
+async def test_get_preserves_wire_column_order_for_integer_like_keys(
+    engine: AsyncEngine, repo: SqlAlchemyDocumentsRepository
+) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO documents "
+                "(id, ticker, year, page, title, pre_text, post_text, "
+                "table_data, column_order) "
+                "VALUES (:id, 'JKHY', 2009, 28, 't', '', '', "
+                "CAST(:table_data AS jsonb), :column_order) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "column_order = EXCLUDED.column_order, "
+                "table_data = EXCLUDED.table_data"
+            ),
+            {
+                "id": "doc-jkhy-wire-order",
+                "table_data": (
+                    '{"2007":{"r":1},"2008":{"r":2},'
+                    '"Year ended June 30, 2009":{"r":3}}'
+                ),
+                "column_order": [
+                    "Year ended June 30, 2009",
+                    "2008",
+                    "2007",
+                ],
+            },
+        )
+
+    got = await repo.get("doc-jkhy-wire-order")
+
+    assert got is not None
+    assert got.column_order == ("Year ended June 30, 2009", "2008", "2007")

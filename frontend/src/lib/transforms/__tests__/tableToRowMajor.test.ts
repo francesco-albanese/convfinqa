@@ -88,4 +88,69 @@ describe("tableToRowMajor", () => {
 
 		expect(result.data).toEqual([[0], [null], ["n/a"]]);
 	});
+
+	it("uses the explicit columnOrder to restore wire order when integer-like keys were reordered by JS", () => {
+		const wireOrder = ["Year ended June 30, 2009", "2008", "2007"];
+		const parsed: TableInput = JSON.parse(
+			'{"Year ended June 30, 2009":{"net income":103102},"2008":{"net income":104222},"2007":{"net income":104681}}',
+		);
+
+		expect(Object.keys(parsed)).toEqual([
+			"2007",
+			"2008",
+			"Year ended June 30, 2009",
+		]);
+
+		const result = tableToRowMajor(parsed, wireOrder);
+
+		expect(result.columns).toEqual(wireOrder);
+		expect(result.data).toEqual([[103102, 104222, 104681]]);
+	});
+
+	it("ignores columns in columnOrder that are not present in the input", () => {
+		const input: TableInput = {
+			"2024": { revenue: 100 },
+			"2025": { revenue: 200 },
+		};
+
+		const result = tableToRowMajor(input, ["2025", "missing", "2024"]);
+
+		expect(result.columns).toEqual(["2025", "2024"]);
+		expect(result.data).toEqual([[200, 100]]);
+	});
+
+	it("appends input columns missing from columnOrder so no data is dropped silently", () => {
+		const input: TableInput = {
+			alpha: { x: 1 },
+			beta: { x: 2 },
+			gamma: { x: 3 },
+		};
+
+		const result = tableToRowMajor(input, ["beta"]);
+
+		expect(result.columns).toEqual(["beta", "alpha", "gamma"]);
+		expect(result.data).toEqual([[2, 1, 3]]);
+	});
+
+	it("falls back to input insertion order when columnOrder is null", () => {
+		const input: TableInput = {
+			alpha: { x: 1 },
+			beta: { x: 2 },
+		};
+
+		const result = tableToRowMajor(input, null);
+
+		expect(result.columns).toEqual(["alpha", "beta"]);
+	});
+
+	it("falls back to input insertion order when columnOrder is an empty array", () => {
+		const input: TableInput = {
+			alpha: { x: 1 },
+			beta: { x: 2 },
+		};
+
+		const result = tableToRowMajor(input, []);
+
+		expect(result.columns).toEqual(["alpha", "beta"]);
+	});
 });

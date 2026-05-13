@@ -8,8 +8,14 @@ export type RowMajorTable = {
 	data: TableCell[][];
 };
 
-export function tableToRowMajor(input: TableInput): RowMajorTable {
-	const columns = Object.keys(input);
+export function tableToRowMajor(
+	input: TableInput,
+	columnOrder?: readonly string[] | null,
+): RowMajorTable {
+	const columns =
+		columnOrder && columnOrder.length > 0
+			? mergeColumns(columnOrder, input)
+			: Object.keys(input);
 
 	const seen = new Set<string>();
 	const rowLabels: string[] = [];
@@ -34,4 +40,25 @@ export function tableToRowMajor(input: TableInput): RowMajorTable {
 	);
 
 	return { columns, rowLabels, data };
+}
+
+function mergeColumns(
+	columnOrder: readonly string[],
+	input: TableInput,
+): string[] {
+	const ordered: string[] = [];
+	const seen = new Set<string>();
+	for (const column of columnOrder) {
+		if (!seen.has(column) && Object.hasOwn(input, column)) {
+			seen.add(column);
+			ordered.push(column);
+		}
+	}
+	for (const column of Object.keys(input)) {
+		if (!seen.has(column)) {
+			seen.add(column);
+			ordered.push(column);
+		}
+	}
+	return ordered;
 }

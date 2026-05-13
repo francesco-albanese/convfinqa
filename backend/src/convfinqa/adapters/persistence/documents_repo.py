@@ -42,13 +42,15 @@ class SqlAlchemyDocumentsRepository:
 
     async def get(self, document_id: str) -> Document | None:
         sql = text(
-            "SELECT id, ticker, year, page, title, pre_text, post_text, table_data "
+            "SELECT id, ticker, year, page, title, pre_text, post_text, "
+            "table_data, column_order "
             "FROM documents WHERE id = :id"
         )
         async with self._session_factory() as session:
             row = (await session.execute(sql, {"id": document_id})).first()
         if row is None:
             return None
+        raw_column_order = row[8]
         return Document(
             id=row[0],
             ticker=row[1],
@@ -58,6 +60,7 @@ class SqlAlchemyDocumentsRepository:
             pre_text=row[5],
             post_text=row[6],
             table_data=row[7],
+            column_order=tuple(raw_column_order) if raw_column_order is not None else None,
         )
 
     async def list(self, query: ListDocumentsQuery) -> DocumentListPage:

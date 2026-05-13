@@ -28,11 +28,12 @@ DEFAULT_BATCH_SIZE = 500
 UPSERT_SQL = text(
     """
     INSERT INTO documents (
-        id, ticker, year, page, title, pre_text, post_text, table_data
+        id, ticker, year, page, title, pre_text, post_text, table_data,
+        column_order
     )
     VALUES (
         :id, :ticker, :year, :page, :title, :pre_text, :post_text,
-        CAST(:table_data AS jsonb)
+        CAST(:table_data AS jsonb), :column_order
     )
     ON CONFLICT (id) DO UPDATE SET
         ticker = EXCLUDED.ticker,
@@ -41,7 +42,8 @@ UPSERT_SQL = text(
         title = EXCLUDED.title,
         pre_text = EXCLUDED.pre_text,
         post_text = EXCLUDED.post_text,
-        table_data = EXCLUDED.table_data
+        table_data = EXCLUDED.table_data,
+        column_order = EXCLUDED.column_order
     """
 )
 
@@ -56,6 +58,7 @@ class DocumentRecord:
     pre_text: str | None
     post_text: str | None
     table_data: dict[str, Any] | None
+    column_order: list[str] | None
 
 
 def parse_document_id(document_id: str) -> tuple[str | None, int | None, int | None]:
@@ -84,6 +87,10 @@ def iter_document_records(dataset_path: Path) -> Iterator[DocumentRecord]:
             document_id = raw_record["id"]
             doc = raw_record.get("doc", {})
             ticker, year, page = parse_document_id(document_id)
+            table_data: dict[str, Any] | None = doc.get("table")
+            column_order = (
+                list(table_data.keys()) if isinstance(table_data, dict) else None
+            )
             yield DocumentRecord(
                 id=document_id,
                 ticker=ticker,
@@ -92,7 +99,8 @@ def iter_document_records(dataset_path: Path) -> Iterator[DocumentRecord]:
                 title=derive_title(ticker, year, page),
                 pre_text=doc.get("pre_text"),
                 post_text=doc.get("post_text"),
-                table_data=doc.get("table"),
+                table_data=table_data,
+                column_order=column_order,
             )
 
 
@@ -109,6 +117,7 @@ def _to_param_dict(record: DocumentRecord) -> dict[str, Any]:
         "pre_text": record.pre_text,
         "post_text": record.post_text,
         "table_data": table_data_json,
+        "column_order": record.column_order,
     }
 
 

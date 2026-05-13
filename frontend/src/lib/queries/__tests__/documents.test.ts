@@ -152,6 +152,7 @@ describe("useDocument", () => {
 			pre_text: "before",
 			post_text: "after",
 			table_data: { "2009": { "net income": 103102 } },
+			column_order: ["2009"],
 		};
 		const fetchMock = vi.fn().mockResolvedValue(documentResponse(doc));
 		vi.stubGlobal("fetch", fetchMock);
@@ -170,6 +171,7 @@ describe("useDocument", () => {
 		expect(result.current.data?.table_data).toEqual({
 			"2009": { "net income": 103102 },
 		});
+		expect(result.current.data?.column_order).toEqual(["2009"]);
 	});
 
 	it("stays disabled (no fetch) while the id is null", () => {

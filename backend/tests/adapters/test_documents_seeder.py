@@ -80,7 +80,41 @@ def test_iter_document_records_streams_train_and_dev_with_doc_payloads(
     aapl = next(r for r in records if r.ticker == "AAPL")
     assert aapl.year == 2002 and aapl.page == 23
     assert aapl.table_data == {"revenue": 1.0}
+    assert aapl.column_order == ["revenue"]
     assert aapl.pre_text == "pre"
+
+
+@pytest.mark.unit
+def test_iter_document_records_preserves_wire_column_order_for_integer_like_keys(
+    tmp_path: Path,
+) -> None:
+    dataset: dict[str, list[dict[str, Any]]] = {
+        "train": [
+            {
+                "id": "Single_JKHY/2009/page_28.pdf-3",
+                "doc": {
+                    "pre_text": "",
+                    "post_text": "",
+                    "table": {
+                        "Year ended June 30, 2009": {"net income": 103102},
+                        "2008": {"net income": 104222},
+                        "2007": {"net income": 104681},
+                    },
+                },
+            }
+        ],
+        "dev": [],
+    }
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(json.dumps(dataset))
+
+    records = list(iter_document_records(dataset_path))
+
+    assert records[0].column_order == [
+        "Year ended June 30, 2009",
+        "2008",
+        "2007",
+    ]
 
 
 def _build_dataset(tmp_path: Path, table_data: dict[str, float]) -> Path:
@@ -172,3 +206,43 @@ async def test_seed_upserts_overwrite_changed_fields(
 
     assert row is not None
     assert row[0] == {"revenue": 999.0}
+
+
+async def test_seed_persists_column_order_for_integer_like_keys(
+    engine: AsyncEngine, database_url: str, tmp_path: Path
+) -> None:
+    await _wipe_documents(engine)
+    dataset: dict[str, list[dict[str, Any]]] = {
+        "train": [
+            {
+                "id": "Single_JKHY/2009/page_28.pdf-3",
+                "doc": {
+                    "pre_text": "",
+                    "post_text": "",
+                    "table": {
+                        "Year ended June 30, 2009": {"net income": 103102},
+                        "2008": {"net income": 104222},
+                        "2007": {"net income": 104681},
+                    },
+                },
+            }
+        ],
+        "dev": [],
+    }
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(json.dumps(dataset))
+
+    await seed(database_url, dataset_path, batch_size=10)
+
+    async with engine.connect() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT column_order FROM documents "
+                    "WHERE id = 'Single_JKHY/2009/page_28.pdf-3'"
+                )
+            )
+        ).first()
+
+    assert row is not None
+    assert row[0] == ["Year ended June 30, 2009", "2008", "2007"]

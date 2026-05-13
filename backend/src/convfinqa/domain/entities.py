@@ -34,6 +34,7 @@ class Document:
     pre_text: str | None
     post_text: str | None
     table_data: dict[str, Any] | None
+    column_order: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
