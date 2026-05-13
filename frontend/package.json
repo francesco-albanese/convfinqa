@@ -34,6 +34,7 @@
     "@tanstack/react-router": "^1.169.1",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/react-store": "^0.9.3",
+    "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.24",
     "@tanstack/store": "^0.9.3",
     "ai": "^6.0.174",
