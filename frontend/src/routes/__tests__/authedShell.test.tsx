@@ -4,8 +4,11 @@ import {
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { DocumentListPage } from "@/lib/queries/documents";
+import { setDocPickerOpen } from "@/lib/ui/docPickerStore";
 import { setSidebarCollapsed } from "@/lib/ui/sidebarStore";
 import { routeTree } from "@/routeTree.gen";
 
@@ -36,11 +39,12 @@ function renderApp(initialPath: string) {
 		history: createMemoryHistory({ initialEntries: [initialPath] }),
 		context: { queryClient },
 	});
-	return render(
+	const result = render(
 		<QueryClientProvider client={queryClient}>
 			<RouterProvider router={router} />
 		</QueryClientProvider>,
 	);
+	return { ...result, router };
 }
 
 describe("/_authed layout — three-panel grid", () => {
@@ -74,5 +78,51 @@ describe("/_authed layout — three-panel grid", () => {
 		} finally {
 			setSidebarCollapsed(false);
 		}
+	});
+});
+
+describe("/_authed layout — DocPicker → navigation wire-up", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		setDocPickerOpen(false);
+	});
+
+	it("pins the document via documentId search param when a picker result is clicked", async () => {
+		const page: DocumentListPage = {
+			items: [
+				{
+					id: "Single_NKE/2010/page_28.pdf-3",
+					ticker: "NKE",
+					year: 2010,
+					page: 28,
+					title: "NKE 2010 page 28",
+				},
+			],
+			next_cursor: null,
+		};
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue(
+				new Response(JSON.stringify(page), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+		const user = userEvent.setup();
+
+		const { router } = renderApp("/app");
+		setDocPickerOpen(true);
+
+		const result = await screen.findByRole("option", {
+			name: /nke 2010 page 28/i,
+		});
+		await user.click(result);
+
+		await waitFor(() => {
+			expect(router.state.location.search).toEqual({
+				documentId: "Single_NKE/2010/page_28.pdf-3",
+			});
+		});
 	});
 });

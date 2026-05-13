@@ -1,8 +1,14 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
+import { DocPicker } from "@/components/DocPicker";
 import { Sidebar } from "@/components/Sidebar";
 import { STUB_USER_ID } from "@/lib/auth/stubUser";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
+import {
+	openDocPicker,
+	setDocPickerOpen,
+	useDocPickerOpen,
+} from "@/lib/ui/docPickerStore";
 import { toggleSidebar, useSidebarCollapsed } from "@/lib/ui/sidebarStore";
 
 const SIDEBAR_WIDTH_EXPANDED = "280px";
@@ -21,6 +27,7 @@ function AuthedLayout() {
 	const { documentId } = Route.useSearch();
 	const isRightPanelOpen = Boolean(documentId);
 	const collapsed = useSidebarCollapsed();
+	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
 
 	const sidebarWidth = collapsed
@@ -39,6 +46,16 @@ function AuthedLayout() {
 		console.warn("signOut: stub — wired in convfinqa-ebw");
 	}, []);
 
+	const handlePickDocumentSelect = useCallback(
+		(id: string) => {
+			void navigate({
+				to: "/app",
+				search: (prev) => ({ ...prev, documentId: id }),
+			});
+		},
+		[navigate],
+	);
+
 	return (
 		<div
 			data-testid="authed-shell"
@@ -55,6 +72,7 @@ function AuthedLayout() {
 				userId={STUB_USER_ID}
 				onToggleCollapse={toggleSidebar}
 				onNewConversation={handleNewConversation}
+				onPickDocument={openDocPicker}
 				onSignOut={handleSignOut}
 			/>
 			<div className="flex h-full min-w-0 flex-col overflow-hidden">
@@ -67,6 +85,11 @@ function AuthedLayout() {
 					className="h-full border-border border-l bg-card"
 				/>
 			) : null}
+			<DocPicker
+				open={pickerOpen}
+				onOpenChange={setDocPickerOpen}
+				onSelect={handlePickDocumentSelect}
+			/>
 		</div>
 	);
 }

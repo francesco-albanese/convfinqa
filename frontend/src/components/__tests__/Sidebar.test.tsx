@@ -8,6 +8,7 @@ function renderSidebar(
 ) {
 	const onToggleCollapse = props.onToggleCollapse ?? vi.fn();
 	const onNewConversation = props.onNewConversation ?? vi.fn();
+	const onPickDocument = props.onPickDocument ?? vi.fn();
 	const onSignOut = props.onSignOut ?? vi.fn();
 	render(
 		<Sidebar
@@ -16,10 +17,11 @@ function renderSidebar(
 			userId={props.userId ?? "dev-user"}
 			onToggleCollapse={onToggleCollapse}
 			onNewConversation={onNewConversation}
+			onPickDocument={onPickDocument}
 			onSignOut={onSignOut}
 		/>,
 	);
-	return { onToggleCollapse, onNewConversation, onSignOut };
+	return { onToggleCollapse, onNewConversation, onPickDocument, onSignOut };
 }
 
 describe("Sidebar", () => {
@@ -40,6 +42,15 @@ describe("Sidebar", () => {
 		await user.click(screen.getByRole("button", { name: /new conversation/i }));
 
 		expect(onNewConversation).toHaveBeenCalledTimes(1);
+	});
+
+	it("invokes onPickDocument when the user clicks the pin-document button", async () => {
+		const user = userEvent.setup();
+		const { onPickDocument } = renderSidebar();
+
+		await user.click(screen.getByRole("button", { name: /pin a document/i }));
+
+		expect(onPickDocument).toHaveBeenCalledTimes(1);
 	});
 
 	it("lets the user type into the search input", async () => {

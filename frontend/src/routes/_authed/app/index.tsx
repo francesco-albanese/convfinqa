@@ -12,6 +12,7 @@ import {
 	ConversationDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
+import { openDocPicker } from "@/lib/ui/docPickerStore";
 
 export const Route = createFileRoute("/_authed/app/")({
 	validateSearch: (raw: Record<string, unknown>): AppSearch => {
@@ -75,7 +76,7 @@ function AppChatPage() {
 				className="flex-1 overflow-y-auto px-6 py-4"
 			>
 				{!documentId && chat.messages.length === 0 ? (
-					<EmptyState />
+					<EmptyState onPinDocument={openDocPicker} />
 				) : (
 					<MessageList messages={chat.messages} status={chat.status} />
 				)}

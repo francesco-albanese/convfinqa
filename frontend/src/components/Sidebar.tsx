@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Pin, Plus, Search } from "lucide-react";
 import { useId, useState } from "react";
 import { UserMenu } from "@/components/UserMenu";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ type SidebarProps = {
 	userId: string;
 	onToggleCollapse: () => void;
 	onNewConversation: () => void;
+	onPickDocument: () => void;
 	onSignOut: () => void;
 };
 
@@ -29,6 +30,7 @@ export function Sidebar({
 	userId,
 	onToggleCollapse,
 	onNewConversation,
+	onPickDocument,
 	onSignOut,
 }: SidebarProps) {
 	const searchId = useId();
@@ -78,6 +80,19 @@ export function Sidebar({
 				>
 					<Plus aria-hidden="true" className="size-4" />
 					{!collapsed && <span>New conversation</span>}
+				</button>
+
+				<button
+					type="button"
+					onClick={onPickDocument}
+					aria-label="Pin a document"
+					className={cn(
+						"inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card font-medium text-foreground text-sm hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+						collapsed ? "w-9 justify-center px-0" : "w-full justify-start px-3",
+					)}
+				>
+					<Pin aria-hidden="true" className="size-4" />
+					{!collapsed && <span>Pin a document</span>}
 				</button>
 
 				{!collapsed && (
