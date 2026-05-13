@@ -18,7 +18,7 @@ export type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readPersistedUserId(): string | null {
+export function readPersistedAuthUserId(): string | null {
 	try {
 		const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
 		return raw?.startsWith(DEV_USER_PREFIX) ? raw : null;
@@ -40,7 +40,7 @@ function persistUserId(userId: string | null): void {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-	const [userId, setUserId] = useState<string | null>(readPersistedUserId);
+	const [userId, setUserId] = useState<string | null>(readPersistedAuthUserId);
 
 	const signIn = useCallback(() => {
 		const next = `${DEV_USER_PREFIX}${crypto.randomUUID()}`;
@@ -67,4 +67,14 @@ export function useAuth(): AuthContextValue {
 		throw new Error("useAuth must be used within an <AuthProvider>");
 	}
 	return value;
+}
+
+export function useAuthedUserId(): string {
+	const { userId } = useAuth();
+	if (userId === null) {
+		throw new Error(
+			"useAuthedUserId requires an authenticated session; call only inside the /_authed route subtree.",
+		);
+	}
+	return userId;
 }

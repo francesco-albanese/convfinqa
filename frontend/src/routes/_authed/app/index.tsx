@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
-import { STUB_USER_ID } from "@/lib/auth/stubUser";
+import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import {
 	type AppSearch,
 	AppSearchSchema,
@@ -26,6 +26,7 @@ function AppChatPage() {
 	const { chatId, documentId } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const queryClient = useQueryClient();
+	const userId = useAuthedUserId();
 
 	const handleData = useCallback(
 		(part: unknown) => {
@@ -50,7 +51,7 @@ function AppChatPage() {
 	}, [queryClient]);
 
 	const chat = useConvfinqaChat({
-		getUserId: () => STUB_USER_ID,
+		getUserId: () => userId,
 		getDocumentId: () => documentId ?? null,
 		getConversationId: () => chatId ?? null,
 		onData: handleData,

@@ -1,9 +1,11 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { seedAuthedSession } from "./_authedSession";
 
 const { Given, When, Then } = createBdd();
 
 Given("I open the empty app", async ({ page }) => {
+	await seedAuthedSession(page);
 	await page.goto("/app");
 	await expect(page.getByTestId("authed-shell")).toBeVisible();
 });

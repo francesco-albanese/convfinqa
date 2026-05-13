@@ -1,8 +1,16 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Outlet,
+	redirect,
+	useNavigate,
+} from "@tanstack/react-router";
 import { useCallback } from "react";
 import { DocPicker } from "@/components/DocPicker";
 import { Sidebar } from "@/components/Sidebar";
-import { STUB_USER_ID } from "@/lib/auth/stubUser";
+import {
+	readPersistedAuthUserId,
+	useAuthedUserId,
+} from "@/lib/auth/AuthProvider";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
 import {
 	openDocPicker,
@@ -16,6 +24,11 @@ const SIDEBAR_WIDTH_COLLAPSED = "64px";
 const RIGHT_PANEL_WIDTH = "380px";
 
 export const Route = createFileRoute("/_authed")({
+	beforeLoad: () => {
+		if (readPersistedAuthUserId() === null) {
+			throw redirect({ to: "/sign-in" });
+		}
+	},
 	validateSearch: (raw: Record<string, unknown>): LayoutSearch => {
 		const parsed = LayoutSearchSchema.safeParse(raw);
 		return parsed.success ? parsed.data : {};
@@ -29,6 +42,7 @@ function AuthedLayout() {
 	const collapsed = useSidebarCollapsed();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
+	const userId = useAuthedUserId();
 
 	const sidebarWidth = collapsed
 		? SIDEBAR_WIDTH_COLLAPSED
@@ -43,7 +57,7 @@ function AuthedLayout() {
 	}, [navigate]);
 
 	const handleSignOut = useCallback(() => {
-		console.warn("signOut: stub — wired in convfinqa-ebw");
+		console.warn("signOut: stub — wired in convfinqa-ebw.5");
 	}, []);
 
 	const handlePickDocumentSelect = useCallback(
@@ -69,7 +83,7 @@ function AuthedLayout() {
 			<Sidebar
 				chats={[]}
 				collapsed={collapsed}
-				userId={STUB_USER_ID}
+				userId={userId}
 				onToggleCollapse={toggleSidebar}
 				onNewConversation={handleNewConversation}
 				onPickDocument={openDocPicker}

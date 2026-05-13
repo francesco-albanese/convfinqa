@@ -6,7 +6,8 @@ import {
 } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
 import type { DocumentListPage } from "@/lib/queries/documents";
 import { setDocPickerOpen } from "@/lib/ui/docPickerStore";
 import { setSidebarCollapsed } from "@/lib/ui/sidebarStore";
@@ -40,12 +41,18 @@ function renderApp(initialPath: string) {
 		context: { queryClient },
 	});
 	const result = render(
-		<QueryClientProvider client={queryClient}>
-			<RouterProvider router={router} />
-		</QueryClientProvider>,
+		<AuthProvider>
+			<QueryClientProvider client={queryClient}>
+				<RouterProvider router={router} />
+			</QueryClientProvider>
+		</AuthProvider>,
 	);
 	return { ...result, router };
 }
+
+beforeEach(() => {
+	window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-authed-shell-test");
+});
 
 describe("/_authed layout — three-panel grid", () => {
 	it("hides the right panel when no document is pinned", async () => {
