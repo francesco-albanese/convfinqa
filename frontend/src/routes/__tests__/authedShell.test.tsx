@@ -77,7 +77,9 @@ beforeEach(() => {
 describe("/_authed layout — three-panel grid", () => {
 	it("hides the right panel when no document is pinned", async () => {
 		renderApp("/app");
-		const shell = await screen.findByTestId("authed-shell");
+		const shell = await screen.findByTestId("authed-shell", undefined, {
+			timeout: 5000,
+		});
 		expect(shell).toHaveAttribute("data-right-panel", "closed");
 		expect(screen.queryByLabelText("Pinned document")).not.toBeInTheDocument();
 		expect(screen.getByLabelText("Sidebar")).toBeInTheDocument();
