@@ -365,6 +365,53 @@ describe("Sidebar — grouped chat list", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("remembers a collapsed group across a remount for the same user", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockImplementation(() => Promise.resolve(jsonResponse(SAMPLE_LIST)));
+		vi.stubGlobal("fetch", fetchMock);
+		const user = userEvent.setup();
+
+		const renderOnce = () => {
+			const client = new QueryClient({
+				defaultOptions: { queries: { retry: false } },
+			});
+			return render(
+				<QueryClientProvider client={client}>
+					<AuthProvider>
+						<Sidebar
+							collapsed={false}
+							userId={TEST_USER_ID}
+							onToggleCollapse={vi.fn()}
+							onNewConversation={vi.fn()}
+							onPickDocument={vi.fn()}
+							onSelectChat={vi.fn()}
+							onSignOut={vi.fn()}
+						/>
+					</AuthProvider>
+				</QueryClientProvider>,
+			);
+		};
+
+		const first = renderOnce();
+		const bbbHeader = await screen.findByRole("button", {
+			name: /bbb · 2023/i,
+		});
+		await user.click(bbbHeader);
+		expect(bbbHeader).toHaveAttribute("aria-expanded", "false");
+		first.unmount();
+
+		renderOnce();
+
+		const remountedBbb = await screen.findByRole("button", {
+			name: /bbb · 2023/i,
+		});
+		expect(remountedBbb).toHaveAttribute("aria-expanded", "false");
+		expect(
+			screen.queryByText(/debt covenants review/i),
+		).not.toBeInTheDocument();
+	});
+
 	it("switches to a virtualized list when the flattened row count exceeds 50", async () => {
 		const items = Array.from({ length: 60 }, (_, i) =>
 			makeSummary({

@@ -1,11 +1,13 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
+import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import { useChatList } from "@/lib/queries/chats";
 import {
 	type ChatDocumentGroup,
 	groupByDocument,
 } from "@/lib/transforms/groupByDocument";
+import { useCollapsedGroups } from "@/lib/ui/collapsedGroupsStore";
 import { cn } from "@/lib/utils";
 
 const VIRTUAL_THRESHOLD = 50;
@@ -100,9 +102,8 @@ export function SidebarChatList({
 	onSelectChat,
 }: SidebarChatListProps) {
 	const { data, isLoading, isError } = useChatList();
-	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-		() => new Set(),
-	);
+	const userId = useAuthedUserId();
+	const { collapsedGroups, toggleGroup } = useCollapsedGroups(userId);
 
 	const groups = useMemo(
 		() => groupByDocument(data?.items ?? []),
@@ -116,18 +117,6 @@ export function SidebarChatList({
 		() => flattenRows(visibleGroups, collapsedGroups),
 		[visibleGroups, collapsedGroups],
 	);
-
-	const toggleGroup = (documentId: string) => {
-		setCollapsedGroups((current) => {
-			const next = new Set(current);
-			if (next.has(documentId)) {
-				next.delete(documentId);
-			} else {
-				next.add(documentId);
-			}
-			return next;
-		});
-	};
 
 	if (collapsed) {
 		return null;
