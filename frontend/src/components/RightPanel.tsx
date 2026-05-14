@@ -15,6 +15,8 @@ export type RightPanelProps = {
 	onChangeDocument: () => void;
 	onClose?: () => void;
 	className?: string;
+	modal?: boolean;
+	ref?: React.Ref<HTMLElement>;
 };
 
 export function RightPanel({
@@ -22,6 +24,8 @@ export function RightPanel({
 	onChangeDocument,
 	onClose,
 	className,
+	modal = false,
+	ref,
 }: RightPanelProps) {
 	const { data: document, isLoading, isError } = useDocument(documentId);
 
@@ -30,10 +34,16 @@ export function RightPanel({
 		return tableToRowMajor(document.table_data, document.column_order);
 	}, [document?.table_data, document?.column_order]);
 
+	const dialogProps: Record<string, unknown> = modal
+		? { role: "dialog", "aria-modal": true, tabIndex: -1 }
+		: {};
+
 	return (
 		<aside
+			ref={ref}
 			aria-label="Pinned document"
 			data-testid="right-panel"
+			{...dialogProps}
 			className={cn("h-full bg-card", className)}
 		>
 			<ResizableSplit className="h-full">
@@ -101,6 +111,7 @@ function RightPanelHeader({
 						onClick={onClose}
 						aria-label="Close document panel"
 						data-testid="right-panel-close"
+						data-modal-initial-focus
 						className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring lg:hidden"
 					>
 						<X aria-hidden="true" className="size-3.5" />

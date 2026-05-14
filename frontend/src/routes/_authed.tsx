@@ -5,7 +5,7 @@ import {
 	useNavigate,
 } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
@@ -24,6 +24,8 @@ import {
 	useSidebarDrawerOpen,
 } from "@/lib/ui/responsiveStore";
 import { toggleSidebar, useSidebarCollapsed } from "@/lib/ui/sidebarStore";
+import { useIsBelowLg } from "@/lib/ui/useIsBelowLg";
+import { useModalDialog } from "@/lib/ui/useModalDialog";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_WIDTH_EXPANDED = "280px";
@@ -53,6 +55,9 @@ function AuthedLayout() {
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
 	const { userId, signOut } = useAuth();
+	const isBelowLg = useIsBelowLg();
+	const sidebarShellRef = useRef<HTMLElement>(null);
+	const rightPanelShellRef = useRef<HTMLElement>(null);
 
 	useEffect(() => {
 		if (userId === null) {
@@ -61,18 +66,33 @@ function AuthedLayout() {
 	}, [userId, navigate]);
 
 	useEffect(() => {
-		if (typeof window === "undefined" || !window.matchMedia) return;
-		const desktop = window.matchMedia("(min-width: 1024px)");
-		const handle = (event: MediaQueryListEvent | MediaQueryList) => {
-			if (event.matches) {
-				closeSidebarDrawer();
-				closeRightPanelSheet();
+		if (!isBelowLg) {
+			closeSidebarDrawer();
+			closeRightPanelSheet();
+		}
+	}, [isBelowLg]);
+
+	const sidebarIsModal = isBelowLg && drawerOpen;
+	const rightPanelIsModal = isBelowLg && sheetOpen;
+	const sidebarDialogProps: Record<string, unknown> = sidebarIsModal
+		? {
+				role: "dialog",
+				"aria-modal": true,
+				"aria-label": "Sidebar drawer",
+				tabIndex: -1,
 			}
-		};
-		handle(desktop);
-		desktop.addEventListener("change", handle);
-		return () => desktop.removeEventListener("change", handle);
-	}, []);
+		: {};
+
+	useModalDialog({
+		open: sidebarIsModal,
+		containerRef: sidebarShellRef,
+		onClose: closeSidebarDrawer,
+	});
+	useModalDialog({
+		open: rightPanelIsModal,
+		containerRef: rightPanelShellRef,
+		onClose: closeRightPanelSheet,
+	});
 
 	const handleNewConversation = useCallback(() => {
 		closeSidebarDrawer();
@@ -152,7 +172,9 @@ function AuthedLayout() {
 				<Menu aria-hidden="true" className="size-4" />
 			</button>
 			<aside
+				ref={sidebarShellRef}
 				data-testid="sidebar-shell"
+				{...sidebarDialogProps}
 				className={cn(
 					"fixed inset-y-0 left-0 z-50 h-full transition-transform duration-200 ease-out",
 					"lg:relative lg:inset-y-auto lg:left-auto lg:z-auto lg:translate-x-0 lg:transition-none",
@@ -184,9 +206,11 @@ function AuthedLayout() {
 			</div>
 			{pinnedDocumentId !== null ? (
 				<RightPanel
+					ref={rightPanelShellRef}
 					documentId={pinnedDocumentId}
 					onChangeDocument={handleChangeDocument}
 					onClose={closeRightPanelSheet}
+					modal={rightPanelIsModal}
 					className={cn(
 						"fixed inset-x-0 bottom-0 z-50 h-[90vh] border-border border-t shadow-lg transition-transform duration-200 ease-out",
 						"lg:relative lg:inset-auto lg:bottom-auto lg:z-auto lg:h-full lg:border-t-0 lg:border-l lg:shadow-none lg:translate-y-0 lg:transition-none",

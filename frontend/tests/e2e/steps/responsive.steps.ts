@@ -86,6 +86,36 @@ type LayoutGlobals = {
 	};
 };
 
+When("I press Escape", async ({ page }) => {
+	await page.keyboard.press("Escape");
+});
+
+Then(
+	"the sidebar drawer has role dialog and aria-modal true",
+	async ({ page }) => {
+		const shell = page.getByTestId("sidebar-shell");
+		await expect(shell).toHaveAttribute("role", "dialog");
+		await expect(shell).toHaveAttribute("aria-modal", "true");
+	},
+);
+
+Then(
+	"the right panel sheet has role dialog and aria-modal true",
+	async ({ page }) => {
+		const panel = page.getByTestId("right-panel");
+		await expect(panel).toHaveAttribute("role", "dialog");
+		await expect(panel).toHaveAttribute("aria-modal", "true");
+	},
+);
+
+Then("the hamburger button has focus", async ({ page }) => {
+	await expect(page.getByTestId("sidebar-hamburger")).toBeFocused();
+});
+
+Then("the View document button has focus", async ({ page }) => {
+	await expect(page.getByTestId("view-document-button")).toBeFocused();
+});
+
 Then("the layout has no horizontal scrollbar", async ({ page }) => {
 	const { scrollWidth, clientWidth } = await page.evaluate(() => {
 		const root = (globalThis as unknown as LayoutGlobals).document

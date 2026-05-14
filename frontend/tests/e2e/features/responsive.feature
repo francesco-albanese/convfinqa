@@ -72,3 +72,24 @@ Feature: Responsive sidebar drawer
     And a stubbed backend with the JKHY 2009 page-28-3 document seeded
     And I open the app with the JKHY 2009 page-28-3 document pinned
     Then the View document button is hidden
+
+  Scenario: Below lg, Escape closes the sidebar drawer and returns focus to the hamburger
+    Given my viewport is 600 by 900
+    And I open the empty app
+    When I open the sidebar drawer
+    Then the sidebar drawer is open
+    And the sidebar drawer has role dialog and aria-modal true
+    When I press Escape
+    Then the sidebar drawer is closed
+    And the hamburger button has focus
+
+  Scenario: Below lg, Escape closes the right-panel sheet and returns focus to the trigger
+    Given my viewport is 600 by 900
+    And a stubbed backend with the JKHY 2009 page-28-3 document seeded
+    And I open the app with the JKHY 2009 page-28-3 document pinned
+    When I click the View document button
+    Then the right panel sheet is open
+    And the right panel sheet has role dialog and aria-modal true
+    When I press Escape
+    Then the right panel sheet is closed
+    And the View document button has focus
