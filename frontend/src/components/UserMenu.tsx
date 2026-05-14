@@ -1,12 +1,20 @@
+import { LaptopIcon, MoonIcon, SunIcon } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuLabel,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { isThemeMode } from "@/theme/resolveInitialTheme";
+import { setMode, useThemeMode } from "@/theme/themeStore";
 
 type UserMenuProps = {
 	userId: string;
@@ -20,6 +28,7 @@ function initialsFor(userId: string): string {
 
 export function UserMenu({ userId, collapsed, onSignOut }: UserMenuProps) {
 	const initials = initialsFor(userId);
+	const themeMode = useThemeMode();
 
 	return (
 		<DropdownMenu>
@@ -46,9 +55,30 @@ export function UserMenu({ userId, collapsed, onSignOut }: UserMenuProps) {
 			<DropdownMenuContent align="start" side="top" className="w-56">
 				<DropdownMenuLabel className="truncate">{userId}</DropdownMenuLabel>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem disabled aria-disabled="true">
-					Theme: dark/light
-				</DropdownMenuItem>
+				<DropdownMenuSub>
+					<DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+					<DropdownMenuSubContent>
+						<DropdownMenuRadioGroup
+							value={themeMode}
+							onValueChange={(value) => {
+								if (isThemeMode(value)) setMode(value);
+							}}
+						>
+							<DropdownMenuRadioItem value="system">
+								<LaptopIcon />
+								System
+							</DropdownMenuRadioItem>
+							<DropdownMenuRadioItem value="light">
+								<SunIcon />
+								Light
+							</DropdownMenuRadioItem>
+							<DropdownMenuRadioItem value="dark">
+								<MoonIcon />
+								Dark
+							</DropdownMenuRadioItem>
+						</DropdownMenuRadioGroup>
+					</DropdownMenuSubContent>
+				</DropdownMenuSub>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={onSignOut}>Sign out</DropdownMenuItem>
 			</DropdownMenuContent>

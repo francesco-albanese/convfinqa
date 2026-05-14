@@ -72,6 +72,28 @@ describe("MessageBubble", () => {
 		expect(screen.getByText("plain text after")).toBeVisible();
 	});
 
+	it("renders the muted stopped chip when stopped is true on an assistant message", () => {
+		render(
+			<MessageBubble
+				message={makeMessage("assistant", "partial reply")}
+				stopped
+			/>,
+		);
+
+		const badge = screen.getByTestId("stopped-badge");
+		expect(badge).toBeVisible();
+		expect(badge).toHaveTextContent("Stopped");
+		expect(badge.className).toMatch(/bg-muted/);
+		expect(badge.className).toMatch(/text-muted-foreground/);
+	});
+
+	it("does not render the stopped chip when stopped is false or omitted", () => {
+		render(
+			<MessageBubble message={makeMessage("assistant", "complete reply")} />,
+		);
+		expect(screen.queryByTestId("stopped-badge")).not.toBeInTheDocument();
+	});
+
 	it("renders a pulsing cursor only when showCursor is set", () => {
 		const { rerender } = render(
 			<MessageBubble

@@ -18,9 +18,14 @@ const DISALLOWED_ELEMENTS = [
 type MessageBubbleProps = {
 	message: UIMessage;
 	showCursor?: boolean;
+	stopped?: boolean;
 };
 
-export function MessageBubble({ message, showCursor }: MessageBubbleProps) {
+export function MessageBubble({
+	message,
+	showCursor,
+	stopped,
+}: MessageBubbleProps) {
 	const text = extractText(message);
 	const isUser = message.role === "user";
 
@@ -95,6 +100,16 @@ export function MessageBubble({ message, showCursor }: MessageBubbleProps) {
 						aria-hidden="true"
 						className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-primary align-baseline"
 					/>
+				)}
+				{stopped && (
+					<div className="mt-2">
+						<span
+							data-testid="stopped-badge"
+							className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs"
+						>
+							Stopped
+						</span>
+					</div>
 				)}
 			</div>
 		</div>

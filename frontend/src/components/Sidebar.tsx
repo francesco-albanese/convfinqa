@@ -51,7 +51,7 @@ export function Sidebar({
 					onClick={onToggleCollapse}
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					aria-expanded={!collapsed}
-					className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+					className="hidden h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring lg:inline-flex"
 				>
 					<ToggleIcon aria-hidden="true" className="size-4" />
 				</button>
@@ -62,6 +62,7 @@ export function Sidebar({
 					type="button"
 					onClick={onNewConversation}
 					aria-label="New conversation"
+					data-modal-initial-focus
 					className={cn(
 						"inline-flex h-9 items-center gap-2 rounded-md bg-primary font-medium text-primary-foreground text-sm hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
 						collapsed ? "w-9 justify-center px-0" : "w-full justify-start px-3",
