@@ -1,11 +1,16 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
+PROJECT_NAME ?= convfinqa
+ACCOUNT ?= sandbox
+AWS_PROFILE ?= sandbox-admin
+
 include makefiles/env.mk
 include makefiles/test.mk
 include makefiles/run.mk
 include makefiles/docker.mk
 include makefiles/frontend.mk
+include makefiles/terraform.mk
 
 .PHONY: help
 help: ## Show available targets
