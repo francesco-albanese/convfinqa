@@ -1,13 +1,18 @@
 import { useStore } from "@tanstack/react-store";
 import { Store } from "@tanstack/store";
+import {
+	type EffectiveTheme,
+	isThemeMode,
+	resolveInitialTheme,
+	type ThemeMode,
+} from "@/theme/resolveInitialTheme";
 
 // Coupled with the inline bootstrap script in `index.html` (see convfinqa-uf5.2):
 // both must reference the same literal string since the bootstrap runs before
 // any bundle loads and cannot import this constant.
 export const THEME_STORAGE_KEY = "convfinqa:theme.mode";
 
-export type ThemeMode = "system" | "light" | "dark";
-export type EffectiveTheme = "light" | "dark";
+export type { EffectiveTheme, ThemeMode } from "@/theme/resolveInitialTheme";
 
 export type ThemeState = {
 	mode: ThemeMode;
@@ -15,20 +20,13 @@ export type ThemeState = {
 };
 
 const LIGHT_MEDIA_QUERY = "(prefers-color-scheme: light)";
-const DEFAULT_MODE: ThemeMode = "system";
 
-function isThemeMode(value: unknown): value is ThemeMode {
-	return value === "system" || value === "light" || value === "dark";
-}
-
-function readPersistedMode(): ThemeMode {
+function readPersistedMode(): string | null {
 	try {
-		const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
-		if (isThemeMode(raw)) return raw;
+		return window.localStorage.getItem(THEME_STORAGE_KEY);
 	} catch {
-		// Storage blocked — fall through to default.
+		return null;
 	}
-	return DEFAULT_MODE;
 }
 
 function writePersistedMode(mode: ThemeMode): void {
@@ -39,25 +37,26 @@ function writePersistedMode(mode: ThemeMode): void {
 	}
 }
 
-function getSystemEffectiveTheme(): EffectiveTheme {
+function systemPrefersLight(): boolean {
 	if (
 		typeof window === "undefined" ||
 		typeof window.matchMedia !== "function"
 	) {
-		return "dark";
+		return false;
 	}
-	return window.matchMedia(LIGHT_MEDIA_QUERY).matches ? "light" : "dark";
+	return window.matchMedia(LIGHT_MEDIA_QUERY).matches;
 }
 
 function resolveEffectiveTheme(mode: ThemeMode): EffectiveTheme {
-	return mode === "system" ? getSystemEffectiveTheme() : mode;
+	return resolveInitialTheme(mode, systemPrefersLight());
 }
 
 export function createThemeStore(): Store<ThemeState> {
-	const initialMode = readPersistedMode();
+	const raw = readPersistedMode();
+	const initialMode: ThemeMode = isThemeMode(raw) ? raw : "system";
 	const store = new Store<ThemeState>({
 		mode: initialMode,
-		effectiveTheme: resolveEffectiveTheme(initialMode),
+		effectiveTheme: resolveInitialTheme(raw, systemPrefersLight()),
 	});
 
 	store.subscribe(() => writePersistedMode(store.state.mode));
