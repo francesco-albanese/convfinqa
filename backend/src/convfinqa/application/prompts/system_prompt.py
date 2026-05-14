@@ -1,12 +1,28 @@
 import json
+from typing import Any
 
 from convfinqa.domain.entities import Document
+
+
+def _ordered_table(
+    table_data: dict[str, Any] | None, column_order: tuple[str, ...] | None
+) -> dict[str, Any]:
+    if not table_data:
+        return {}
+    if column_order is None:
+        return table_data
+    ordered = {key: table_data[key] for key in column_order if key in table_data}
+    for key, value in table_data.items():
+        if key not in ordered:
+            ordered[key] = value
+    return ordered
 
 
 def build_system_prompt(framing: str, document: Document) -> str:
     pre = document.pre_text or ""
     post = document.post_text or ""
-    table_json = json.dumps(document.table_data or {}, separators=(",", ":"))
+    table = _ordered_table(document.table_data, document.column_order)
+    table_json = json.dumps(table, separators=(",", ":"))
     title = document.title or document.id
 
     return (

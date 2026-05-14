@@ -10,10 +10,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from convfinqa.application.use_cases.get_document import (
+    DocumentNotFoundError as GetDocumentNotFoundError,
+)
 from convfinqa.application.use_cases.send_message import (
     ConversationNotFoundError,
     DocumentNotFoundError,
 )
+from convfinqa.domain.ports.documents_port import InvalidCursorError
 from convfinqa.logging import get_logger
 
 PROBLEM_BASE = "https://convfinqa.local/problems"
@@ -134,6 +138,23 @@ async def _handle_document_not_found(request: Request, exc: Exception) -> JSONRe
     return _problem_response(problem)
 
 
+async def _handle_invalid_cursor(request: Request, exc: Exception) -> JSONResponse:
+    problem = Problem(
+        type=f"{PROBLEM_BASE}/invalid-cursor",
+        title="Invalid pagination cursor",
+        status=status.HTTP_400_BAD_REQUEST,
+        detail="The provided pagination cursor is malformed.",
+    )
+    _log(
+        level=logging.INFO,
+        request=request,
+        exc=exc,
+        status_code=problem.status,
+        user_id=request.headers.get("x-user-id"),
+    )
+    return _problem_response(problem)
+
+
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
     validation_exc = cast(RequestValidationError, exc)
     raw_errors = cast(list[dict[str, object]], validation_exc.errors())
@@ -221,6 +242,8 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(MissingUserIdError, _handle_missing_user_id)
     app.add_exception_handler(ConversationNotFoundError, _handle_conversation_not_found)
     app.add_exception_handler(DocumentNotFoundError, _handle_document_not_found)
+    app.add_exception_handler(GetDocumentNotFoundError, _handle_document_not_found)
+    app.add_exception_handler(InvalidCursorError, _handle_invalid_cursor)
     app.add_exception_handler(RequestValidationError, _handle_validation)
     app.add_exception_handler(UpstreamLLMError, _handle_upstream)
     app.add_exception_handler(ConversationBusyError, _handle_conversation_busy)

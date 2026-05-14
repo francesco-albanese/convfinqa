@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { seedAuthedSession } from "./_authedSession";
 
 const { Given, When, Then } = createBdd();
 
@@ -51,6 +52,7 @@ Given(
 Given(
 	"I open the chat with a pinned document {string}",
 	async ({ page }, documentId: string) => {
+		await seedAuthedSession(page);
 		await page.goto(`/app?documentId=${encodeURIComponent(documentId)}`);
 		await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
 	},

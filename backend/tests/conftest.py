@@ -76,10 +76,11 @@ async def engine(database_url: str, schema: None) -> AsyncGenerator[AsyncEngine]
         await conn.execute(
             text(
                 "INSERT INTO documents "
-                "(id, ticker, year, page, title, pre_text, post_text, table_data) "
+                "(id, ticker, year, page, title, pre_text, post_text, "
+                "table_data, column_order) "
                 "VALUES "
                 "(:id, :ticker, :year, :page, :title, :pre_text, "
-                ":post_text, CAST(:table_data AS jsonb))"
+                ":post_text, CAST(:table_data AS jsonb), :column_order)"
             ),
             {
                 "id": DEFAULT_DOCUMENT_ID,
@@ -90,6 +91,7 @@ async def engine(database_url: str, schema: None) -> AsyncGenerator[AsyncEngine]
                 "pre_text": "fixture pre-text",
                 "post_text": "fixture post-text",
                 "table_data": '{"revenue": [100, 200]}',
+                "column_order": ["revenue"],
             },
         )
     yield engine

@@ -2,7 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { Composer } from "@/components/Composer";
+import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
+import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import {
 	type AppSearch,
 	AppSearchSchema,
@@ -10,8 +12,7 @@ import {
 	ConversationDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
-
-const STUB_USER_ID = "dev-user";
+import { openDocPicker } from "@/lib/ui/docPickerStore";
 
 export const Route = createFileRoute("/_authed/app/")({
 	validateSearch: (raw: Record<string, unknown>): AppSearch => {
@@ -25,6 +26,7 @@ function AppChatPage() {
 	const { chatId, documentId } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const queryClient = useQueryClient();
+	const userId = useAuthedUserId();
 
 	const handleData = useCallback(
 		(part: unknown) => {
@@ -49,7 +51,7 @@ function AppChatPage() {
 	}, [queryClient]);
 
 	const chat = useConvfinqaChat({
-		getUserId: () => STUB_USER_ID,
+		getUserId: () => userId,
 		getDocumentId: () => documentId ?? null,
 		getConversationId: () => chatId ?? null,
 		onData: handleData,
@@ -61,7 +63,7 @@ function AppChatPage() {
 	};
 
 	return (
-		<main className="flex h-screen flex-col bg-background text-foreground">
+		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
 			<header className="border-border border-b px-6 py-3">
 				<h1 className="font-semibold text-base">ConvFinQA</h1>
 				<p className="text-muted-foreground text-xs">
@@ -74,7 +76,11 @@ function AppChatPage() {
 				aria-label="Conversation"
 				className="flex-1 overflow-y-auto px-6 py-4"
 			>
-				<MessageList messages={chat.messages} status={chat.status} />
+				{!documentId && chat.messages.length === 0 ? (
+					<EmptyState onPinDocument={openDocPicker} />
+				) : (
+					<MessageList messages={chat.messages} status={chat.status} />
+				)}
 			</section>
 			<section className="border-border border-t bg-background px-6 py-3">
 				<Composer onSend={handleSend} disabled={!documentId} />

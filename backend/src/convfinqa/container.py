@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
+from convfinqa.adapters.persistence.documents_repo import SqlAlchemyDocumentsRepository
 from convfinqa.adapters.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
@@ -12,8 +13,11 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyConversationRepository,
     SqlAlchemyDocumentRepository,
 )
+from convfinqa.application.use_cases.get_document import GetDocumentUseCase
+from convfinqa.application.use_cases.list_documents import ListDocumentsUseCase
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
+from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.repository import (
@@ -30,8 +34,11 @@ class Container:
     llm: LLMPort
     conversations: ConversationRepository
     documents: DocumentRepository
+    documents_port: DocumentsPort
     locks: ConversationLockPort
     send_message: SendMessageUseCase
+    list_documents: ListDocumentsUseCase
+    get_document: GetDocumentUseCase
 
     @classmethod
     def bootstrap_application(cls, settings: Settings) -> "Container":
@@ -46,6 +53,7 @@ class Container:
             session_factory
         )
         documents: DocumentRepository = SqlAlchemyDocumentRepository(session_factory)
+        documents_port: DocumentsPort = SqlAlchemyDocumentsRepository(session_factory)
         locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
         send_message = SendMessageUseCase(
             llm=llm,
@@ -54,6 +62,8 @@ class Container:
             locks=locks,
             system_prompt_framing=settings.system_prompt,
         )
+        list_documents = ListDocumentsUseCase(documents=documents_port)
+        get_document = GetDocumentUseCase(documents=documents_port)
         return cls(
             settings=settings,
             engine=engine,
@@ -61,8 +71,11 @@ class Container:
             llm=llm,
             conversations=conversations,
             documents=documents,
+            documents_port=documents_port,
             locks=locks,
             send_message=send_message,
+            list_documents=list_documents,
+            get_document=get_document,
         )
 
     @classmethod
@@ -77,6 +90,7 @@ class Container:
             session_factory
         )
         documents: DocumentRepository = SqlAlchemyDocumentRepository(session_factory)
+        documents_port: DocumentsPort = SqlAlchemyDocumentsRepository(session_factory)
         locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
         send_message = SendMessageUseCase(
             llm=llm,
@@ -85,6 +99,8 @@ class Container:
             locks=locks,
             system_prompt_framing=settings.system_prompt,
         )
+        list_documents = ListDocumentsUseCase(documents=documents_port)
+        get_document = GetDocumentUseCase(documents=documents_port)
         return cls(
             settings=settings,
             engine=engine,
@@ -92,6 +108,9 @@ class Container:
             llm=llm,
             conversations=conversations,
             documents=documents,
+            documents_port=documents_port,
             locks=locks,
             send_message=send_message,
+            list_documents=list_documents,
+            get_document=get_document,
         )

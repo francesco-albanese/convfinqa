@@ -44,3 +44,33 @@ def test_prompt_handles_none_text_fields_without_crashing() -> None:
 
     assert "Pre-table narrative" in prompt
     assert "Post-table narrative" in prompt
+
+
+def test_prompt_serializes_table_in_column_order_for_integer_like_keys() -> None:
+    document = Document(
+        id="doc-jkhy",
+        ticker="JKHY",
+        year=2009,
+        page=28,
+        title="JKHY 2009",
+        pre_text="",
+        post_text="",
+        table_data={
+            "2007": {"r": 1},
+            "2008": {"r": 2},
+            "Year ended June 30, 2009": {"r": 3},
+        },
+        column_order=("Year ended June 30, 2009", "2008", "2007"),
+    )
+
+    prompt = build_system_prompt("f", document)
+
+    expected_table = json.dumps(
+        {
+            "Year ended June 30, 2009": {"r": 3},
+            "2008": {"r": 2},
+            "2007": {"r": 1},
+        },
+        separators=(",", ":"),
+    )
+    assert expected_table in prompt

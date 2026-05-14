@@ -51,6 +51,8 @@ describe("MessageBubble", () => {
 		);
 
 		expect(container.querySelector('a[href^="javascript:" i]')).toBeNull();
+		const dangerous = screen.getByText(/click me/);
+		expect(dangerous.closest("a")).toBeNull();
 
 		const safe = screen.getByText("safe").closest("a");
 		expect(safe?.getAttribute("href")).toMatch(/^https:\/\/example\.com/);

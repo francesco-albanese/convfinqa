@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import type { ChatStatus, UIMessage } from "ai";
 import { act, useEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
 type DataPart = { type: string; data?: unknown };
@@ -101,15 +102,18 @@ function renderApp(initialPath: string) {
 		context: { queryClient },
 	});
 	const utils = render(
-		<QueryClientProvider client={queryClient}>
-			<RouterProvider router={router} />
-		</QueryClientProvider>,
+		<AuthProvider>
+			<QueryClientProvider client={queryClient}>
+				<RouterProvider router={router} />
+			</QueryClientProvider>
+		</AuthProvider>,
 	);
 	return { ...utils, router, queryClient, invalidate };
 }
 
 beforeEach(() => {
 	resetStreamScript();
+	window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-app-test");
 });
 
 afterEach(() => {

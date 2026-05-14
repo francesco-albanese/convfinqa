@@ -34,6 +34,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://convfinqa:convfinqa@postgres:5432/convfinqa
       LLM_MODEL: ${LLM_MODEL:-bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0}
       AWS_REGION: ${AWS_REGION:-eu-west-2}
+      CONVFINQA_DATASET_PATH: /app/data/convfinqa_dataset.json
+    volumes:
+      - ./data:/app/data:ro
 
 volumes:
   convfinqa-postgres-data:

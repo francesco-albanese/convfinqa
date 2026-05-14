@@ -1,5 +1,5 @@
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
     biome:
       glob: "frontend/**/*.{ts,tsx,js,jsx,json,jsonc,css}"
@@ -10,12 +10,8 @@ pre-commit:
       glob: "frontend/**/*.{ts,tsx}"
       root: "frontend/"
       run: pnpm exec tsc -b
-    test:
-      glob: "frontend/**/*.{ts,tsx}"
-      root: "frontend/"
-      run: pnpm test
-    build:
+    build-and-test:
       glob: "frontend/**/*.{ts,tsx,css,json,html}"
       root: "frontend/"
-      run: pnpm exec vite build
+      run: pnpm exec vite build && pnpm test
       stage_fixed: true
