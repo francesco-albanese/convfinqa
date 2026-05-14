@@ -13,7 +13,12 @@ from convfinqa.application.use_cases.send_message import (
     SendMessageUseCase,
     TextDelta,
 )
-from convfinqa.domain.entities import Conversation, Document, Message
+from convfinqa.domain.entities import (
+    Conversation,
+    ConversationSummary,
+    Document,
+    Message,
+)
 from convfinqa.domain.ports.llm import LLMChunk, LLMMessage, LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.repository import (
@@ -52,6 +57,16 @@ class _FakeConvRepo:
 
     async def append_message(self, conversation_id: str, message: Message) -> None:
         self.messages_by_conv.setdefault(conversation_id, []).append(message)
+
+    async def list_for_user(self, user_id: str) -> tuple[ConversationSummary, ...]:
+        del user_id
+        return ()
+
+    async def get_messages(
+        self, conversation_id: str, user_id: str
+    ) -> tuple[Message, ...] | None:
+        del conversation_id, user_id
+        return None
 
 
 @dataclass(slots=True)

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback } from "react";
+import type { UIMessage } from "ai";
+import { useCallback, useEffect, useRef } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
@@ -12,6 +13,7 @@ import {
 	ConversationDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
+import { type ChatMessage, useChatMessages } from "@/lib/queries/chats";
 import { openDocPicker } from "@/lib/ui/docPickerStore";
 
 export const Route = createFileRoute("/_authed/app/")({
@@ -22,11 +24,22 @@ export const Route = createFileRoute("/_authed/app/")({
 	component: AppChatPage,
 });
 
+function toUIMessage(message: ChatMessage): UIMessage {
+	const role = message.role === "user" ? "user" : "assistant";
+	return {
+		id: message.id,
+		role,
+		parts: [{ type: "text", text: message.content }],
+	};
+}
+
 function AppChatPage() {
 	const { chatId, documentId } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const queryClient = useQueryClient();
 	const userId = useAuthedUserId();
+
+	const seededChatIdRef = useRef<string | null>(null);
 
 	const handleData = useCallback(
 		(part: unknown) => {
@@ -38,6 +51,7 @@ function AppChatPage() {
 			if (!dataResult.success || dataResult.data.conversationId === chatId) {
 				return;
 			}
+			seededChatIdRef.current = dataResult.data.conversationId;
 			void navigate({
 				search: (prev) => ({ ...prev, chatId: dataResult.data.conversationId }),
 				replace: true,
@@ -57,6 +71,19 @@ function AppChatPage() {
 		onData: handleData,
 		onFinish: handleFinish,
 	});
+
+	const chatRef = useRef(chat);
+	chatRef.current = chat;
+
+	const messagesQuery = useChatMessages(chatId ?? null);
+
+	useEffect(() => {
+		if (!chatId || seededChatIdRef.current === chatId || !messagesQuery.data) {
+			return;
+		}
+		chatRef.current.setMessages(messagesQuery.data.items.map(toUIMessage));
+		seededChatIdRef.current = chatId;
+	}, [chatId, messagesQuery.data]);
 
 	const handleSend = (text: string) => {
 		void chat.sendMessage({ text });

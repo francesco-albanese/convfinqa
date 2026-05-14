@@ -1,43 +1,32 @@
 import { PanelLeftClose, PanelLeftOpen, Pin, Plus, Search } from "lucide-react";
 import { useId, useState } from "react";
+import { SidebarChatList } from "@/components/SidebarChatList";
 import { UserMenu } from "@/components/UserMenu";
 import { cn } from "@/lib/utils";
 
-export type SidebarChatItem = {
-	id: string;
-	title: string;
-};
-
-export type SidebarChatGroup = {
-	documentId: string;
-	documentTitle: string;
-	chats: SidebarChatItem[];
-};
-
 type SidebarProps = {
-	chats: SidebarChatGroup[];
 	collapsed: boolean;
 	userId: string;
 	onToggleCollapse: () => void;
 	onNewConversation: () => void;
 	onPickDocument: () => void;
+	onSelectChat: (chatId: string, documentId: string) => void;
 	onSignOut: () => void;
 };
 
 export function Sidebar({
-	chats,
 	collapsed,
 	userId,
 	onToggleCollapse,
 	onNewConversation,
 	onPickDocument,
+	onSelectChat,
 	onSignOut,
 }: SidebarProps) {
 	const searchId = useId();
 	const [query, setQuery] = useState("");
 
 	const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
-	const isEmpty = chats.length === 0;
 
 	return (
 		<nav
@@ -116,27 +105,12 @@ export function Sidebar({
 				)}
 			</div>
 
-			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
-				{isEmpty ? (
-					!collapsed && (
-						<p className="px-3 py-2 text-muted-foreground text-xs">
-							No conversations yet
-						</p>
-					)
-				) : (
-					<ul className="flex flex-col gap-1">
-						{chats.flatMap((group) =>
-							group.chats.map((chat) => (
-								<li
-									key={chat.id}
-									className="truncate rounded-md px-3 py-1.5 text-foreground text-sm hover:bg-secondary"
-								>
-									{chat.title}
-								</li>
-							)),
-						)}
-					</ul>
-				)}
+			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+				<SidebarChatList
+					query={query}
+					collapsed={collapsed}
+					onSelectChat={onSelectChat}
+				/>
 			</div>
 
 			<div className="border-border border-t px-2 pt-2">

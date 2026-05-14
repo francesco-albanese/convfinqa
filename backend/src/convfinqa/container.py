@@ -13,7 +13,9 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyConversationRepository,
     SqlAlchemyDocumentRepository,
 )
+from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
+from convfinqa.application.use_cases.list_chats import ListChatsUseCase
 from convfinqa.application.use_cases.list_documents import ListDocumentsUseCase
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
@@ -39,6 +41,8 @@ class Container:
     send_message: SendMessageUseCase
     list_documents: ListDocumentsUseCase
     get_document: GetDocumentUseCase
+    list_chats: ListChatsUseCase
+    get_chat_messages: GetChatMessagesUseCase
 
     @classmethod
     def bootstrap_application(cls, settings: Settings) -> "Container":
@@ -64,6 +68,8 @@ class Container:
         )
         list_documents = ListDocumentsUseCase(documents=documents_port)
         get_document = GetDocumentUseCase(documents=documents_port)
+        list_chats = ListChatsUseCase(conversations=conversations)
+        get_chat_messages = GetChatMessagesUseCase(conversations=conversations)
         return cls(
             settings=settings,
             engine=engine,
@@ -76,6 +82,8 @@ class Container:
             send_message=send_message,
             list_documents=list_documents,
             get_document=get_document,
+            list_chats=list_chats,
+            get_chat_messages=get_chat_messages,
         )
 
     @classmethod
@@ -101,6 +109,8 @@ class Container:
         )
         list_documents = ListDocumentsUseCase(documents=documents_port)
         get_document = GetDocumentUseCase(documents=documents_port)
+        list_chats = ListChatsUseCase(conversations=conversations)
+        get_chat_messages = GetChatMessagesUseCase(conversations=conversations)
         return cls(
             settings=settings,
             engine=engine,
@@ -113,4 +123,6 @@ class Container:
             send_message=send_message,
             list_documents=list_documents,
             get_document=get_document,
+            list_chats=list_chats,
+            get_chat_messages=get_chat_messages,
         )
