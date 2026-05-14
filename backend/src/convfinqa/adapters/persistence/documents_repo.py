@@ -74,41 +74,15 @@ class SqlAlchemyDocumentsRepository:
 
         if query.q:
             params["q"] = query.q
-            rows, has_more = await self._run_ranked(
-                params, page_size, cursor_payload
-            )
-            items = tuple(
-                DocumentSummary(
-                    id=row[0], ticker=row[1], year=row[2], page=row[3], title=row[4]
-                )
-                for row in rows[:page_size]
-            )
-            next_cursor: str | None = None
-            if has_more and items:
-                last_row = rows[page_size - 1]
-                next_cursor = _encode_cursor({"rank": float(last_row[5]), "id": last_row[0]})
-            return DocumentListPage(items=items, next_cursor=next_cursor)
-
-        rows, has_more = await self._run_unranked(
-            params, page_size, cursor_payload
-        )
-        items = tuple(
-            DocumentSummary(
-                id=row[0], ticker=row[1], year=row[2], page=row[3], title=row[4]
-            )
-            for row in rows[:page_size]
-        )
-        next_cursor = None
-        if has_more and items:
-            next_cursor = _encode_cursor({"id": items[-1].id})
-        return DocumentListPage(items=items, next_cursor=next_cursor)
+            return await self._run_ranked(params, page_size, cursor_payload)
+        return await self._run_unranked(params, page_size, cursor_payload)
 
     async def _run_unranked(
         self,
         params: dict[str, Any],
         page_size: int,
         cursor_payload: dict[str, Any] | None,
-    ) -> tuple[list[Any], bool]:
+    ) -> DocumentListPage:
         cursor_id: str | None = None
         if cursor_payload is not None:
             raw = cursor_payload.get("id")
@@ -127,15 +101,23 @@ class SqlAlchemyDocumentsRepository:
         )
         async with self._session_factory() as session:
             result = await session.execute(sql, params)
-            rows = list(result.all())
-        return rows, len(rows) > page_size
+            rows: list[Any] = list(result.all())
+        has_more = len(rows) > page_size
+        items = tuple(
+            DocumentSummary(
+                id=row[0], ticker=row[1], year=row[2], page=row[3], title=row[4]
+            )
+            for row in rows[:page_size]
+        )
+        next_cursor = _encode_cursor({"id": items[-1].id}) if has_more and items else None
+        return DocumentListPage(items=items, next_cursor=next_cursor)
 
     async def _run_ranked(
         self,
         params: dict[str, Any],
         page_size: int,
         cursor_payload: dict[str, Any] | None,
-    ) -> tuple[list[Any], bool]:
+    ) -> DocumentListPage:
         cursor_rank: float | None = None
         cursor_id: str | None = None
         if cursor_payload is not None:
@@ -165,5 +147,17 @@ class SqlAlchemyDocumentsRepository:
         )
         async with self._session_factory() as session:
             result = await session.execute(sql, params)
-            rows = list(result.all())
-        return rows, len(rows) > page_size
+            rows: list[Any] = list(result.all())
+        has_more = len(rows) > page_size
+        page_rows = rows[:page_size]
+        items = tuple(
+            DocumentSummary(
+                id=row[0], ticker=row[1], year=row[2], page=row[3], title=row[4]
+            )
+            for row in page_rows
+        )
+        next_cursor: str | None = None
+        if has_more and page_rows:
+            last_row = page_rows[-1]
+            next_cursor = _encode_cursor({"rank": float(last_row[5]), "id": last_row[0]})
+        return DocumentListPage(items=items, next_cursor=next_cursor)
