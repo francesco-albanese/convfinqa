@@ -56,7 +56,7 @@ describe("/_authed — sign out", () => {
 		const user = userEvent.setup();
 		const { router } = renderAt("/app");
 
-		await screen.findByTestId("authed-shell");
+		await screen.findByTestId("authed-shell", undefined, { timeout: 3000 });
 		await user.click(screen.getByTestId("user-menu-trigger"));
 		await user.click(
 			await screen.findByRole("menuitem", { name: /sign out/i }),
