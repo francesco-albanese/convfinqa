@@ -50,3 +50,11 @@ class DocumentSummary:
 class DocumentListPage:
     items: tuple[DocumentSummary, ...]
     next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationSummary:
+    id: str
+    document: DocumentSummary
+    last_message_preview: str
+    last_message_at: datetime
