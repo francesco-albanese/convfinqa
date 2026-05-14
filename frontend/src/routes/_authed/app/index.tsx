@@ -18,6 +18,7 @@ import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
 import { useStreamErrorRetry } from "@/lib/chat/useStreamErrorRetry";
 import { type ChatMessage, useChatMessages } from "@/lib/queries/chats";
 import { openDocPicker } from "@/lib/ui/docPickerStore";
+import { openRightPanelSheet } from "@/lib/ui/responsiveStore";
 
 export const Route = createFileRoute("/_authed/app/")({
 	validateSearch: (raw: Record<string, unknown>): AppSearch => {
@@ -117,13 +118,25 @@ function AppChatPage() {
 
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
-			<header className="border-border border-b py-3 pr-6 pl-16 lg:pl-6">
-				<h1 className="font-semibold text-base">ConvFinQA</h1>
-				<p className="text-muted-foreground text-xs">
-					{documentId
-						? `Pinned: ${documentId}`
-						: "Pin a document to start asking questions."}
-				</p>
+			<header className="flex items-center justify-between gap-3 border-border border-b py-3 pr-6 pl-16 lg:pl-6">
+				<div className="min-w-0">
+					<h1 className="font-semibold text-base">ConvFinQA</h1>
+					<p className="truncate text-muted-foreground text-xs">
+						{documentId
+							? `Pinned: ${documentId}`
+							: "Pin a document to start asking questions."}
+					</p>
+				</div>
+				{documentId ? (
+					<button
+						type="button"
+						onClick={openRightPanelSheet}
+						data-testid="view-document-button"
+						className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-foreground text-xs hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring lg:hidden"
+					>
+						View document
+					</button>
+				) : null}
 			</header>
 			<section
 				aria-label="Conversation"

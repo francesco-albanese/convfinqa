@@ -3,9 +3,13 @@ import { Store } from "@tanstack/store";
 
 export type ResponsiveState = {
 	drawerOpen: boolean;
+	rightPanelSheetOpen: boolean;
 };
 
-const DEFAULT_STATE: ResponsiveState = { drawerOpen: false };
+const DEFAULT_STATE: ResponsiveState = {
+	drawerOpen: false,
+	rightPanelSheetOpen: false,
+};
 
 export function createResponsiveStore(): Store<ResponsiveState> {
 	return new Store<ResponsiveState>(DEFAULT_STATE);
@@ -31,4 +35,24 @@ export function toggleSidebarDrawer(): void {
 
 export function useSidebarDrawerOpen(): boolean {
 	return useStore(responsiveStore, (state) => state.drawerOpen);
+}
+
+export function openRightPanelSheet(): void {
+	if (responsiveStore.state.rightPanelSheetOpen) return;
+	responsiveStore.setState((state) => ({
+		...state,
+		rightPanelSheetOpen: true,
+	}));
+}
+
+export function closeRightPanelSheet(): void {
+	if (!responsiveStore.state.rightPanelSheetOpen) return;
+	responsiveStore.setState((state) => ({
+		...state,
+		rightPanelSheetOpen: false,
+	}));
+}
+
+export function useRightPanelSheetOpen(): boolean {
+	return useStore(responsiveStore, (state) => state.rightPanelSheetOpen);
 }

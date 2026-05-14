@@ -46,3 +46,36 @@ Then("the sidebar drawer is closed", async ({ page }) => {
 		"closed",
 	);
 });
+
+When("I click the View document button", async ({ page }) => {
+	await page.getByTestId("view-document-button").click();
+});
+
+When(
+	"I dismiss the right panel sheet via the close button",
+	async ({ page }) => {
+		await page.getByTestId("right-panel-close").click();
+	},
+);
+
+Then("the View document button is visible", async ({ page }) => {
+	await expect(page.getByTestId("view-document-button")).toBeVisible();
+});
+
+Then("the View document button is hidden", async ({ page }) => {
+	await expect(page.getByTestId("view-document-button")).toBeHidden();
+});
+
+Then("the right panel sheet is open", async ({ page }) => {
+	await expect(page.getByTestId("authed-shell")).toHaveAttribute(
+		"data-sheet",
+		"open",
+	);
+});
+
+Then("the right panel sheet is closed", async ({ page }) => {
+	await expect(page.getByTestId("authed-shell")).toHaveAttribute(
+		"data-sheet",
+		"closed",
+	);
+});

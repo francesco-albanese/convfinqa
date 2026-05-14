@@ -1,4 +1,4 @@
-import { Clipboard, ClipboardCheck, FileText } from "lucide-react";
+import { Clipboard, ClipboardCheck, FileText, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { DocTable } from "@/components/DocTable";
 import { ResizableSplit } from "@/components/ResizableSplit";
@@ -8,13 +8,21 @@ import {
 	type RowMajorTable,
 	tableToRowMajor,
 } from "@/lib/transforms/tableToRowMajor";
+import { cn } from "@/lib/utils";
 
 export type RightPanelProps = {
 	documentId: string;
 	onChangeDocument: () => void;
+	onClose?: () => void;
+	className?: string;
 };
 
-export function RightPanel({ documentId, onChangeDocument }: RightPanelProps) {
+export function RightPanel({
+	documentId,
+	onChangeDocument,
+	onClose,
+	className,
+}: RightPanelProps) {
 	const { data: document, isLoading, isError } = useDocument(documentId);
 
 	const table = useMemo<RowMajorTable | null>(() => {
@@ -26,7 +34,7 @@ export function RightPanel({ documentId, onChangeDocument }: RightPanelProps) {
 		<aside
 			aria-label="Pinned document"
 			data-testid="right-panel"
-			className="h-full border-border border-l bg-card"
+			className={cn("h-full bg-card", className)}
 		>
 			<ResizableSplit className="h-full">
 				<div className="flex h-full flex-col overflow-hidden">
@@ -34,6 +42,7 @@ export function RightPanel({ documentId, onChangeDocument }: RightPanelProps) {
 						document={document}
 						documentId={documentId}
 						onChangeDocument={onChangeDocument}
+						onClose={onClose}
 					/>
 					<div className="flex-1 overflow-y-auto px-4 py-4">
 						<RightPanelBody
@@ -53,12 +62,14 @@ type RightPanelHeaderProps = {
 	document: Document | undefined;
 	documentId: string;
 	onChangeDocument: () => void;
+	onClose?: () => void;
 };
 
 function RightPanelHeader({
 	document,
 	documentId,
 	onChangeDocument,
+	onClose,
 }: RightPanelHeaderProps) {
 	const displayTitle = document?.title ?? documentId;
 	return (
@@ -75,14 +86,27 @@ function RightPanelHeader({
 					{displayTitle}
 				</h2>
 			</div>
-			<button
-				type="button"
-				onClick={onChangeDocument}
-				data-testid="right-panel-change-document"
-				className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-foreground text-xs hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-			>
-				Change document
-			</button>
+			<div className="flex shrink-0 items-center gap-2">
+				<button
+					type="button"
+					onClick={onChangeDocument}
+					data-testid="right-panel-change-document"
+					className="rounded-md border border-border bg-background px-2.5 py-1 text-foreground text-xs hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+				>
+					Change document
+				</button>
+				{onClose ? (
+					<button
+						type="button"
+						onClick={onClose}
+						aria-label="Close document panel"
+						data-testid="right-panel-close"
+						className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring lg:hidden"
+					>
+						<X aria-hidden="true" className="size-3.5" />
+					</button>
+				) : null}
+			</div>
 		</header>
 	);
 }

@@ -17,8 +17,10 @@ import {
 	useDocPickerOpen,
 } from "@/lib/ui/docPickerStore";
 import {
+	closeRightPanelSheet,
 	closeSidebarDrawer,
 	openSidebarDrawer,
+	useRightPanelSheetOpen,
 	useSidebarDrawerOpen,
 } from "@/lib/ui/responsiveStore";
 import { toggleSidebar, useSidebarCollapsed } from "@/lib/ui/sidebarStore";
@@ -47,6 +49,7 @@ function AuthedLayout() {
 	const isRightPanelOpen = pinnedDocumentId !== null;
 	const collapsed = useSidebarCollapsed();
 	const drawerOpen = useSidebarDrawerOpen();
+	const sheetOpen = useRightPanelSheetOpen();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
 	const { userId, signOut } = useAuth();
@@ -60,12 +63,15 @@ function AuthedLayout() {
 	useEffect(() => {
 		if (typeof window === "undefined" || !window.matchMedia) return;
 		const desktop = window.matchMedia("(min-width: 1024px)");
-		const close = (event: MediaQueryListEvent | MediaQueryList) => {
-			if (event.matches) closeSidebarDrawer();
+		const handle = (event: MediaQueryListEvent | MediaQueryList) => {
+			if (event.matches) {
+				closeSidebarDrawer();
+				closeRightPanelSheet();
+			}
 		};
-		close(desktop);
-		desktop.addEventListener("change", close);
-		return () => desktop.removeEventListener("change", close);
+		handle(desktop);
+		desktop.addEventListener("change", handle);
+		return () => desktop.removeEventListener("change", handle);
 	}, []);
 
 	const handleNewConversation = useCallback(() => {
@@ -107,6 +113,11 @@ function AuthedLayout() {
 		openDocPicker();
 	}, []);
 
+	const handleChangeDocument = useCallback(() => {
+		closeRightPanelSheet();
+		openDocPicker();
+	}, []);
+
 	if (userId === null) {
 		return null;
 	}
@@ -122,6 +133,7 @@ function AuthedLayout() {
 			data-right-panel={isRightPanelOpen ? "open" : "closed"}
 			data-sidebar={collapsed ? "collapsed" : "expanded"}
 			data-drawer={drawerOpen ? "open" : "closed"}
+			data-sheet={sheetOpen ? "open" : "closed"}
 			className="authed-grid h-screen w-screen overflow-hidden bg-background text-foreground"
 			style={
 				{
@@ -173,7 +185,22 @@ function AuthedLayout() {
 			{pinnedDocumentId !== null ? (
 				<RightPanel
 					documentId={pinnedDocumentId}
-					onChangeDocument={openDocPicker}
+					onChangeDocument={handleChangeDocument}
+					onClose={closeRightPanelSheet}
+					className={cn(
+						"fixed inset-x-0 bottom-0 z-50 h-[90vh] border-border border-t shadow-lg transition-transform duration-200 ease-out",
+						"lg:relative lg:inset-auto lg:bottom-auto lg:z-auto lg:h-full lg:border-t-0 lg:border-l lg:shadow-none lg:translate-y-0 lg:transition-none",
+						sheetOpen ? "translate-y-0" : "translate-y-full lg:translate-y-0",
+					)}
+				/>
+			) : null}
+			{sheetOpen && pinnedDocumentId !== null ? (
+				<button
+					type="button"
+					aria-label="Close document panel"
+					data-testid="right-panel-backdrop"
+					onClick={closeRightPanelSheet}
+					className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm lg:hidden"
 				/>
 			) : null}
 			<DocPicker

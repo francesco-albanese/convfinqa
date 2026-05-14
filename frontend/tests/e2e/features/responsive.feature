@@ -19,3 +19,20 @@ Feature: Responsive sidebar drawer
     And I open the empty app
     Then the hamburger button is hidden
     And the sidebar is visible
+
+  Scenario: Below 1024px with a pinned document, the View document button opens a bottom sheet
+    Given my viewport is 600 by 900
+    And a stubbed backend with the JKHY 2009 page-28-3 document seeded
+    And I open the app with the JKHY 2009 page-28-3 document pinned
+    Then the View document button is visible
+    And the right panel sheet is closed
+    When I click the View document button
+    Then the right panel sheet is open
+    When I dismiss the right panel sheet via the close button
+    Then the right panel sheet is closed
+
+  Scenario: At 1280px with a pinned document, no View document button is shown
+    Given my viewport is 1280 by 800
+    And a stubbed backend with the JKHY 2009 page-28-3 document seeded
+    And I open the app with the JKHY 2009 page-28-3 document pinned
+    Then the View document button is hidden

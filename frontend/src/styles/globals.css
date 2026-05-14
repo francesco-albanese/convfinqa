@@ -90,7 +90,7 @@ body {
 
 .authed-grid {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) var(--rp-w, 0px);
+	grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 1024px) {
