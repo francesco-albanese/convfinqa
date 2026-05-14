@@ -2,7 +2,9 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Request
 
+from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
+from convfinqa.application.use_cases.list_chats import ListChatsUseCase
 from convfinqa.application.use_cases.list_documents import ListDocumentsUseCase
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
@@ -47,8 +49,22 @@ def get_document(
     return container.get_document
 
 
+def get_list_chats(
+    container: Annotated[Container, Depends(get_container)],
+) -> ListChatsUseCase:
+    return container.list_chats
+
+
+def get_chat_messages(
+    container: Annotated[Container, Depends(get_container)],
+) -> GetChatMessagesUseCase:
+    return container.get_chat_messages
+
+
 CurrentUserId = Annotated[str, Depends(current_user_id)]
 SendMessage = Annotated[SendMessageUseCase, Depends(get_send_message)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 ListDocuments = Annotated[ListDocumentsUseCase, Depends(get_list_documents)]
 GetDocument = Annotated[GetDocumentUseCase, Depends(get_document)]
+ListChats = Annotated[ListChatsUseCase, Depends(get_list_chats)]
+GetChatMessages = Annotated[GetChatMessagesUseCase, Depends(get_chat_messages)]

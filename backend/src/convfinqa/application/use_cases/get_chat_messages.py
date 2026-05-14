@@ -1,9 +1,8 @@
+from convfinqa.application.use_cases.send_message import ConversationNotFoundError
 from convfinqa.domain.entities import Message
 from convfinqa.domain.ports.repository import ConversationRepository
 
-
-class ConversationNotFoundError(Exception):
-    pass
+__all__ = ["ConversationNotFoundError", "GetChatMessagesUseCase"]
 
 
 class GetChatMessagesUseCase:
