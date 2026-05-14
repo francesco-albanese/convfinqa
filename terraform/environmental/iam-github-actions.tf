@@ -34,6 +34,25 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     actions   = ["sts:AssumeRole"]
     resources = ["arn:aws:iam::${var.shared_services_account_id}:role/${var.shared_services_role_name}"]
   }
+
+  statement {
+    sid    = "ManageDeployRole"
+    effect = "Allow"
+    actions = [
+      "iam:GetRole",
+      "iam:CreateRole",
+      "iam:UpdateRole",
+      "iam:DeleteRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:ListRolePolicies",
+      "iam:GetRolePolicy",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:ListAttachedRolePolicies",
+    ]
+    resources = ["arn:aws:iam::${var.account_id}:role/convfinqa-github-actions-deploy"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions_deploy" {
