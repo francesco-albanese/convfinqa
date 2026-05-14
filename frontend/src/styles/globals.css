@@ -87,3 +87,14 @@ body {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
+
+.authed-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) var(--rp-w, 0px);
+}
+
+@media (min-width: 1024px) {
+	.authed-grid {
+		grid-template-columns: var(--sb-w, 280px) minmax(0, 1fr) var(--rp-w, 0px);
+	}
+}

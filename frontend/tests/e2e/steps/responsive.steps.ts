@@ -1,0 +1,48 @@
+import { expect } from "@playwright/test";
+import { createBdd } from "playwright-bdd";
+
+const { Given, When, Then } = createBdd();
+
+Given(
+	"my viewport is {int} by {int}",
+	async ({ page }, width: number, height: number) => {
+		await page.setViewportSize({ width, height });
+	},
+);
+
+When("I open the sidebar drawer", async ({ page }) => {
+	await page.getByTestId("sidebar-hamburger").click();
+});
+
+When(
+	"I dismiss the sidebar drawer by clicking the backdrop",
+	async ({ page }) => {
+		await page.getByTestId("sidebar-backdrop").click();
+	},
+);
+
+Then("the hamburger button is visible", async ({ page }) => {
+	await expect(page.getByTestId("sidebar-hamburger")).toBeVisible();
+});
+
+Then("the hamburger button is hidden", async ({ page }) => {
+	await expect(page.getByTestId("sidebar-hamburger")).toBeHidden();
+});
+
+Then("the sidebar is visible", async ({ page }) => {
+	await expect(page.getByTestId("sidebar")).toBeVisible();
+});
+
+Then("the sidebar drawer is open", async ({ page }) => {
+	await expect(page.getByTestId("authed-shell")).toHaveAttribute(
+		"data-drawer",
+		"open",
+	);
+});
+
+Then("the sidebar drawer is closed", async ({ page }) => {
+	await expect(page.getByTestId("authed-shell")).toHaveAttribute(
+		"data-drawer",
+		"closed",
+	);
+});

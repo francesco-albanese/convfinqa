@@ -117,7 +117,7 @@ function AppChatPage() {
 
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
-			<header className="border-border border-b px-6 py-3">
+			<header className="border-border border-b py-3 pr-6 pl-16 lg:pl-6">
 				<h1 className="font-semibold text-base">ConvFinQA</h1>
 				<p className="text-muted-foreground text-xs">
 					{documentId
