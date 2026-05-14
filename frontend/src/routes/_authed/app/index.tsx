@@ -1,10 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
+import { StopButton } from "@/components/StopButton";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import {
 	type AppSearch,
@@ -89,6 +90,13 @@ function AppChatPage() {
 		void chat.sendMessage({ text });
 	};
 
+	const noopRecordStopped = useCallback(() => {}, []);
+
+	const streamingMessageId = useMemo(
+		() => findLastAssistantId(chat.messages),
+		[chat.messages],
+	);
+
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
 			<header className="border-border border-b px-6 py-3">
@@ -109,9 +117,23 @@ function AppChatPage() {
 					<MessageList messages={chat.messages} status={chat.status} />
 				)}
 			</section>
-			<section className="border-border border-t bg-background px-6 py-3">
+			<section className="flex flex-col gap-2 border-border border-t bg-background px-6 py-3">
+				<StopButton
+					status={chat.status}
+					stop={chat.stop}
+					streamingMessageId={streamingMessageId}
+					onStopped={noopRecordStopped}
+					className="self-end"
+				/>
 				<Composer onSend={handleSend} disabled={!documentId} />
 			</section>
 		</main>
 	);
+}
+
+function findLastAssistantId(messages: UIMessage[]): string | null {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		if (messages[i]?.role === "assistant") return messages[i]?.id ?? null;
+	}
+	return null;
 }
