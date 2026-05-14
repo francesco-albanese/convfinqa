@@ -42,4 +42,42 @@ describe("MessageList", () => {
 		const cursors = screen.getAllByTestId("streaming-cursor");
 		expect(cursors).toHaveLength(1);
 	});
+
+	it("renders a stopped badge only on assistant messages whose id is in stoppedIds", () => {
+		const messages = [
+			makeMessage("u1", "user", "ask"),
+			makeMessage("a1", "assistant", "partial answer"),
+			makeMessage("u2", "user", "another"),
+			makeMessage("a2", "assistant", "final answer"),
+		];
+
+		render(
+			<MessageList
+				messages={messages}
+				status="ready"
+				stoppedIds={new Set(["a1"])}
+			/>,
+		);
+
+		const badges = screen.getAllByTestId("stopped-badge");
+		expect(badges).toHaveLength(1);
+		expect(badges[0]).toHaveTextContent("Stopped");
+	});
+
+	it("ignores stoppedIds entries for user-role messages", () => {
+		const messages = [
+			makeMessage("u1", "user", "ask"),
+			makeMessage("a1", "assistant", "answer"),
+		];
+
+		render(
+			<MessageList
+				messages={messages}
+				status="ready"
+				stoppedIds={new Set(["u1"])}
+			/>,
+		);
+
+		expect(screen.queryByTestId("stopped-badge")).not.toBeInTheDocument();
+	});
 });

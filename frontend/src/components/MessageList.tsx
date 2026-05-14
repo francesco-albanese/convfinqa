@@ -4,9 +4,14 @@ import { MessageBubble } from "@/components/MessageBubble";
 type MessageListProps = {
 	messages: UIMessage[];
 	status: ChatStatus;
+	stoppedIds?: ReadonlySet<string>;
 };
 
-export function MessageList({ messages, status }: MessageListProps) {
+export function MessageList({
+	messages,
+	status,
+	stoppedIds,
+}: MessageListProps) {
 	const lastAssistantIndex = findLastAssistantIndex(messages);
 	const inFlight = status === "streaming" || status === "submitted";
 
@@ -17,6 +22,10 @@ export function MessageList({ messages, status }: MessageListProps) {
 					<MessageBubble
 						message={message}
 						showCursor={inFlight && index === lastAssistantIndex}
+						stopped={
+							message.role === "assistant" &&
+							stoppedIds?.has(message.id) === true
+						}
 					/>
 				</li>
 			))}

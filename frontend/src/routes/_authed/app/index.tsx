@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
@@ -92,7 +92,18 @@ function AppChatPage() {
 		void chat.sendMessage({ text });
 	};
 
-	const noopRecordStopped = useCallback(() => {}, []);
+	const [stoppedIds, setStoppedIds] = useState<ReadonlySet<string>>(
+		() => new Set<string>(),
+	);
+
+	const recordStopped = useCallback((messageId: string) => {
+		setStoppedIds((prev) => {
+			if (prev.has(messageId)) return prev;
+			const next = new Set(prev);
+			next.add(messageId);
+			return next;
+		});
+	}, []);
 
 	const streamingMessageId = useMemo(
 		() => findLastAssistantId(chat.messages),
@@ -121,7 +132,11 @@ function AppChatPage() {
 				{!documentId && chat.messages.length === 0 ? (
 					<EmptyState onPinDocument={openDocPicker} />
 				) : (
-					<MessageList messages={chat.messages} status={chat.status} />
+					<MessageList
+						messages={chat.messages}
+						status={chat.status}
+						stoppedIds={stoppedIds}
+					/>
 				)}
 			</section>
 			<section className="flex flex-col gap-2 border-border border-t bg-background px-6 py-3">
@@ -135,7 +150,7 @@ function AppChatPage() {
 					status={chat.status}
 					stop={chat.stop}
 					streamingMessageId={streamingMessageId}
-					onStopped={noopRecordStopped}
+					onStopped={recordStopped}
 					className="self-end"
 				/>
 				<Composer onSend={handleSend} disabled={!documentId} />
