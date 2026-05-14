@@ -44,6 +44,15 @@ function formatTimestamp(iso: string): string {
 	});
 }
 
+function documentMatches(
+	document: ChatDocumentGroup["document"],
+	needle: string,
+): boolean {
+	const title = document.title?.toLowerCase() ?? "";
+	const ticker = document.ticker?.toLowerCase() ?? "";
+	return title.includes(needle) || ticker.includes(needle);
+}
+
 function filterGroups(
 	groups: ChatDocumentGroup[],
 	query: string,
@@ -54,6 +63,10 @@ function filterGroups(
 	}
 	const filtered: ChatDocumentGroup[] = [];
 	for (const group of groups) {
+		if (documentMatches(group.document, needle)) {
+			filtered.push(group);
+			continue;
+		}
 		const conversations = group.conversations.filter((conversation) =>
 			conversation.last_message_preview.toLowerCase().includes(needle),
 		);

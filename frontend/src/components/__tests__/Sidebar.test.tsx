@@ -283,6 +283,51 @@ describe("Sidebar — grouped chat list", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("keeps the whole group's conversations when the query matches the document ticker", async () => {
+		stubChatListFetch(SAMPLE_LIST);
+		const user = userEvent.setup();
+		renderSidebar();
+
+		await screen.findByText(/revenue trend for the year/i);
+		await user.type(
+			screen.getByRole("searchbox", { name: /search conversations/i }),
+			"aaa",
+		);
+
+		expect(
+			await screen.findByText(/revenue trend for the year/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/operating margin commentary/i),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /bbb · 2023/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /ccc · 2025/i }),
+		).not.toBeInTheDocument();
+	});
+
+	it("keeps the whole group's conversations when the query matches the document title", async () => {
+		stubChatListFetch(SAMPLE_LIST);
+		const user = userEvent.setup();
+		renderSidebar();
+
+		await screen.findByText(/revenue trend for the year/i);
+		await user.type(
+			screen.getByRole("searchbox", { name: /search conversations/i }),
+			"bbb 2023",
+		);
+
+		expect(
+			await screen.findByText(/debt covenants review/i),
+		).toBeInTheDocument();
+		expect(screen.getByText(/cash flow analysis/i)).toBeInTheDocument();
+		expect(
+			screen.queryByText(/revenue trend for the year/i),
+		).not.toBeInTheDocument();
+	});
+
 	it("calls onSelectChat with both the conversation id and its document id when a row is clicked", async () => {
 		stubChatListFetch(SAMPLE_LIST);
 		const user = userEvent.setup();
