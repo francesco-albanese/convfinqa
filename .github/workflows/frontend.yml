@@ -70,13 +70,13 @@ jobs:
         working-directory: frontend
         run: pnpm exec biome ci
 
-      - name: Build
-        working-directory: frontend
-        run: pnpm exec vite build
-
       - name: Vitest
         working-directory: frontend
         run: pnpm test
+
+      - name: Build
+        working-directory: frontend
+        run: pnpm build
 
   frontend-e2e:
     name: frontend-e2e
