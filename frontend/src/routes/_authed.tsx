@@ -70,6 +70,16 @@ function AuthedLayout() {
 		[navigate],
 	);
 
+	const handleSelectChat = useCallback(
+		(chatId: string, documentId: string) => {
+			void navigate({
+				to: "/app",
+				search: (prev) => ({ ...prev, chatId, documentId }),
+			});
+		},
+		[navigate],
+	);
+
 	if (userId === null) {
 		return null;
 	}
@@ -90,12 +100,12 @@ function AuthedLayout() {
 			}}
 		>
 			<Sidebar
-				chats={[]}
 				collapsed={collapsed}
 				userId={userId}
 				onToggleCollapse={toggleSidebar}
 				onNewConversation={handleNewConversation}
 				onPickDocument={openDocPicker}
+				onSelectChat={handleSelectChat}
 				onSignOut={handleSignOut}
 			/>
 			<div className="flex h-full min-w-0 flex-col overflow-hidden">

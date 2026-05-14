@@ -109,12 +109,16 @@ describe("/_authed layout — DocPicker → navigation wire-up", () => {
 		};
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockResolvedValue(
-				new Response(JSON.stringify(page), {
-					status: 200,
-					headers: { "Content-Type": "application/json" },
-				}),
-			),
+			vi.fn().mockImplementation((input: RequestInfo | URL) => {
+				const url = typeof input === "string" ? input : input.toString();
+				const body = url.startsWith("/v1/chats") ? { items: [] } : page;
+				return Promise.resolve(
+					new Response(JSON.stringify(body), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+			}),
 		);
 		const user = userEvent.setup();
 
