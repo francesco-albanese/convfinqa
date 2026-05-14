@@ -111,13 +111,57 @@ function renderApp(initialPath: string) {
 	return { ...utils, router, queryClient, invalidate };
 }
 
+type ChatsFetchOverrides = {
+	chatList?: unknown;
+	chatMessagesByChatId?: Record<string, unknown>;
+};
+
+function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
+	const fetchMock = vi
+		.fn()
+		.mockImplementation((input: RequestInfo | URL): Promise<Response> => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("/v1/chats/")) {
+				const match = url.match(/^\/v1\/chats\/([^/]+)\/messages/);
+				const chatId = match ? decodeURIComponent(match[1] ?? "") : "";
+				const payload = overrides.chatMessagesByChatId?.[chatId] ?? {
+					items: [],
+				};
+				return Promise.resolve(
+					new Response(JSON.stringify(payload), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+			}
+			if (url.startsWith("/v1/chats")) {
+				return Promise.resolve(
+					new Response(JSON.stringify(overrides.chatList ?? { items: [] }), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+			}
+			return Promise.resolve(
+				new Response("{}", {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+		});
+	vi.stubGlobal("fetch", fetchMock);
+	return fetchMock;
+}
+
 beforeEach(() => {
 	resetStreamScript();
 	window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-app-test");
+	stubChatsFetch();
 });
 
 afterEach(() => {
 	resetStreamScript();
+	vi.unstubAllGlobals();
 });
 
 describe("/app route — Composer + MessageList + useChat wiring", () => {
@@ -133,6 +177,36 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		const textarea = await screen.findByLabelText("Message");
 		expect(textarea).toBeDisabled();
 		expect(screen.getByRole("note")).toHaveTextContent("Pin a document first");
+	});
+
+	it("seeds the conversation with persisted messages when mounted with chatId in URL", async () => {
+		stubChatsFetch({
+			chatMessagesByChatId: {
+				"conv-resume": {
+					items: [
+						{
+							id: "m1",
+							role: "user",
+							content: "what was the revenue in 2009?",
+							created_at: "2026-05-14T08:00:00+00:00",
+						},
+						{
+							id: "m2",
+							role: "assistant",
+							content: "Revenue rose to $1.2B in 2009.",
+							created_at: "2026-05-14T08:00:01+00:00",
+						},
+					],
+				},
+			},
+		});
+		renderApp("/app?chatId=conv-resume&documentId=doc-1");
+		expect(
+			await screen.findByText("what was the revenue in 2009?"),
+		).toBeInTheDocument();
+		expect(
+			await screen.findByText("Revenue rose to $1.2B in 2009."),
+		).toBeInTheDocument();
 	});
 
 	it("after Cmd+Enter, shows the user bubble, pulls chatId into the URL, and refreshes the chats query", async () => {
