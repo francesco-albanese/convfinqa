@@ -4,6 +4,42 @@ Feature: Responsive sidebar drawer
   I want a hamburger that opens the sidebar as a drawer
   So that the chat surface is not crowded out by navigation
 
+  Scenario: 600px viewport — sidebar drawer + bottom sheet
+    Given my viewport is 600 by 900
+    And a stubbed backend with the JKHY 2009 page-28-3 document seeded
+    And I open the app with the JKHY 2009 page-28-3 document pinned
+    Then the hamburger button is visible
+    And the View document button is visible
+    And the sidebar drawer is closed
+    And the right panel sheet is closed
+    And the layout has no horizontal scrollbar
+    When I open the sidebar drawer
+    Then the sidebar drawer is open
+    When I dismiss the sidebar drawer by clicking the backdrop
+    Then the sidebar drawer is closed
+    When I click the View document button
+    Then the right panel sheet is open
+    When I dismiss the right panel sheet via the close button
+    Then the right panel sheet is closed
+    And the layout has no horizontal scrollbar
+
+  Scenario: 900px viewport — same behavior
+    Given my viewport is 900 by 800
+    And a stubbed backend with the JKHY 2009 page-28-3 document seeded
+    And I open the app with the JKHY 2009 page-28-3 document pinned
+    Then the hamburger button is visible
+    And the View document button is visible
+    And the sidebar drawer is closed
+    And the right panel sheet is closed
+    When I open the sidebar drawer
+    Then the sidebar drawer is open
+    When I dismiss the sidebar drawer by clicking the backdrop
+    Then the sidebar drawer is closed
+    When I click the View document button
+    Then the right panel sheet is open
+    When I dismiss the right panel sheet via the close button
+    Then the right panel sheet is closed
+
   Scenario: Below 1024px, the hamburger toggles the sidebar drawer
     Given my viewport is 800 by 800
     And I open the empty app

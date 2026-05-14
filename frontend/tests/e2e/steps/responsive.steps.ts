@@ -79,3 +79,18 @@ Then("the right panel sheet is closed", async ({ page }) => {
 		"closed",
 	);
 });
+
+type LayoutGlobals = {
+	document: {
+		documentElement: { scrollWidth: number; clientWidth: number };
+	};
+};
+
+Then("the layout has no horizontal scrollbar", async ({ page }) => {
+	const { scrollWidth, clientWidth } = await page.evaluate(() => {
+		const root = (globalThis as unknown as LayoutGlobals).document
+			.documentElement;
+		return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth };
+	});
+	expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+});
