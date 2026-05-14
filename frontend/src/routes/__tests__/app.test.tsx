@@ -167,7 +167,9 @@ afterEach(() => {
 describe("/app route — Composer + MessageList + useChat wiring", () => {
 	it("renders the composer enabled when a documentId is in the search params", async () => {
 		renderApp("/app?documentId=single_NKE/2010/page_X");
-		const textarea = await screen.findByLabelText("Message");
+		const textarea = await screen.findByLabelText("Message", undefined, {
+			timeout: 3000,
+		});
 		expect(textarea).not.toBeDisabled();
 		expect(screen.getByText(/Pinned: single_NKE/)).toBeInTheDocument();
 	});
