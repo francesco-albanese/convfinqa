@@ -6,6 +6,7 @@ import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
 import { StopButton } from "@/components/StopButton";
+import { StreamErrorBanner } from "@/components/StreamErrorBanner";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import {
 	type AppSearch,
@@ -14,6 +15,7 @@ import {
 	ConversationDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
+import { useStreamErrorRetry } from "@/lib/chat/useStreamErrorRetry";
 import { type ChatMessage, useChatMessages } from "@/lib/queries/chats";
 import { openDocPicker } from "@/lib/ui/docPickerStore";
 
@@ -97,6 +99,11 @@ function AppChatPage() {
 		[chat.messages],
 	);
 
+	const { retry, dismiss, isRetrying } = useStreamErrorRetry({
+		chat,
+		chatId: chatId ?? null,
+	});
+
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
 			<header className="border-border border-b px-6 py-3">
@@ -118,6 +125,12 @@ function AppChatPage() {
 				)}
 			</section>
 			<section className="flex flex-col gap-2 border-border border-t bg-background px-6 py-3">
+				<StreamErrorBanner
+					error={chat.error}
+					onRetry={retry}
+					onDismiss={dismiss}
+					isRetrying={isRetrying}
+				/>
 				<StopButton
 					status={chat.status}
 					stop={chat.stop}
