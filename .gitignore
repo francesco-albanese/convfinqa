@@ -17,6 +17,10 @@ __pycache__/
 
 .*cache
 
+# Rogue pnpm store (created if pnpm runs outside frontend/ with no global store-dir)
+/.pnpm-store/
+**/.pnpm-store/
+
 # Coverage artefacts
 .coverage
 .coverage.*
@@ -35,3 +39,16 @@ example-html/
 TODO.md
 
 scripts/ralph
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

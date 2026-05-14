@@ -1,0 +1,49 @@
+name: 'Configure AWS Environment'
+description: 'Configure AWS credentials and optionally setup Terraform'
+
+inputs:
+  environment:
+    description: 'Environment (sandbox/staging/uat/production)'
+    required: true
+  aws_region:
+    description: 'AWS region'
+    required: false
+    default: 'eu-west-2'
+  role_arn:
+    description: 'AWS Role ARN (from GitHub Environment secret)'
+    required: true
+  ecr_registry:
+    description: 'ECR registry (from GitHub Environment secret, optional)'
+    required: false
+    default: ''
+  setup_terraform:
+    description: 'Whether to setup Terraform'
+    required: false
+    default: 'false'
+  terraform_version:
+    description: 'Terraform version to install'
+    required: false
+    default: '1.14.3'
+
+outputs:
+  role_arn:
+    description: 'AWS Role ARN used'
+    value: ${{ inputs.role_arn }}
+  ecr_registry:
+    description: 'ECR registry used'
+    value: ${{ inputs.ecr_registry }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+
+    - name: Setup Terraform
+      if: inputs.setup_terraform == 'true'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform_version }}
