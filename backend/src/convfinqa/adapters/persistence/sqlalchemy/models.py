@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    PrimaryKeyConstraint,
     String,
     Text,
     func,
@@ -133,4 +134,70 @@ class UserOrm(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class RateLimitOrm(Base):
+    __tablename__ = "rate_limit"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", name="fk_rate_limit_user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    window_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "window_start", name="pk_rate_limit"),
+        Index("ix_rate_limit_expires_at", "expires_at"),
+    )
+
+
+class OutputCacheOrm(Base):
+    __tablename__ = "output_cache"
+
+    prompt_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("prompt_hash", "model", name="pk_output_cache"),
+        Index("ix_output_cache_expires_at", "expires_at"),
+    )
+
+
+class IdempotencyKeyOrm(Base):
+    __tablename__ = "idempotency_keys"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "users.id", name="fk_idempotency_keys_user_id", ondelete="CASCADE"
+        ),
+        nullable=False,
+    )
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "key", name="pk_idempotency_keys"),
+        Index("ix_idempotency_keys_expires_at", "expires_at"),
     )
