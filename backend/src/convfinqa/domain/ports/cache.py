@@ -1,0 +1,9 @@
+from typing import Any, Protocol
+
+
+class CachePort(Protocol):
+    async def get(self, prompt_hash: str, model: str) -> dict[str, Any] | None: ...
+    async def set(
+        self, prompt_hash: str, model: str, response: dict[str, Any], ttl_seconds: int
+    ) -> None: ...
+    async def delete(self, prompt_hash: str, model: str) -> None: ...

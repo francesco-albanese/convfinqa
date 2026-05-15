@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
+from convfinqa.adapters.cache.postgres import PostgresCacheAdapter
 from convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
 from convfinqa.adapters.persistence.documents_repo import SqlAlchemyDocumentsRepository
 from convfinqa.adapters.persistence.sqlalchemy.engine import (
@@ -21,6 +22,7 @@ from convfinqa.application.use_cases.list_chats import ListChatsUseCase
 from convfinqa.application.use_cases.list_documents import ListDocumentsUseCase
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
+from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
@@ -46,6 +48,7 @@ class Container:
     get_document: GetDocumentUseCase
     list_chats: ListChatsUseCase
     get_chat_messages: GetChatMessagesUseCase
+    cache: CachePort
     session: SessionPort | None = None
 
     @classmethod
@@ -88,6 +91,7 @@ class Container:
                 client_id=settings.cognito_client_id,
                 find_user_by_sub=SqlAlchemyUserLookup(session_factory),
             )
+        cache: CachePort = PostgresCacheAdapter(session_factory)
         return cls(
             settings=settings,
             engine=engine,
@@ -102,6 +106,7 @@ class Container:
             get_document=get_document,
             list_chats=list_chats,
             get_chat_messages=get_chat_messages,
+            cache=cache,
             session=session,
         )
 
@@ -113,6 +118,7 @@ class Container:
         session_factory: async_sessionmaker[AsyncSession],
         llm: LLMPort,
         session: SessionPort | None = None,
+        cache: CachePort | None = None,
     ) -> "Container":
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
@@ -131,6 +137,7 @@ class Container:
         get_document = GetDocumentUseCase(documents=documents_port)
         list_chats = ListChatsUseCase(conversations=conversations)
         get_chat_messages = GetChatMessagesUseCase(conversations=conversations)
+        resolved_cache: CachePort = cache if cache is not None else PostgresCacheAdapter(session_factory)
         return cls(
             settings=settings,
             engine=engine,
@@ -145,5 +152,6 @@ class Container:
             get_document=get_document,
             list_chats=list_chats,
             get_chat_messages=get_chat_messages,
+            cache=resolved_cache,
             session=session,
         )
