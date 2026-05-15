@@ -52,6 +52,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "events:*",
       "logs:*",
       "ssm:*",
+      "elasticloadbalancing:*",
       "kms:Describe*",
       "kms:Get*",
       "kms:List*",
