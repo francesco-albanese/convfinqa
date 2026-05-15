@@ -1,4 +1,9 @@
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
+data "aws_kms_key" "ssm" {
+  key_id = "alias/aws/ssm"
+}
 
 data "aws_ssm_parameter" "google_client_id" {
   name = "/convfinqa/${var.account_name}/google/client_id"
@@ -157,4 +162,59 @@ resource "aws_ecr_lifecycle_policy" "app" {
       }
     ]
   })
+}
+
+resource "aws_ssm_parameter" "bedrock_region" {
+  name  = "/convfinqa/${var.account_name}/bedrock_region"
+  type  = "String"
+  value = var.bedrock_region
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_ssm_parameter" "system_prompt_override" {
+  name  = "/convfinqa/${var.account_name}/system_prompt_override"
+  type  = "SecureString"
+  value = var.system_prompt_override
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_iam_policy" "ssm_read" {
+  name        = "convfinqa-${var.account_name}-ssm-read"
+  description = "Read access to all convfinqa SSM parameters for this environment"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath",
+        ]
+        Resource = "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/convfinqa/${var.account_name}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "kms:Decrypt"
+        Resource = data.aws_kms_key.ssm.arn
+      },
+    ]
+  })
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
 }

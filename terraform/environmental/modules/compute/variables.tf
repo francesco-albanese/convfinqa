@@ -12,3 +12,15 @@ variable "app_domain" {
   description = "Fully-qualified app domain for constructing Cognito callback and logout URLs."
   type        = string
 }
+
+variable "bedrock_region" {
+  description = "AWS region where the Bedrock LLM endpoint is hosted."
+  type        = string
+  default     = "eu-west-1"
+}
+
+variable "system_prompt_override" {
+  description = "Optional system-prompt override stored in SSM. Leave empty to use the application default."
+  type        = string
+  default     = ""
+}
