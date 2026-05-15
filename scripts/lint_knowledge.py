@@ -250,7 +250,7 @@ def resolve_pillar_set(at_ref: str | None) -> dict[str, bool]:
             result[name] = str(data.get("pillar", "false")).lower() == "true"
         return result
     out = subprocess.run(
-        ["git", "ls-tree", "-r", "--name-only", at_ref, ".claude/rules/"],
+        ["git", "ls-tree", "-r", "--name-only", at_ref, "--", ".claude/rules/"],
         capture_output=True, text=True, cwd=REPO_ROOT, check=False,
     )
     for line in out.stdout.splitlines():
@@ -285,7 +285,7 @@ def check_pillar_deletion(base_ref: str, report: Report) -> None:
         if slug not in trailers:
             report.error(
                 RULES_DIR,
-                f"pillar rule '{slug}' deleted/demoted without 'Allow-pillar-deletion: {slug}' commit trailer",
+                f"pillar rule '{slug}' deleted, demoted, or renamed without 'Allow-pillar-deletion: {slug}' commit trailer",
             )
 
 
