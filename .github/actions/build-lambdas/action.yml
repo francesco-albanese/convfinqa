@@ -1,0 +1,40 @@
+name: 'Build Lambdas'
+description: 'Run make build-lambdas: pnpm-bundle auth-lambda handlers + uv-stage keepalive deps. Idempotent; produces artifacts consumed by data.archive_file at terraform plan time.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node 24
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        run_install: false
+        package_json_file: auth-lambda/package.json
+
+    - name: Resolve pnpm store path
+      id: pnpm-store
+      shell: bash
+      working-directory: auth-lambda
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache pnpm store (auth-lambda)
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ runner.os }}-pnpm-store-auth-lambda-${{ hashFiles('auth-lambda/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-auth-lambda-
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        python-version: "3.13"
+
+    - name: make build-lambdas
+      shell: bash
+      run: make build-lambdas

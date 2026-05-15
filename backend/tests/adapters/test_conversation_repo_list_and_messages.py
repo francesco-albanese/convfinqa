@@ -14,6 +14,9 @@ DOC_AAA = "doc-aaa-2024"
 DOC_BBB = "doc-bbb-2025"
 DOC_CCC = "doc-ccc-2026"
 
+ALICE_UUID = "11111111-1111-1111-1111-111111111111"
+BOB_UUID = "22222222-2222-2222-2222-222222222222"
+
 
 async def _seed_documents(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
@@ -38,10 +41,26 @@ async def _seed_documents(engine: AsyncEngine) -> None:
             )
 
 
+async def _seed_users(engine: AsyncEngine) -> None:
+    async with engine.begin() as conn:
+        for user_uuid, cognito_sub, email in (
+            (ALICE_UUID, "sub-alice", "alice@example.com"),
+            (BOB_UUID, "sub-bob", "bob@example.com"),
+        ):
+            await conn.execute(
+                text(
+                    "INSERT INTO users (id, cognito_sub, email) "
+                    "VALUES (CAST(:id AS uuid), :sub, :email) "
+                    "ON CONFLICT (cognito_sub) DO NOTHING"
+                ),
+                {"id": user_uuid, "sub": cognito_sub, "email": email},
+            )
+
+
 async def _insert_conversation(
     engine: AsyncEngine,
     conv_id: str,
-    user_id: str,
+    user_uuid: str,
     document_id: str,
     created_at: datetime,
 ) -> None:
@@ -49,11 +68,11 @@ async def _insert_conversation(
         await conn.execute(
             text(
                 "INSERT INTO conversations (id, user_id, document_id, created_at) "
-                "VALUES (:id, :user_id, :document_id, :created_at)"
+                "VALUES (:id, CAST(:user_id AS uuid), :document_id, :created_at)"
             ),
             {
                 "id": conv_id,
-                "user_id": user_id,
+                "user_id": user_uuid,
                 "document_id": document_id,
                 "created_at": created_at,
             },
@@ -95,10 +114,11 @@ def repo(
 async def test_list_for_user_returns_conversations_sorted_by_last_message_at_desc(
     engine: AsyncEngine, repo: SqlAlchemyConversationRepository
 ) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     base = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-    await _insert_conversation(engine, "conv-1", "alice", DOC_AAA, base)
-    await _insert_conversation(engine, "conv-2", "alice", DOC_BBB, base)
+    await _insert_conversation(engine, "conv-1", ALICE_UUID, DOC_AAA, base)
+    await _insert_conversation(engine, "conv-2", ALICE_UUID, DOC_BBB, base)
     await _insert_message(
         engine,
         "m-1",
@@ -116,7 +136,7 @@ async def test_list_for_user_returns_conversations_sorted_by_last_message_at_des
         base + timedelta(minutes=10),
     )
 
-    summaries = await repo.list_for_user("alice")
+    summaries = await repo.list_for_user(ALICE_UUID)
 
     assert [s.id for s in summaries] == ["conv-2", "conv-1"]
     assert summaries[0].document.ticker == "BBB"
@@ -126,9 +146,10 @@ async def test_list_for_user_returns_conversations_sorted_by_last_message_at_des
 async def test_list_for_user_preview_is_latest_user_message_truncated(
     engine: AsyncEngine, repo: SqlAlchemyConversationRepository
 ) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     base = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-    await _insert_conversation(engine, "conv-1", "alice", DOC_AAA, base)
+    await _insert_conversation(engine, "conv-1", ALICE_UUID, DOC_AAA, base)
     long_user_text = "x" * (LAST_MESSAGE_PREVIEW_MAX_CHARS + 25)
     await _insert_message(
         engine,
@@ -155,7 +176,7 @@ async def test_list_for_user_preview_is_latest_user_message_truncated(
         base + timedelta(minutes=3),
     )
 
-    summaries = await repo.list_for_user("alice")
+    summaries = await repo.list_for_user(ALICE_UUID)
 
     assert len(summaries) == 1
     assert summaries[0].last_message_preview == "x" * LAST_MESSAGE_PREVIEW_MAX_CHARS
@@ -164,11 +185,12 @@ async def test_list_for_user_preview_is_latest_user_message_truncated(
 async def test_list_for_user_falls_back_to_created_at_when_no_messages(
     engine: AsyncEngine, repo: SqlAlchemyConversationRepository
 ) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     created = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-    await _insert_conversation(engine, "conv-empty", "alice", DOC_AAA, created)
+    await _insert_conversation(engine, "conv-empty", ALICE_UUID, DOC_AAA, created)
 
-    summaries = await repo.list_for_user("alice")
+    summaries = await repo.list_for_user(ALICE_UUID)
 
     assert len(summaries) == 1
     assert summaries[0].last_message_preview == ""
@@ -178,13 +200,14 @@ async def test_list_for_user_falls_back_to_created_at_when_no_messages(
 async def test_list_for_user_isolates_other_users(
     engine: AsyncEngine, repo: SqlAlchemyConversationRepository
 ) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     base = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-    await _insert_conversation(engine, "conv-alice", "alice", DOC_AAA, base)
-    await _insert_conversation(engine, "conv-bob", "bob", DOC_BBB, base)
+    await _insert_conversation(engine, "conv-alice", ALICE_UUID, DOC_AAA, base)
+    await _insert_conversation(engine, "conv-bob", BOB_UUID, DOC_BBB, base)
 
-    alice_summaries = await repo.list_for_user("alice")
-    bob_summaries = await repo.list_for_user("bob")
+    alice_summaries = await repo.list_for_user(ALICE_UUID)
+    bob_summaries = await repo.list_for_user(BOB_UUID)
 
     assert [s.id for s in alice_summaries] == ["conv-alice"]
     assert [s.id for s in bob_summaries] == ["conv-bob"]
@@ -193,9 +216,10 @@ async def test_list_for_user_isolates_other_users(
 async def test_get_messages_returns_messages_in_chronological_order(
     engine: AsyncEngine, repo: SqlAlchemyConversationRepository
 ) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     base = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-    await _insert_conversation(engine, "conv-1", "alice", DOC_AAA, base)
+    await _insert_conversation(engine, "conv-1", ALICE_UUID, DOC_AAA, base)
     await _insert_message(
         engine,
         "m-2",
@@ -213,7 +237,7 @@ async def test_get_messages_returns_messages_in_chronological_order(
         base + timedelta(seconds=10),
     )
 
-    messages = await repo.get_messages("conv-1", "alice")
+    messages = await repo.get_messages("conv-1", ALICE_UUID)
 
     assert messages is not None
     assert [m.id for m in messages] == ["m-1", "m-2"]
@@ -223,14 +247,15 @@ async def test_get_messages_returns_messages_in_chronological_order(
 async def test_get_messages_returns_none_for_cross_user_access(
     engine: AsyncEngine, repo: SqlAlchemyConversationRepository
 ) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     base = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-    await _insert_conversation(engine, "conv-1", "alice", DOC_AAA, base)
+    await _insert_conversation(engine, "conv-1", ALICE_UUID, DOC_AAA, base)
     await _insert_message(
         engine, "m-1", "conv-1", Role.USER, "hi", base + timedelta(seconds=1)
     )
 
-    got = await repo.get_messages("conv-1", "mallory")
+    got = await repo.get_messages("conv-1", BOB_UUID)
 
     assert got is None
 
@@ -240,6 +265,6 @@ async def test_get_messages_returns_none_for_unknown_conversation(
 ) -> None:
     del engine
 
-    got = await repo.get_messages("conv-nonexistent", "alice")
+    got = await repo.get_messages("conv-nonexistent", ALICE_UUID)
 
     assert got is None

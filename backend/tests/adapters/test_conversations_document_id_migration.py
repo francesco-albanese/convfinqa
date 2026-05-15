@@ -18,8 +18,8 @@ async def test_conversations_document_id_foreign_key_rejects_unknown_document(
         async with engine.begin() as conn:
             await conn.execute(
                 text(
-                    "INSERT INTO conversations (id, user_id, document_id) "
-                    "VALUES ('conv_a', 'alice', 'this-doc-does-not-exist')"
+                    "INSERT INTO conversations (id, document_id) "
+                    "VALUES ('conv_a', 'this-doc-does-not-exist')"
                 )
             )
 
@@ -30,9 +30,7 @@ async def test_conversations_document_id_is_not_null(
     with pytest.raises(IntegrityError):
         async with engine.begin() as conn:
             await conn.execute(
-                text(
-                    "INSERT INTO conversations (id, user_id) VALUES ('conv_b', 'alice')"
-                )
+                text("INSERT INTO conversations (id) VALUES ('conv_b')")
             )
 
 

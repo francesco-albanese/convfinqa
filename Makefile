@@ -11,6 +11,7 @@ include makefiles/run.mk
 include makefiles/docker.mk
 include makefiles/frontend.mk
 include makefiles/terraform.mk
+include makefiles/lambdas.mk
 
 .PHONY: help
 help: ## Show available targets

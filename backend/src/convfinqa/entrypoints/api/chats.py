@@ -11,7 +11,7 @@ from convfinqa.entrypoints.api.dependencies import (
     ListChats,
 )
 
-chats_router = APIRouter(prefix="/v1", tags=["chats"])
+chats_router = APIRouter(prefix="/api/v1", tags=["chats"])
 
 CONVERSATION_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
 CONVERSATION_ID_MAX_LENGTH = 128

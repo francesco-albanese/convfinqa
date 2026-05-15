@@ -25,3 +25,24 @@ variable "shared_services_role_name" {
   type        = string
   default     = "terraform"
 }
+
+variable "cognito_hosted_ui_prefix" {
+  description = "Subdomain prefix for the Cognito hosted UI (e.g. 'convfinqa-sandbox' → 'convfinqa-sandbox.auth.<region>.amazoncognito.com'). Must be globally unique within the region."
+  type        = string
+}
+
+variable "app_domain" {
+  description = "Fully-qualified domain name for the SPA + API (e.g. app.convfinqa.francescoalbanese.dev)"
+  type        = string
+}
+
+variable "apex_domain" {
+  description = "Apex/project domain included as a SAN on the ACM cert (e.g. convfinqa.francescoalbanese.dev)"
+  type        = string
+}
+
+variable "parent_zone_name" {
+  description = "Name of the Route53 hosted zone in shared-services that will receive ACM validation CNAMEs (e.g. francescoalbanese.dev)"
+  type        = string
+  default     = "francescoalbanese.dev"
+}

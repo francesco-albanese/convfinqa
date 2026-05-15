@@ -49,21 +49,21 @@ function headerValue(call: unknown[] | undefined, name: string): string | null {
 
 describe("buildChatListUrl / buildChatMessagesUrl", () => {
 	it("builds the list endpoint without query string", () => {
-		expect(buildChatListUrl()).toBe("/v1/chats");
+		expect(buildChatListUrl()).toBe("/api/v1/chats");
 	});
 
 	it("path-encodes the conversation id in the messages endpoint", () => {
 		expect(buildChatMessagesUrl("conv_abc123")).toBe(
-			"/v1/chats/conv_abc123/messages",
+			"/api/v1/chats/conv_abc123/messages",
 		);
 		expect(buildChatMessagesUrl("with space/slash")).toBe(
-			"/v1/chats/with%20space%2Fslash/messages",
+			"/api/v1/chats/with%20space%2Fslash/messages",
 		);
 	});
 });
 
 describe("ChatListSchema", () => {
-	it("parses the wire shape emitted by GET /v1/chats", () => {
+	it("parses the wire shape emitted by GET /api/v1/chats", () => {
 		const payload = {
 			items: [
 				{
@@ -100,7 +100,7 @@ describe("ChatListSchema", () => {
 });
 
 describe("ChatMessageListSchema", () => {
-	it("parses the wire shape emitted by GET /v1/chats/{id}/messages", () => {
+	it("parses the wire shape emitted by GET /api/v1/chats/{id}/messages", () => {
 		const payload: ChatMessageList = ChatMessageListSchema.parse({
 			items: [
 				{
@@ -127,7 +127,7 @@ describe("useChatList", () => {
 		window.localStorage.clear();
 	});
 
-	it("requests /v1/chats with the X-User-Id header and parses the response", async () => {
+	it("requests /api/v1/chats with the X-User-Id header and parses the response", async () => {
 		const list: ChatList = {
 			items: [
 				{
@@ -154,7 +154,7 @@ describe("useChatList", () => {
 			expect(result.current.isSuccess).toBe(true);
 		});
 
-		expect(fetchMock.mock.calls[0]?.[0]).toBe("/v1/chats");
+		expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/chats");
 		expect(headerValue(fetchMock.mock.calls[0], "X-User-Id")).toBe(
 			TEST_USER_ID,
 		);
@@ -183,7 +183,7 @@ describe("useChatMessages", () => {
 		window.localStorage.clear();
 	});
 
-	it("fetches /v1/chats/{id}/messages with X-User-Id when a chatId is provided", async () => {
+	it("fetches /api/v1/chats/{id}/messages with X-User-Id when a chatId is provided", async () => {
 		const messages: ChatMessageList = {
 			items: [
 				{
@@ -205,7 +205,9 @@ describe("useChatMessages", () => {
 			expect(result.current.isSuccess).toBe(true);
 		});
 
-		expect(fetchMock.mock.calls[0]?.[0]).toBe("/v1/chats/conv_abc/messages");
+		expect(fetchMock.mock.calls[0]?.[0]).toBe(
+			"/api/v1/chats/conv_abc/messages",
+		);
 		expect(headerValue(fetchMock.mock.calls[0], "X-User-Id")).toBe(
 			TEST_USER_ID,
 		);

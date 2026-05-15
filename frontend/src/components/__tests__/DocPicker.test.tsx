@@ -61,7 +61,7 @@ describe("DocPicker", () => {
 		await waitFor(() => {
 			expect(fetchMock).toHaveBeenCalled();
 		});
-		expect(fetchMock.mock.calls[0]?.[0]).toBe("/v1/documents");
+		expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/documents");
 
 		const input = screen.getByRole("searchbox", {
 			name: /search documents/i,

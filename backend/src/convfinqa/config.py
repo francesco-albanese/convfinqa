@@ -46,5 +46,9 @@ class Settings(BaseSettings):
         ge=1,
     )
 
+    cognito_region: str = Field(default="eu-west-1")
+    cognito_user_pool_id: str | None = Field(default=None)
+    cognito_client_id: str | None = Field(default=None)
+
 
 SETTINGS = Settings()

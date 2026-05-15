@@ -32,6 +32,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TESTS_DIR = Path(__file__).resolve().parent
 
 DEFAULT_DOCUMENT_ID = "Single_TEST/2024/page_1.pdf-1"
+SEEDED_USER_UUID = "00000000-0000-0000-0000-000000000001"
 
 
 def pytest_collection_modifyitems(
@@ -94,6 +95,18 @@ async def engine(database_url: str, schema: None) -> AsyncGenerator[AsyncEngine]
                 "column_order": ["revenue"],
             },
         )
+        await conn.execute(
+            text(
+                "INSERT INTO users (id, cognito_sub, email) "
+                "VALUES (CAST(:id AS uuid), :sub, :email) "
+                "ON CONFLICT (cognito_sub) DO NOTHING"
+            ),
+            {
+                "id": SEEDED_USER_UUID,
+                "sub": "test-cognito-sub",
+                "email": "test@example.com",
+            },
+        )
     yield engine
     await engine.dispose()
 
@@ -108,6 +121,11 @@ async def session_factory(
 @pytest.fixture
 def seeded_document_id() -> str:
     return DEFAULT_DOCUMENT_ID
+
+
+@pytest.fixture
+def seeded_user_id() -> str:
+    return SEEDED_USER_UUID
 
 
 @pytest.fixture

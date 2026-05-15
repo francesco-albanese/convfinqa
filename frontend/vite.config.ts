@@ -26,7 +26,8 @@ export default defineConfig({
 	},
 	server: {
 		proxy: {
-			"/v1": backendProxy,
+			"/api/v1": backendProxy,
+			"/api/auth": backendProxy,
 			"/healthz": backendProxy,
 			"/readyz": backendProxy,
 		},

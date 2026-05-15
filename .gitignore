@@ -52,3 +52,10 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+
+# Lambda build outputs (produced by `make build-lambdas`, zipped at TF plan
+# time via data.archive_file — must NEVER be committed)
+auth-lambda/dist/
+terraform/environmental/modules/**/*.zip
+terraform/environmental/modules/**/.build/
+terraform/environmental/modules/keepalive/build/
