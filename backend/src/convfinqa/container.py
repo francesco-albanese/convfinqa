@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
 from convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
 from convfinqa.adapters.persistence.documents_repo import SqlAlchemyDocumentsRepository
 from convfinqa.adapters.persistence.sqlalchemy.engine import (
@@ -26,6 +27,7 @@ from convfinqa.domain.ports.repository import (
     ConversationRepository,
     DocumentRepository,
 )
+from convfinqa.domain.ports.session import SessionPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +45,7 @@ class Container:
     get_document: GetDocumentUseCase
     list_chats: ListChatsUseCase
     get_chat_messages: GetChatMessagesUseCase
+    session: SessionPort | None = None
 
     @classmethod
     def bootstrap_application(cls, settings: Settings) -> "Container":
@@ -70,6 +73,19 @@ class Container:
         get_document = GetDocumentUseCase(documents=documents_port)
         list_chats = ListChatsUseCase(conversations=conversations)
         get_chat_messages = GetChatMessagesUseCase(conversations=conversations)
+        session: SessionPort | None = None
+        if settings.cognito_user_pool_id and settings.cognito_client_id:
+            session = CognitoJwksAdapter(
+                jwks_url=(
+                    f"https://cognito-idp.{settings.cognito_region}.amazonaws.com"
+                    f"/{settings.cognito_user_pool_id}/.well-known/jwks.json"
+                ),
+                issuer=(
+                    f"https://cognito-idp.{settings.cognito_region}.amazonaws.com"
+                    f"/{settings.cognito_user_pool_id}"
+                ),
+                client_id=settings.cognito_client_id,
+            )
         return cls(
             settings=settings,
             engine=engine,
@@ -84,6 +100,7 @@ class Container:
             get_document=get_document,
             list_chats=list_chats,
             get_chat_messages=get_chat_messages,
+            session=session,
         )
 
     @classmethod
@@ -93,6 +110,7 @@ class Container:
         engine: AsyncEngine,
         session_factory: async_sessionmaker[AsyncSession],
         llm: LLMPort,
+        session: SessionPort | None = None,
     ) -> "Container":
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
@@ -125,4 +143,5 @@ class Container:
             get_document=get_document,
             list_chats=list_chats,
             get_chat_messages=get_chat_messages,
+            session=session,
         )
