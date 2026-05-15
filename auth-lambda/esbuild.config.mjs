@@ -1,6 +1,5 @@
-import { execSync } from "node:child_process"
 import { mkdirSync, readdirSync } from "node:fs"
-import { basename, extname, join } from "node:path"
+import { join } from "node:path"
 import * as esbuild from "esbuild"
 
 const HANDLERS_DIR = "src/handlers"
@@ -21,7 +20,7 @@ await esbuild.build({
 	entryPoints: entries,
 	bundle: true,
 	platform: "node",
-	target: "node22",
+	target: "node24",
 	format: "esm",
 	outdir: OUT_DIR,
 	outExtension: { ".js": ".mjs" },
@@ -30,12 +29,3 @@ await esbuild.build({
 	minify: false,
 	logLevel: "info",
 })
-
-for (const entry of entries) {
-	const name = basename(entry, extname(entry))
-	execSync(`zip -j ${name}.zip ${name}.mjs`, {
-		cwd: OUT_DIR,
-		stdio: "inherit",
-	})
-	console.log(`→ ${OUT_DIR}/${name}.zip`)
-}

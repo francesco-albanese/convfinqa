@@ -522,6 +522,8 @@ locals {
     COGNITO_REVOKE_URL         = "${local.cognito_base_url}/oauth2/revoke"
     CALLBACK_URL               = local.callback_url
   }
+  bff_handlers = ["login", "callback", "refresh", "logout", "post_confirmation"]
+  bff_dist_dir = "${path.module}/../../../../auth-lambda/dist"
 }
 
 resource "aws_iam_role" "bff_lambda" {
@@ -608,13 +610,21 @@ resource "aws_cloudwatch_log_group" "bff_post_confirmation" {
   }
 }
 
+data "archive_file" "bff" {
+  for_each = toset(local.bff_handlers)
+
+  type        = "zip"
+  source_file = "${local.bff_dist_dir}/${each.key}.mjs"
+  output_path = "${path.module}/.build/${each.key}.zip"
+}
+
 resource "aws_lambda_function" "bff_login" {
   function_name    = "convfinqa-${var.account_name}-bff-login"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "login.handler"
-  runtime          = "nodejs22.x"
-  filename         = "${path.module}/login.zip"
-  source_code_hash = filebase64sha256("${path.module}/login.zip")
+  runtime          = "nodejs24.x"
+  filename         = data.archive_file.bff["login"].output_path
+  source_code_hash = data.archive_file.bff["login"].output_base64sha256
   timeout          = 10
   memory_size      = 128
 
@@ -623,10 +633,6 @@ resource "aws_lambda_function" "bff_login" {
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_login]
-
-  lifecycle {
-    ignore_changes = [source_code_hash, filename]
-  }
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"
@@ -639,9 +645,9 @@ resource "aws_lambda_function" "bff_callback" {
   function_name    = "convfinqa-${var.account_name}-bff-callback"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "callback.handler"
-  runtime          = "nodejs22.x"
-  filename         = "${path.module}/callback.zip"
-  source_code_hash = filebase64sha256("${path.module}/callback.zip")
+  runtime          = "nodejs24.x"
+  filename         = data.archive_file.bff["callback"].output_path
+  source_code_hash = data.archive_file.bff["callback"].output_base64sha256
   timeout          = 15
   memory_size      = 128
 
@@ -652,10 +658,6 @@ resource "aws_lambda_function" "bff_callback" {
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_callback]
-
-  lifecycle {
-    ignore_changes = [source_code_hash, filename]
-  }
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"
@@ -668,9 +670,9 @@ resource "aws_lambda_function" "bff_refresh" {
   function_name    = "convfinqa-${var.account_name}-bff-refresh"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "refresh.handler"
-  runtime          = "nodejs22.x"
-  filename         = "${path.module}/refresh.zip"
-  source_code_hash = filebase64sha256("${path.module}/refresh.zip")
+  runtime          = "nodejs24.x"
+  filename         = data.archive_file.bff["refresh"].output_path
+  source_code_hash = data.archive_file.bff["refresh"].output_base64sha256
   timeout          = 10
   memory_size      = 128
 
@@ -679,10 +681,6 @@ resource "aws_lambda_function" "bff_refresh" {
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_refresh]
-
-  lifecycle {
-    ignore_changes = [source_code_hash, filename]
-  }
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"
@@ -695,9 +693,9 @@ resource "aws_lambda_function" "bff_logout" {
   function_name    = "convfinqa-${var.account_name}-bff-logout"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "logout.handler"
-  runtime          = "nodejs22.x"
-  filename         = "${path.module}/logout.zip"
-  source_code_hash = filebase64sha256("${path.module}/logout.zip")
+  runtime          = "nodejs24.x"
+  filename         = data.archive_file.bff["logout"].output_path
+  source_code_hash = data.archive_file.bff["logout"].output_base64sha256
   timeout          = 10
   memory_size      = 128
 
@@ -706,10 +704,6 @@ resource "aws_lambda_function" "bff_logout" {
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_logout]
-
-  lifecycle {
-    ignore_changes = [source_code_hash, filename]
-  }
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"
@@ -722,9 +716,9 @@ resource "aws_lambda_function" "bff_post_confirmation" {
   function_name    = "convfinqa-${var.account_name}-bff-post-confirmation"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "post_confirmation.handler"
-  runtime          = "nodejs22.x"
-  filename         = "${path.module}/post_confirmation.zip"
-  source_code_hash = filebase64sha256("${path.module}/post_confirmation.zip")
+  runtime          = "nodejs24.x"
+  filename         = data.archive_file.bff["post_confirmation"].output_path
+  source_code_hash = data.archive_file.bff["post_confirmation"].output_base64sha256
   timeout          = 10
   memory_size      = 128
 
@@ -735,10 +729,6 @@ resource "aws_lambda_function" "bff_post_confirmation" {
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_post_confirmation]
-
-  lifecycle {
-    ignore_changes = [source_code_hash, filename]
-  }
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"

@@ -63,13 +63,19 @@ resource "aws_cloudwatch_log_group" "lambda" {
   }
 }
 
+data "archive_file" "keepalive" {
+  type        = "zip"
+  source_dir  = "${path.module}/build"
+  output_path = "${path.module}/.build/keepalive.zip"
+}
+
 resource "aws_lambda_function" "keepalive" {
   function_name    = "convfinqa-${var.account_name}-keepalive"
   role             = aws_iam_role.lambda.arn
   handler          = "handler.handler"
   runtime          = "python3.13"
-  filename         = "${path.module}/keepalive.zip"
-  source_code_hash = filebase64sha256("${path.module}/keepalive.zip")
+  filename         = data.archive_file.keepalive.output_path
+  source_code_hash = data.archive_file.keepalive.output_base64sha256
   timeout          = 60
   memory_size      = 128
 

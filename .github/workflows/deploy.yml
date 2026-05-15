@@ -121,6 +121,9 @@ jobs:
           role_arn: ${{ secrets.AWS_ROLE_ARN }}
           setup_terraform: "true"
 
+      - name: Build lambdas
+        uses: ./.github/actions/build-lambdas
+
       - name: Terraform Init
         env:
           ACCOUNT: ${{ steps.set-env.outputs.environment }}
@@ -189,6 +192,9 @@ jobs:
           aws_region: ${{ env.AWS_REGION }}
           role_arn: ${{ secrets.AWS_ROLE_ARN }}
           setup_terraform: "true"
+
+      - name: Build lambdas
+        uses: ./.github/actions/build-lambdas
 
       - name: Terraform Init
         env:
@@ -409,6 +415,9 @@ jobs:
           aws_region: ${{ env.AWS_REGION }}
           role_arn: ${{ secrets.AWS_ROLE_ARN }}
           setup_terraform: "true"
+
+      - name: Build lambdas
+        uses: ./.github/actions/build-lambdas
 
       - name: Terraform Init
         env:
