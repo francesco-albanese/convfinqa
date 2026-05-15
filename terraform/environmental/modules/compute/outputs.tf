@@ -27,3 +27,28 @@ output "ssm_read_policy_arn" {
   description = "ARN of the IAM policy granting read access to all /convfinqa/{env}/* SSM parameters."
   value       = aws_iam_policy.ssm_read.arn
 }
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name."
+  value       = aws_ecs_cluster.main.name
+}
+
+output "ecs_cluster_arn" {
+  description = "ECS cluster ARN."
+  value       = aws_ecs_cluster.main.arn
+}
+
+output "ecs_task_role_arn" {
+  description = "ARN of the ECS task role (runtime permissions)."
+  value       = aws_iam_role.ecs_task.arn
+}
+
+output "ecs_execution_role_arn" {
+  description = "ARN of the ECS task execution role."
+  value       = aws_iam_role.ecs_execution.arn
+}
+
+output "ecs_service_name" {
+  description = "ECS service name."
+  value       = aws_ecs_service.api.name
+}

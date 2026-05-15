@@ -30,6 +30,8 @@ module "compute" {
   account_name             = var.account_name
   app_domain               = var.app_domain
   cognito_hosted_ui_prefix = var.cognito_hosted_ui_prefix
+  public_subnet_ids        = module.network.public_subnet_ids
+  ecs_sg_id                = module.network.ecs_sg_id
 }
 
 module "keepalive" {

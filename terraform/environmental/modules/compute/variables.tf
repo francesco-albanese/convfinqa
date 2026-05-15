@@ -24,3 +24,19 @@ variable "system_prompt_override" {
   type        = string
   default     = ""
 }
+
+variable "public_subnet_ids" {
+  description = "IDs of the public subnets where ECS tasks run."
+  type        = list(string)
+}
+
+variable "ecs_sg_id" {
+  description = "Security group ID for ECS tasks (CloudFront-locked inbound on port 8000)."
+  type        = string
+}
+
+variable "image_tag" {
+  description = "Docker image tag to deploy (e.g. git SHA)."
+  type        = string
+  default     = "latest"
+}
