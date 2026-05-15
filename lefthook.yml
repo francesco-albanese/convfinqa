@@ -15,3 +15,8 @@ pre-commit:
       root: "frontend/"
       run: pnpm exec vite build && pnpm test
       stage_fixed: true
+    knowledge-memory-index:
+      run: command -v bd >/dev/null 2>&1 && bd memories --json > .claude/memory-index.json && git add .claude/memory-index.json || true
+    knowledge-lint:
+      glob: "{CLAUDE.md,.claude/rules/**/*.md,**/README.md,.claude/memory-index.json}"
+      run: python3 scripts/lint_knowledge.py --changed {staged_files}

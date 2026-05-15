@@ -1,0 +1,43 @@
+name: knowledge-lint
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CLAUDE.md'
+      - '.claude/rules/**'
+      - '.claude/memory-index.json'
+      - '**/README.md'
+      - 'scripts/lint_knowledge.py'
+      - '.github/workflows/knowledge-lint.yml'
+
+concurrency:
+  group: knowledge-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  knowledge-lint:
+    name: knowledge-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: full-scan
+        run: python3 scripts/lint_knowledge.py
+
+      - name: pillar-deletion-guard
+        run: python3 scripts/lint_knowledge.py --check-pillar-deletion origin/${{ github.base_ref }}

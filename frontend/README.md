@@ -1,6 +1,27 @@
+---
+description: Vite + React 19 + TS SPA — develop/build commands, generated route tree, knowledge map
+last_validated: 2026-05-15
+related:
+  - ../.claude/rules/frontend/quality-gates.md
+  - ../.claude/rules/frontend/package-manager.md
+  - ../.claude/rules/frontend/markdown-streaming.md
+  - ../.claude/rules/frontend/csv-injection.md
+  - ../.claude/rules/frontend/ui-prototypes.md
+---
+
 # ConvFinQA frontend
 
 Vite + React 19 + TypeScript SPA. Talks to the FastAPI backend at `/v1/*`.
+
+## Knowledge map
+
+| Topic | Where |
+|---|---|
+| Quality gates (biome/tsc/vitest/vite) | [quality-gates.md](../.claude/rules/frontend/quality-gates.md) |
+| Package manager (pnpm-only + supply-chain) | [package-manager.md](../.claude/rules/frontend/package-manager.md) |
+| Markdown renderer for streaming chat | [markdown-streaming.md](../.claude/rules/frontend/markdown-streaming.md) |
+| CSV injection neutralisation | [csv-injection.md](../.claude/rules/frontend/csv-injection.md) |
+| UI mockups (`example-html/`) | [ui-prototypes.md](../.claude/rules/frontend/ui-prototypes.md) |
 
 ## Develop
 

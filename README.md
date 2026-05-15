@@ -1,3 +1,12 @@
+---
+description: convfinqa project root — what the app is, the stack, where to walk for deeper docs
+last_validated: 2026-05-15
+related:
+  - CLAUDE.md
+  - docs/hexagonal.md
+  - docs/how-to-run-the-app.md
+---
+
 # convfinqa
 
 ConvFinQA is a chatbot application that sends user's questions to an LLM, loads the relevant document into the context and returns a response related to the context provided.
