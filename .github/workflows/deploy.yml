@@ -7,6 +7,7 @@ on:
       - "terraform/environmental/**"
       - "frontend/**"
       - "backend/**"
+      - "auth-lambda/**"
       - ".github/workflows/deploy.yml"
       - ".github/actions/configure-aws-env/**"
   pull_request:
