@@ -105,6 +105,8 @@ extend-select = [
 
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/**" = ["S101"]
+"scripts/tests/**" = ["S101"]
+"scripts/lint_knowledge.py" = ["T201"]
 
 [tool.pyright]
 include = ["backend/src", "backend/tests"]
