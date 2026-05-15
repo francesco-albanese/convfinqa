@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -11,6 +12,7 @@ class ValidatedClaims:
     sub: str
     exp: int
     email: str | None = None
+    user_id: uuid.UUID | None = None
 
 
 class SessionPort(Protocol):

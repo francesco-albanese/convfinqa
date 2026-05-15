@@ -14,6 +14,7 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyConversationRepository,
     SqlAlchemyDocumentRepository,
 )
+from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUserLookup
 from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
 from convfinqa.application.use_cases.list_chats import ListChatsUseCase
@@ -85,6 +86,7 @@ class Container:
                     f"/{settings.cognito_user_pool_id}"
                 ),
                 client_id=settings.cognito_client_id,
+                find_user_by_sub=SqlAlchemyUserLookup(session_factory),
             )
         return cls(
             settings=settings,

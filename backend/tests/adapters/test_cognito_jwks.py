@@ -1,6 +1,8 @@
 """Tests for CognitoJwksAdapter — all unit tests (no network, no DB)."""
 
+import asyncio
 import time
+import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 from unittest.mock import AsyncMock
@@ -164,3 +166,94 @@ async def test_jwks_fetched_once_across_multiple_verifications(
     await adapter.verify_access_token(token)
 
     fetch_mock.assert_called_once()
+
+
+def _make_adapter_with_lookup(
+    fetch_mock: Callable[[str], Awaitable[dict[str, Any]]],
+    find_user: AsyncMock,
+    cache_ttl_seconds: float = 300.0,
+) -> CognitoJwksAdapter:
+    return CognitoJwksAdapter(
+        jwks_url=f"https://cognito-idp.{_REGION}.amazonaws.com/{_POOL_ID}/.well-known/jwks.json",
+        issuer=_ISSUER,
+        client_id=_CLIENT_ID,
+        fetch_jwks=fetch_mock,
+        find_user_by_sub=find_user,
+        cache_ttl_seconds=cache_ttl_seconds,
+    )
+
+
+async def test_user_id_is_none_without_lookup(
+    adapter: CognitoJwksAdapter,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key)
+
+    claims = await adapter.verify_access_token(token)
+
+    assert claims.user_id is None
+
+
+async def test_user_id_resolved_from_db(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    expected_user_id = uuid.uuid4()
+    find_user = AsyncMock(return_value=expected_user_id)
+    adapter = _make_adapter_with_lookup(fetch_mock, find_user)
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, sub="user-sub-123")
+
+    claims = await adapter.verify_access_token(token)
+
+    assert claims.user_id == expected_user_id
+    find_user.assert_called_once_with("user-sub-123")
+
+
+async def test_cache_hit_avoids_second_db_lookup(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    expected_user_id = uuid.uuid4()
+    find_user = AsyncMock(return_value=expected_user_id)
+    adapter = _make_adapter_with_lookup(fetch_mock, find_user)
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, sub="abc-123")
+
+    await adapter.verify_access_token(token)
+    claims = await adapter.verify_access_token(token)
+
+    assert claims.user_id == expected_user_id
+    find_user.assert_called_once()
+
+
+async def test_db_miss_returns_none_user_id(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    find_user = AsyncMock(return_value=None)
+    adapter = _make_adapter_with_lookup(fetch_mock, find_user)
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, sub="unknown-sub")
+
+    claims = await adapter.verify_access_token(token)
+
+    assert claims.user_id is None
+
+
+async def test_ttl_expiry_triggers_relookup(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    expected_user_id = uuid.uuid4()
+    find_user = AsyncMock(return_value=expected_user_id)
+    adapter = _make_adapter_with_lookup(fetch_mock, find_user, cache_ttl_seconds=0.05)
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, sub="ttl-test-sub")
+
+    await adapter.verify_access_token(token)
+    await asyncio.sleep(0.1)
+    await adapter.verify_access_token(token)
+
+    assert find_user.call_count == 2
