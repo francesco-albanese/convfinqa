@@ -1,6 +1,7 @@
+import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
 
 from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
@@ -12,12 +13,24 @@ from convfinqa.container import Container
 from convfinqa.entrypoints.api.errors import MissingUserIdError
 
 
-def current_user_id(
-    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
-) -> str:
-    if not x_user_id or not x_user_id.strip():
+def get_current_user_id(request: Request) -> uuid.UUID:
+    middleware_uid: uuid.UUID | None = getattr(request.state, "current_user_id", None)
+    if middleware_uid is not None:
+        return middleware_uid
+    container: Container = request.app.state.container
+    if container.session is not None:
+        raise MissingUserIdError("access_token cookie is required")
+    x_user_id = request.headers.get("X-User-Id", "").strip()
+    if not x_user_id:
         raise MissingUserIdError("X-User-Id header is required")
-    return x_user_id
+    try:
+        return uuid.UUID(x_user_id)
+    except ValueError as exc:
+        raise MissingUserIdError("X-User-Id is not a valid UUID") from exc
+
+
+def current_user_id(request: Request) -> str:
+    return str(get_current_user_id(request))
 
 
 def get_container(request: Request) -> Container:
@@ -62,6 +75,7 @@ def get_chat_messages(
 
 
 CurrentUserId = Annotated[str, Depends(current_user_id)]
+CurrentUserDep = Annotated[uuid.UUID, Depends(get_current_user_id)]
 SendMessage = Annotated[SendMessageUseCase, Depends(get_send_message)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 ListDocuments = Annotated[ListDocumentsUseCase, Depends(get_list_documents)]

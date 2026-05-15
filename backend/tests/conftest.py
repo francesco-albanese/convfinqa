@@ -22,6 +22,7 @@ from convfinqa.config import Settings
 from convfinqa.container import Container
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.entrypoints.api.errors import install_exception_handlers
+from convfinqa.entrypoints.api.middleware.auth import AuthMiddleware
 from convfinqa.entrypoints.api.router import api_router
 from tests.fakes.llm import FakeLLMPort
 from tests.marker_policy import apply_path_markers, unmarked_node_ids
@@ -148,6 +149,7 @@ async def app(
     )
 
     app = FastAPI(title="convfinqa-test")
+    app.add_middleware(AuthMiddleware)
     install_exception_handlers(app)
     app.include_router(router=api_router)
     app.state.container = container
