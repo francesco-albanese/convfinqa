@@ -89,8 +89,22 @@ resource "aws_acm_certificate_validation" "app" {
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer" {
+  name = "Managed-AllViewer"
+}
+
 locals {
   s3_origin_id = "convfinqa-site-s3"
+  bff_origins = {
+    login    = trimsuffix(trimprefix(var.bff_login_url, "https://"), "/")
+    callback = trimsuffix(trimprefix(var.bff_callback_url, "https://"), "/")
+    refresh  = trimsuffix(trimprefix(var.bff_refresh_url, "https://"), "/")
+    logout   = trimsuffix(trimprefix(var.bff_logout_url, "https://"), "/")
+  }
 }
 
 resource "aws_cloudfront_cache_policy" "immutable_assets" {
@@ -173,6 +187,94 @@ resource "aws_cloudfront_distribution" "app" {
     origin_id                = local.s3_origin_id
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+  }
+
+  origin {
+    origin_id   = "bff-login"
+    domain_name = local.bff_origins.login
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  origin {
+    origin_id   = "bff-callback"
+    domain_name = local.bff_origins.callback
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  origin {
+    origin_id   = "bff-refresh"
+    domain_name = local.bff_origins.refresh
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  origin {
+    origin_id   = "bff-logout"
+    domain_name = local.bff_origins.logout
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/auth/login*"
+    allowed_methods          = ["GET", "HEAD"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = "bff-login"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = false
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/auth/callback*"
+    allowed_methods          = ["GET", "HEAD"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = "bff-callback"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = false
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/auth/refresh*"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = "bff-refresh"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = false
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/auth/logout*"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = "bff-logout"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = false
   }
 
   ordered_cache_behavior {

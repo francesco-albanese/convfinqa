@@ -17,6 +17,11 @@ module "edge" {
   apex_domain      = var.apex_domain
   parent_zone_name = var.parent_zone_name
 
+  bff_login_url    = module.compute.bff_login_url
+  bff_callback_url = module.compute.bff_callback_url
+  bff_refresh_url  = module.compute.bff_refresh_url
+  bff_logout_url   = module.compute.bff_logout_url
+
   providers = {
     aws                 = aws
     aws.shared_services = aws.shared_services
