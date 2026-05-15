@@ -10,7 +10,7 @@ import userEvent from "@testing-library/user-event";
 import type { ChatStatus, UIMessage } from "ai";
 import { act, useEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
 type DataPart = { type: string; data?: unknown };
@@ -120,11 +120,21 @@ type ChatsFetchOverrides = {
 	chatMessagesByChatId?: Record<string, unknown>;
 };
 
+const APP_TEST_USER = { user_id: "app-test-user", email: "app@test.com" };
+
 function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 	const fetchMock = vi
 		.fn()
 		.mockImplementation((input: RequestInfo | URL): Promise<Response> => {
 			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") {
+				return Promise.resolve(
+					new Response(JSON.stringify(APP_TEST_USER), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+			}
 			if (url.startsWith("/api/v1/chats/")) {
 				const match = url.match(/^\/api\/v1\/chats\/([^/]+)\/messages/);
 				const chatId = match ? decodeURIComponent(match[1] ?? "") : "";
@@ -159,7 +169,6 @@ function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 
 beforeEach(() => {
 	resetStreamScript();
-	window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-app-test");
 	stubChatsFetch();
 });
 

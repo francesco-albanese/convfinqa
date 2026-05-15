@@ -1,15 +1,20 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { readPersistedAuthUserId } from "@/lib/auth/AuthProvider";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 export const Route = createFileRoute("/_anonymous")({
-	beforeLoad: () => {
-		if (readPersistedAuthUserId() !== null) {
-			throw redirect({ to: "/app" });
-		}
-	},
 	component: AnonymousLayout,
 });
 
 function AnonymousLayout() {
+	const { status } = useAuth();
+	const navigate = useNavigate();
+
+	useEffect(() => {
+		if (status === "authed") {
+			void navigate({ to: "/app", replace: true });
+		}
+	}, [status, navigate]);
+
 	return <Outlet />;
 }

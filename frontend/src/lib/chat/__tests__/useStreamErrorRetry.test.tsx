@@ -2,15 +2,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { createElement, type ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import {
 	type UseStreamErrorRetryOptions,
 	useStreamErrorRetry,
 } from "@/lib/chat/useStreamErrorRetry";
 import type { ChatMessageList } from "@/lib/queries/chats";
 
-const TEST_USER_ID = "dev-user-test";
+const TEST_USER = { user_id: "retry-test-user-uuid", email: "retry@test.com" };
 const CHAT_ID = "conv_42";
 
 function jsonResponse(body: unknown): Response {
@@ -24,7 +24,6 @@ function withProviders(client?: QueryClient): {
 	wrapper: (props: { children: ReactNode }) => ReactNode;
 	client: QueryClient;
 } {
-	window.localStorage.setItem(AUTH_STORAGE_KEY, TEST_USER_ID);
 	const queryClient =
 		client ??
 		new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -62,6 +61,19 @@ function chatStub(overrides: Partial<ChatStub> = {}): ChatStub {
 		...overrides,
 	};
 }
+
+beforeEach(() => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") {
+				return Promise.resolve(jsonResponse(TEST_USER));
+			}
+			return Promise.resolve(new Response(null, { status: 404 }));
+		}),
+	);
+});
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -122,7 +134,6 @@ describe("useStreamErrorRetry", () => {
 	});
 
 	it("on a 409 retry waits until the messages query reports a growing list before sending", async () => {
-		const fetchMock = vi.fn();
 		const initial: ChatMessageList = {
 			items: [
 				{
@@ -144,9 +155,18 @@ describe("useStreamErrorRetry", () => {
 				},
 			],
 		};
-		fetchMock
-			.mockResolvedValueOnce(jsonResponse(initial))
-			.mockResolvedValueOnce(jsonResponse(grown));
+
+		let chatFetchCount = 0;
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") {
+				return Promise.resolve(jsonResponse(TEST_USER));
+			}
+			chatFetchCount += 1;
+			return Promise.resolve(
+				jsonResponse(chatFetchCount === 1 ? initial : grown),
+			);
+		});
 		vi.stubGlobal("fetch", fetchMock);
 
 		let resolveSend: () => void = () => undefined;
@@ -175,18 +195,22 @@ describe("useStreamErrorRetry", () => {
 			{ wrapper },
 		);
 
+		await waitFor(() => {
+			expect(result.current.isRetrying).toBeDefined();
+		});
+
 		let retryPromise: Promise<void> | null = null;
 		act(() => {
 			retryPromise = result.current.retry();
 		});
 
 		await waitFor(() => {
-			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(chatFetchCount).toBeGreaterThanOrEqual(1);
 		});
 		expect(sendMessage).not.toHaveBeenCalled();
 
 		await waitFor(() => {
-			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(chatFetchCount).toBeGreaterThanOrEqual(2);
 		});
 
 		await waitFor(() => {

@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useId } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -10,14 +10,12 @@ export const Route = createFileRoute("/_anonymous/sign-in")({
 
 function SignInPage() {
 	const { signIn } = useAuth();
-	const navigate = useNavigate();
 	const emailId = useId();
 	const passwordId = useId();
 	const rememberId = useId();
 
 	const goToApp = () => {
 		signIn();
-		void navigate({ to: "/app" });
 	};
 
 	const form = useForm({

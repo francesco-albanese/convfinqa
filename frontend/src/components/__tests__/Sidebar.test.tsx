@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "@/components/Sidebar";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import type { ChatList } from "@/lib/queries/chats";
 
 const TEST_USER_ID = "dev-user-sidebar-test";
@@ -137,15 +137,18 @@ const SAMPLE_LIST: ChatList = {
 	],
 };
 
+const ME_RESPONSE = { user_id: TEST_USER_ID, email: null };
+
 function stubChatListFetch(payload: ChatList): ReturnType<typeof vi.fn> {
-	const fetchMock = vi.fn().mockResolvedValue(jsonResponse(payload));
+	const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+		const url = typeof input === "string" ? input : input.toString();
+		if (url.includes("/api/v1/me"))
+			return Promise.resolve(jsonResponse(ME_RESPONSE));
+		return Promise.resolve(jsonResponse(payload));
+	});
 	vi.stubGlobal("fetch", fetchMock);
 	return fetchMock;
 }
-
-beforeEach(() => {
-	window.localStorage.setItem(AUTH_STORAGE_KEY, TEST_USER_ID);
-});
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -215,9 +218,9 @@ describe("Sidebar", () => {
 		stubChatListFetch({ items: [] });
 		renderSidebar();
 
-		expect(
-			await screen.findByText(/no conversations yet/i),
-		).toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
+		});
 	});
 });
 
@@ -366,9 +369,12 @@ describe("Sidebar — grouped chat list", () => {
 	});
 
 	it("remembers a collapsed group across a remount for the same user", async () => {
-		const fetchMock = vi
-			.fn()
-			.mockImplementation(() => Promise.resolve(jsonResponse(SAMPLE_LIST)));
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/v1/me"))
+				return Promise.resolve(jsonResponse(ME_RESPONSE));
+			return Promise.resolve(jsonResponse(SAMPLE_LIST));
+		});
 		vi.stubGlobal("fetch", fetchMock);
 		const user = userEvent.setup();
 

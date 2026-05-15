@@ -4,10 +4,10 @@ import {
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
 vi.mock("@/lib/chat/useConvfinqaChat", () => ({
@@ -27,6 +27,33 @@ vi.mock("@/lib/chat/useConvfinqaChat", () => ({
 		sendMessage: async () => undefined,
 	}),
 }));
+
+beforeEach(() => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/refresh")) {
+				return Promise.resolve(new Response(null, { status: 401 }));
+			}
+			return Promise.resolve(new Response(null, { status: 401 }));
+		}),
+	);
+});
+
+function captureLocationHref() {
+	let href = "";
+	vi.stubGlobal("location", {
+		get href() {
+			return href;
+		},
+		set href(v: string) {
+			href = v;
+		},
+		pathname: "/sign-in",
+	});
+	return { get: () => href };
+}
 
 function renderSignInRoute() {
 	const queryClient = new QueryClient({
@@ -63,44 +90,38 @@ describe("/sign-in route", () => {
 		).toBeInTheDocument();
 	});
 
-	it("signs the user in and navigates to /app when 'Sign in' is clicked", async () => {
+	it("redirects to the BFF login when 'Sign in' is clicked", async () => {
+		const captured = captureLocationHref();
 		const user = userEvent.setup();
-		const { router } = renderSignInRoute();
+		renderSignInRoute();
 		await screen.findByRole("heading", { name: /welcome back/i });
 
 		await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/app");
-		});
-		const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
-		expect(stored).toMatch(/^dev-user-/);
+		expect(captured.get()).toBe("/api/auth/login");
 	});
 
-	it("signs the user in and navigates to /app when 'Continue with Google' is clicked", async () => {
+	it("redirects to the BFF login when 'Continue with Google' is clicked", async () => {
+		const captured = captureLocationHref();
 		const user = userEvent.setup();
-		const { router } = renderSignInRoute();
+		renderSignInRoute();
 		await screen.findByRole("heading", { name: /welcome back/i });
 
 		await user.click(
 			screen.getByRole("button", { name: /continue with google/i }),
 		);
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/app");
-		});
-		expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toMatch(/^dev-user-/);
+		expect(captured.get()).toBe("/api/auth/login");
 	});
 
-	it("submits successfully even when email and password are empty", async () => {
+	it("redirects to the BFF login even when email and password are empty", async () => {
+		const captured = captureLocationHref();
 		const user = userEvent.setup();
-		const { router } = renderSignInRoute();
+		renderSignInRoute();
 		await screen.findByRole("heading", { name: /welcome back/i });
 
 		await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/app");
-		});
+		expect(captured.get()).toBe("/api/auth/login");
 	});
 });

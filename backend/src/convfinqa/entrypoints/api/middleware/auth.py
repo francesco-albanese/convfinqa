@@ -6,6 +6,8 @@ from starlette.responses import JSONResponse, Response
 from convfinqa.domain.ports.session import SessionVerificationError
 
 _SKIP_PATHS = frozenset({"/healthz", "/readyz"})
+# /docs, /openapi.json, /redoc are intentionally NOT in _SKIP_PATHS:
+# API discovery is restricted to authenticated callers in production.
 
 _UNAUTHORIZED_BODY = {
     "type": "https://convfinqa.local/problems/unauthorized",
@@ -50,4 +52,5 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return _unauthorized()
 
         request.state.current_user_id = claims.user_id
+        request.state.current_user_email = claims.email
         return await call_next(request)

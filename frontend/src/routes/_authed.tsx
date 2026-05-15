@@ -1,16 +1,11 @@
-import {
-	createFileRoute,
-	Outlet,
-	redirect,
-	useNavigate,
-} from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
 import { WakeupGate } from "@/components/WakeupGate";
-import { readPersistedAuthUserId, useAuth } from "@/lib/auth/AuthProvider";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
 import {
 	openDocPicker,
@@ -33,11 +28,6 @@ const SIDEBAR_WIDTH_EXPANDED = "280px";
 const SIDEBAR_WIDTH_COLLAPSED = "64px";
 
 export const Route = createFileRoute("/_authed")({
-	beforeLoad: () => {
-		if (readPersistedAuthUserId() === null) {
-			throw redirect({ to: "/sign-in" });
-		}
-	},
 	validateSearch: (raw: Record<string, unknown>): LayoutSearch => {
 		const parsed = LayoutSearchSchema.safeParse(raw);
 		return parsed.success ? parsed.data : {};
@@ -63,16 +53,16 @@ function AuthedLayout() {
 	const sheetOpen = useRightPanelSheetOpen();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
-	const { userId, signOut } = useAuth();
+	const { userId, status, signOut } = useAuth();
 	const isBelowLg = useIsBelowLg();
 	const sidebarShellRef = useRef<HTMLElement>(null);
 	const rightPanelShellRef = useRef<HTMLElement>(null);
 
 	useEffect(() => {
-		if (userId === null) {
+		if (status === "unauthed") {
 			void navigate({ to: "/sign-in", replace: true });
 		}
-	}, [userId, navigate]);
+	}, [status, navigate]);
 
 	useEffect(() => {
 		if (!isBelowLg) {
@@ -147,7 +137,7 @@ function AuthedLayout() {
 		openDocPicker();
 	}, []);
 
-	if (userId === null) {
+	if (status !== "authed") {
 		return null;
 	}
 
@@ -193,7 +183,7 @@ function AuthedLayout() {
 			>
 				<Sidebar
 					collapsed={collapsed}
-					userId={userId}
+					userId={userId ?? ""}
 					onToggleCollapse={toggleSidebar}
 					onNewConversation={handleNewConversation}
 					onPickDocument={handlePickDocument}

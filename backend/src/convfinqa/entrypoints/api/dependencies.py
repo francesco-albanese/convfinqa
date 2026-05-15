@@ -33,6 +33,10 @@ def current_user_id(request: Request) -> str:
     return str(get_current_user_id(request))
 
 
+def current_user_email(request: Request) -> str | None:
+    return getattr(request.state, "current_user_email", None)
+
+
 def get_container(request: Request) -> Container:
     container: Container = request.app.state.container
     return container
@@ -75,6 +79,7 @@ def get_chat_messages(
 
 
 CurrentUserId = Annotated[str, Depends(current_user_id)]
+CurrentUserEmail = Annotated[str | None, Depends(current_user_email)]
 CurrentUserDep = Annotated[uuid.UUID, Depends(get_current_user_id)]
 SendMessage = Annotated[SendMessageUseCase, Depends(get_send_message)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
