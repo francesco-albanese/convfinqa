@@ -7,12 +7,18 @@ from sqlalchemy.ext.asyncio import (
 
 
 def create_engine(database_url: str) -> AsyncEngine:
-    # The ConversationLockPort holds an open advisory-xact lock transaction (one
-    # asyncpg connection) for the duration of each in-flight LLM call. Concurrent
-    # in-flight chats per worker are therefore bounded by pool_size + max_overflow.
-    # Tune the pool here if expected concurrency exceeds SQLAlchemy's defaults
-    # (5 + 10 overflow at the time of writing).
-    return create_async_engine(database_url, pool_pre_ping=True, future=True)
+    # pool_recycle=300 forces connection renewal before Aurora's idle-connection
+    # timeout, which is the prerequisite for Aurora Serverless v2 to auto-pause.
+    # pool_size + max_overflow bounds concurrent asyncpg connections per worker;
+    # the ConversationLockPort holds one open connection per in-flight LLM call.
+    return create_async_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_size=2,
+        max_overflow=2,
+        future=True,
+    )
 
 
 def create_session_factory(

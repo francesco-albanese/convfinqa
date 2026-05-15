@@ -25,3 +25,8 @@ variable "shared_services_role_name" {
   type        = string
   default     = "terraform"
 }
+
+variable "cognito_hosted_ui_prefix" {
+  description = "Subdomain prefix for the Cognito hosted UI (e.g. 'convfinqa-sandbox' → 'convfinqa-sandbox.auth.<region>.amazoncognito.com'). Must be globally unique within the region."
+  type        = string
+}
