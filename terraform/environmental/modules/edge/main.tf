@@ -97,7 +97,8 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
 }
 
 locals {
-  s3_origin_id = "convfinqa-site-s3"
+  s3_origin_id  = "convfinqa-site-s3"
+  alb_origin_id = "convfinqa-api-alb"
   bff_origins = {
     login    = trimsuffix(trimprefix(var.bff_login_url, "https://"), "/")
     callback = trimsuffix(trimprefix(var.bff_callback_url, "https://"), "/")
@@ -189,6 +190,17 @@ resource "aws_cloudfront_distribution" "app" {
   }
 
   origin {
+    origin_id   = local.alb_origin_id
+    domain_name = var.alb_dns_name
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  origin {
     origin_id   = "bff-login"
     domain_name = local.bff_origins.login
     custom_origin_config {
@@ -270,6 +282,17 @@ resource "aws_cloudfront_distribution" "app" {
     allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = "bff-logout"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = false
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/v1/*"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = local.alb_origin_id
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
     viewer_protocol_policy   = "redirect-to-https"

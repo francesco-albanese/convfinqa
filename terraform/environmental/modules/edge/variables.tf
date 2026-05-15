@@ -27,3 +27,8 @@ variable "bff_logout_url" {
   description = "Lambda Function URL for /api/auth/logout."
   type        = string
 }
+
+variable "alb_dns_name" {
+  description = "ALB DNS name for the FastAPI service (CloudFront /api/v1/* origin)."
+  type        = string
+}

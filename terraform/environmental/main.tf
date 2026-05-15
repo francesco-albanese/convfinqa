@@ -20,6 +20,7 @@ module "edge" {
   bff_callback_url = module.compute.bff_callback_url
   bff_refresh_url  = module.compute.bff_refresh_url
   bff_logout_url   = module.compute.bff_logout_url
+  alb_dns_name     = module.compute.alb_dns_name
 
   providers = {
     aws                 = aws
