@@ -6,6 +6,8 @@ on:
     paths:
       - "terraform/environmental/**"
       - "frontend/**"
+      - "backend/alembic/**"
+      - "backend/src/convfinqa/adapters/persistence/**"
       - ".github/workflows/deploy.yml"
       - ".github/actions/configure-aws-env/**"
   pull_request:
@@ -55,6 +57,7 @@ jobs:
     outputs:
       terraform: ${{ steps.filter.outputs.terraform }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -67,6 +70,9 @@ jobs:
               - '.github/actions/configure-aws-env/**'
             frontend:
               - 'frontend/**'
+            backend:
+              - 'backend/alembic/**'
+              - 'backend/src/convfinqa/adapters/persistence/**'
 
   terraform-plan:
     name: Terraform Plan
@@ -185,6 +191,63 @@ jobs:
         env:
           ACCOUNT: ${{ needs.terraform-plan.outputs.environment }}
         run: make environmental-apply ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE="" TF_FLAGS="-auto-approve -no-color"
+
+  migrations:
+    name: Run Alembic Migrations
+    needs: [detect-changes, terraform-apply]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    environment:
+      name: sandbox
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run migrations Fargate task
+        id: run-task
+        run: |
+          NET="awsvpcConfiguration={subnets=[${{ vars.PUBLIC_SUBNET_IDS }}],securityGroups=[${{ vars.ECS_SG_ID }}],assignPublicIp=ENABLED}"
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "${{ vars.ECS_CLUSTER }}" \
+            --task-definition "${{ vars.ECS_TASK_FAMILY }}" \
+            --launch-type FARGATE \
+            --network-configuration "$NET" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["uv","run","alembic","upgrade","head"]}]}' \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for task to stop
+        run: |
+          aws ecs wait tasks-stopped \
+            --cluster "${{ vars.ECS_CLUSTER }}" \
+            --tasks "${{ steps.run-task.outputs.task_arn }}"
+
+      - name: Check exit code
+        run: |
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "${{ vars.ECS_CLUSTER }}" \
+            --tasks "${{ steps.run-task.outputs.task_arn }}" \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+          echo "Migration container exit code: $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migrations failed with exit code $EXIT_CODE"
+            exit 1
+          fi
 
   frontend-deploy:
     name: Frontend Deploy
