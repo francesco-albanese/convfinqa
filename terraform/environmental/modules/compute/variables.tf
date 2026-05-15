@@ -40,3 +40,14 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "vpc_id" {
+  description = "VPC ID for the ALB security group."
+  type        = string
+}
+
+variable "database_url" {
+  description = "PostgreSQL connection URL injected into DB-touching BFF Lambda functions."
+  type        = string
+  sensitive   = true
+}

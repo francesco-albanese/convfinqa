@@ -33,6 +33,7 @@ module "compute" {
   public_subnet_ids        = module.network.public_subnet_ids
   ecs_sg_id                = module.network.ecs_sg_id
   vpc_id                   = module.network.vpc_id
+  database_url             = module.data.database_url
 }
 
 module "keepalive" {

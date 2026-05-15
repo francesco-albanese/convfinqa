@@ -52,3 +52,33 @@ output "ecs_service_name" {
   description = "ECS service name."
   value       = aws_ecs_service.api.name
 }
+
+output "alb_dns_name" {
+  description = "ALB DNS name (used as CloudFront /api/v1/* origin)."
+  value       = aws_lb.main.dns_name
+}
+
+output "alb_arn_suffix" {
+  description = "ALB ARN suffix for CloudWatch metrics."
+  value       = aws_lb.main.arn_suffix
+}
+
+output "bff_login_url" {
+  description = "Lambda Function URL for /api/auth/login."
+  value       = aws_lambda_function_url.bff_login.function_url
+}
+
+output "bff_callback_url" {
+  description = "Lambda Function URL for /api/auth/callback."
+  value       = aws_lambda_function_url.bff_callback.function_url
+}
+
+output "bff_refresh_url" {
+  description = "Lambda Function URL for /api/auth/refresh."
+  value       = aws_lambda_function_url.bff_refresh.function_url
+}
+
+output "bff_logout_url" {
+  description = "Lambda Function URL for /api/auth/logout."
+  value       = aws_lambda_function_url.bff_logout.function_url
+}

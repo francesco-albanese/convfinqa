@@ -5,6 +5,10 @@ data "aws_kms_key" "ssm" {
   key_id = "alias/aws/ssm"
 }
 
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 data "aws_ssm_parameter" "google_client_id" {
   name = "/convfinqa/${var.account_name}/google/client_id"
 }
@@ -43,6 +47,10 @@ resource "aws_cognito_user_pool" "main" {
       min_length = 1
       max_length = 2048
     }
+  }
+
+  lambda_config {
+    post_confirmation = aws_lambda_function.bff_post_confirmation.arn
   }
 
   tags = {
@@ -387,6 +395,14 @@ resource "aws_ecs_service" "api" {
     assign_public_ip = true
   }
 
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "api"
+    container_port   = 8000
+  }
+
+  depends_on = [aws_lb_listener.http]
+
   lifecycle {
     ignore_changes = [task_definition, desired_count]
   }
@@ -396,4 +412,385 @@ resource "aws_ecs_service" "api" {
     "franco:environment"     = var.account_name
     "franco:managed_by"      = "terraform"
   }
+}
+
+# ── ALB ───────────────────────────────────────────────────────────────────────
+
+resource "aws_security_group" "alb" {
+  name        = "convfinqa-${var.account_name}-alb"
+  description = "ALB SG: ingress HTTP from CloudFront origin-facing prefix list"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description     = "HTTP from CloudFront"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
+  }
+
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_security_group_rule" "ecs_from_alb" {
+  type                     = "ingress"
+  description              = "Allow HTTP from ALB"
+  from_port                = 8000
+  to_port                  = 8000
+  protocol                 = "tcp"
+  security_group_id        = var.ecs_sg_id
+  source_security_group_id = aws_security_group.alb.id
+}
+
+resource "aws_lb" "main" {
+  name               = "convfinqa-${var.account_name}"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = var.public_subnet_ids
+
+  idle_timeout = 300
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lb_target_group" "api" {
+  name        = "convfinqa-${var.account_name}-api"
+  port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    path                = "/api/v1/healthz"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api.arn
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+# ── BFF Lambda functions ──────────────────────────────────────────────────────
+
+locals {
+  cognito_base_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.id}.amazoncognito.com"
+  callback_url     = "https://${var.app_domain}/api/auth/callback"
+  bff_common_env = {
+    COGNITO_TOKEN_URL          = "${local.cognito_base_url}/oauth2/token"
+    COGNITO_CLIENT_ID          = aws_cognito_user_pool_client.app.id
+    COGNITO_CLIENT_SECRET      = aws_cognito_user_pool_client.app.client_secret
+    COGNITO_HOSTED_UI_BASE_URL = local.cognito_base_url
+    COGNITO_REVOKE_URL         = "${local.cognito_base_url}/oauth2/revoke"
+    CALLBACK_URL               = local.callback_url
+  }
+}
+
+resource "aws_iam_role" "bff_lambda" {
+  name = "convfinqa-${var.account_name}-bff-lambda"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "bff_lambda_basic" {
+  role       = aws_iam_role.bff_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "bff_lambda_ssm" {
+  role       = aws_iam_role.bff_lambda.name
+  policy_arn = aws_iam_policy.ssm_read.arn
+}
+
+resource "aws_cloudwatch_log_group" "bff_login" {
+  name              = "/aws/lambda/convfinqa-${var.account_name}-bff-login"
+  retention_in_days = 7
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "bff_callback" {
+  name              = "/aws/lambda/convfinqa-${var.account_name}-bff-callback"
+  retention_in_days = 7
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "bff_refresh" {
+  name              = "/aws/lambda/convfinqa-${var.account_name}-bff-refresh"
+  retention_in_days = 7
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "bff_logout" {
+  name              = "/aws/lambda/convfinqa-${var.account_name}-bff-logout"
+  retention_in_days = 7
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "bff_post_confirmation" {
+  name              = "/aws/lambda/convfinqa-${var.account_name}-bff-post-confirmation"
+  retention_in_days = 7
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lambda_function" "bff_login" {
+  function_name    = "convfinqa-${var.account_name}-bff-login"
+  role             = aws_iam_role.bff_lambda.arn
+  handler          = "login.handler"
+  runtime          = "nodejs22.x"
+  filename         = "${path.module}/login.zip"
+  source_code_hash = filebase64sha256("${path.module}/login.zip")
+  timeout          = 10
+  memory_size      = 128
+
+  environment {
+    variables = local.bff_common_env
+  }
+
+  depends_on = [aws_cloudwatch_log_group.bff_login]
+
+  lifecycle {
+    ignore_changes = [source_code_hash, filename]
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lambda_function" "bff_callback" {
+  function_name    = "convfinqa-${var.account_name}-bff-callback"
+  role             = aws_iam_role.bff_lambda.arn
+  handler          = "callback.handler"
+  runtime          = "nodejs22.x"
+  filename         = "${path.module}/callback.zip"
+  source_code_hash = filebase64sha256("${path.module}/callback.zip")
+  timeout          = 15
+  memory_size      = 128
+
+  environment {
+    variables = merge(local.bff_common_env, {
+      DATABASE_URL = var.database_url
+    })
+  }
+
+  depends_on = [aws_cloudwatch_log_group.bff_callback]
+
+  lifecycle {
+    ignore_changes = [source_code_hash, filename]
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lambda_function" "bff_refresh" {
+  function_name    = "convfinqa-${var.account_name}-bff-refresh"
+  role             = aws_iam_role.bff_lambda.arn
+  handler          = "refresh.handler"
+  runtime          = "nodejs22.x"
+  filename         = "${path.module}/refresh.zip"
+  source_code_hash = filebase64sha256("${path.module}/refresh.zip")
+  timeout          = 10
+  memory_size      = 128
+
+  environment {
+    variables = local.bff_common_env
+  }
+
+  depends_on = [aws_cloudwatch_log_group.bff_refresh]
+
+  lifecycle {
+    ignore_changes = [source_code_hash, filename]
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lambda_function" "bff_logout" {
+  function_name    = "convfinqa-${var.account_name}-bff-logout"
+  role             = aws_iam_role.bff_lambda.arn
+  handler          = "logout.handler"
+  runtime          = "nodejs22.x"
+  filename         = "${path.module}/logout.zip"
+  source_code_hash = filebase64sha256("${path.module}/logout.zip")
+  timeout          = 10
+  memory_size      = 128
+
+  environment {
+    variables = local.bff_common_env
+  }
+
+  depends_on = [aws_cloudwatch_log_group.bff_logout]
+
+  lifecycle {
+    ignore_changes = [source_code_hash, filename]
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lambda_function" "bff_post_confirmation" {
+  function_name    = "convfinqa-${var.account_name}-bff-post-confirmation"
+  role             = aws_iam_role.bff_lambda.arn
+  handler          = "post_confirmation.handler"
+  runtime          = "nodejs22.x"
+  filename         = "${path.module}/post_confirmation.zip"
+  source_code_hash = filebase64sha256("${path.module}/post_confirmation.zip")
+  timeout          = 10
+  memory_size      = 128
+
+  environment {
+    variables = {
+      DATABASE_URL = var.database_url
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.bff_post_confirmation]
+
+  lifecycle {
+    ignore_changes = [source_code_hash, filename]
+  }
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+}
+
+resource "aws_lambda_function_url" "bff_login" {
+  function_name      = aws_lambda_function.bff_login.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_origins = ["https://${var.app_domain}"]
+    allow_methods = ["GET"]
+  }
+}
+
+resource "aws_lambda_function_url" "bff_callback" {
+  function_name      = aws_lambda_function.bff_callback.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_origins = ["https://${var.app_domain}"]
+    allow_methods = ["GET"]
+  }
+}
+
+resource "aws_lambda_function_url" "bff_refresh" {
+  function_name      = aws_lambda_function.bff_refresh.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_origins = ["https://${var.app_domain}"]
+    allow_methods = ["POST"]
+  }
+}
+
+resource "aws_lambda_function_url" "bff_logout" {
+  function_name      = aws_lambda_function.bff_logout.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_origins = ["https://${var.app_domain}"]
+    allow_methods = ["POST"]
+  }
+}
+
+resource "aws_lambda_permission" "cognito_post_confirmation" {
+  statement_id  = "AllowCognitoInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.bff_post_confirmation.function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.main.arn
 }
