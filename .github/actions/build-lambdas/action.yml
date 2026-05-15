@@ -1,5 +1,5 @@
 name: 'Build Lambdas'
-description: 'Run make build-lambdas: pnpm-bundle auth-lambda handlers + uv-stage keepalive deps. Idempotent; produces artifacts consumed by data.archive_file at terraform plan time.'
+description: 'Run make build-lambdas: pnpm-bundle auth-lambda TS handlers + build keepalive:local Docker image (linux/amd64). ECR push is handled by null_resource during terraform apply.'
 
 runs:
   using: 'composite'
@@ -28,12 +28,6 @@ runs:
         key: ${{ runner.os }}-pnpm-store-auth-lambda-${{ hashFiles('auth-lambda/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-store-auth-lambda-
-
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v5
-      with:
-        enable-cache: true
-        python-version: "3.13"
 
     - name: make build-lambdas
       shell: bash
