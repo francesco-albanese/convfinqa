@@ -10,11 +10,11 @@ data "aws_ec2_managed_prefix_list" "cloudfront" {
 }
 
 data "aws_ssm_parameter" "google_client_id" {
-  name = "/convfinqa/${var.account_name}/google/client_id"
+  name = "/convfinqa/${var.account_name}/google_oauth_client_id"
 }
 
 data "aws_ssm_parameter" "google_client_secret" {
-  name            = "/convfinqa/${var.account_name}/google/client_secret"
+  name            = "/convfinqa/${var.account_name}/google_oauth_client_secret"
   with_decryption = true
 }
 
