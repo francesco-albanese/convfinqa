@@ -14,7 +14,6 @@ module "edge" {
   source = "./modules/edge"
 
   app_domain       = var.app_domain
-  apex_domain      = var.apex_domain
   parent_zone_name = var.parent_zone_name
 
   bff_login_url    = module.compute.bff_login_url

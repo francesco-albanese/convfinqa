@@ -7,5 +7,4 @@ account_name = "production"
 cognito_hosted_ui_prefix = "convfinqa-production"
 
 # Domain
-app_domain  = "app.convfinqa.francescoalbanese.dev"
-apex_domain = "convfinqa.francescoalbanese.dev"
+app_domain = "convfinqa.francescoalbanese.dev"

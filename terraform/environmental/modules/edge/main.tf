@@ -50,10 +50,9 @@ data "aws_route53_zone" "parent" {
 }
 
 resource "aws_acm_certificate" "app" {
-  provider                  = aws.us_east_1
-  domain_name               = var.app_domain
-  subject_alternative_names = [var.apex_domain]
-  validation_method         = "DNS"
+  provider          = aws.us_east_1
+  domain_name       = var.app_domain
+  validation_method = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -177,7 +176,7 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
 }
 
 resource "aws_cloudfront_distribution" "app" {
-  aliases             = [var.app_domain, var.apex_domain]
+  aliases             = [var.app_domain]
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
@@ -385,28 +384,3 @@ resource "aws_route53_record" "app_ipv6" {
   }
 }
 
-resource "aws_route53_record" "apex_ipv4" {
-  provider = aws.shared_services
-  zone_id  = data.aws_route53_zone.parent.zone_id
-  name     = var.apex_domain
-  type     = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.app.domain_name
-    zone_id                = aws_cloudfront_distribution.app.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "apex_ipv6" {
-  provider = aws.shared_services
-  zone_id  = data.aws_route53_zone.parent.zone_id
-  name     = var.apex_domain
-  type     = "AAAA"
-
-  alias {
-    name                   = aws_cloudfront_distribution.app.domain_name
-    zone_id                = aws_cloudfront_distribution.app.hosted_zone_id
-    evaluate_target_health = false
-  }
-}

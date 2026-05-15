@@ -32,12 +32,7 @@ variable "cognito_hosted_ui_prefix" {
 }
 
 variable "app_domain" {
-  description = "Fully-qualified domain name for the SPA + API (e.g. app.convfinqa.francescoalbanese.dev)"
-  type        = string
-}
-
-variable "apex_domain" {
-  description = "Apex/project domain included as a SAN on the ACM cert (e.g. convfinqa.francescoalbanese.dev)"
+  description = "Fully-qualified domain name for the SPA + API (e.g. convfinqa.francescoalbanese.dev)"
   type        = string
 }
 
