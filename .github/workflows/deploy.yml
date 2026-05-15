@@ -64,6 +64,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       backend_deploy: ${{ steps.filter.outputs.backend_deploy }}
+      auth_lambda: ${{ steps.filter.outputs.auth_lambda }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -81,6 +82,8 @@ jobs:
               - 'backend/src/convfinqa/adapters/persistence/**'
             backend_deploy:
               - 'backend/**'
+            auth_lambda:
+              - 'auth-lambda/**'
 
   terraform-plan:
     name: Terraform Plan
@@ -317,6 +320,57 @@ jobs:
           aws ecs wait services-stable \
             --cluster "${{ vars.ECS_CLUSTER }}" \
             --services "${{ vars.ECS_SERVICE }}"
+
+  auth-lambda-deploy:
+    name: Auth Lambda Deploy
+    needs: [detect-changes, terraform-apply]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.detect-changes.outputs.auth_lambda == 'true' &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    environment:
+      name: sandbox
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+          package_json_file: auth-lambda/package.json
+
+      - name: Install dependencies
+        working-directory: auth-lambda
+        run: pnpm install --frozen-lockfile
+
+      - name: Build handlers
+        working-directory: auth-lambda
+        run: node esbuild.config.mjs
+
+      - name: Update Lambda function code
+        working-directory: auth-lambda
+        run: |
+          for handler in login callback refresh logout post_confirmation; do
+            func_suffix="${handler//_/-}"
+            zip -j "/tmp/${handler}.zip" "dist/${handler}.mjs"
+            aws lambda update-function-code \
+              --function-name "${{ vars.BFF_FUNCTION_PREFIX }}-${func_suffix}" \
+              --zip-file "fileb:///tmp/${handler}.zip"
+          done
 
   frontend-deploy:
     name: Frontend Deploy
