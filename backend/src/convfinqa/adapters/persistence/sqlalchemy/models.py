@@ -37,7 +37,11 @@ class ConversationOrm(Base):
     __tablename__ = "conversations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", name="fk_conversations_user_id", ondelete="SET NULL"),
+        nullable=True,
+    )
     document_id: Mapped[str] = mapped_column(
         Text,
         ForeignKey("documents.id", name="fk_conversations_document_id"),

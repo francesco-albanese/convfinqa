@@ -65,7 +65,7 @@ def _to_message(orm: MessageOrm) -> Message:
 def _to_conversation(orm: ConversationOrm) -> Conversation:
     return Conversation(
         id=orm.id,
-        user_id=orm.user_id,
+        user_id=str(orm.user_id) if orm.user_id is not None else "",
         document_id=orm.document_id,
         created_at=orm.created_at,
         messages=tuple(_to_message(m) for m in orm.messages),
@@ -121,7 +121,7 @@ class SqlAlchemyConversationRepository:
             await session.refresh(orm)
             return Conversation(
                 id=orm.id,
-                user_id=orm.user_id,
+                user_id=str(orm.user_id) if orm.user_id is not None else "",
                 document_id=orm.document_id,
                 created_at=orm.created_at,
                 messages=(),

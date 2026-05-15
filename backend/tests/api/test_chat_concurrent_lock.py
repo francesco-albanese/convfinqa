@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.persistence.sqlalchemy.lock import SqlAlchemyConversationLock
 from convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
+from tests.conftest import SEEDED_USER_UUID
 from tests.fakes.llm import FakeLLMPort
 
 
@@ -19,7 +20,7 @@ async def _create_conversation(app: FastAPI, document_id: str) -> str:
     async with await _client(app) as client:
         response = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "hi", "document_id": document_id},
         )
         return str(response.json()["conversation_id"])
@@ -41,7 +42,7 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
         async with await _client(app) as client:
             response = await client.post(
                 "/api/v1/chat/stream",
-                headers={"X-User-Id": "alice"},
+                headers={"X-User-Id": SEEDED_USER_UUID},
                 json={"message": "second", "conversation_id": conversation_id},
             )
             return response.status_code, response.text, dict(response.headers)
@@ -93,7 +94,7 @@ async def test_sync_chat_concurrent_returns_409(
         async with await _client(app) as client:
             response = await client.post(
                 "/api/v1/chat",
-                headers={"X-User-Id": "alice"},
+                headers={"X-User-Id": SEEDED_USER_UUID},
                 json={"message": "again", "conversation_id": conversation_id},
             )
             return response.status_code, response.json()

@@ -5,7 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
+from tests.conftest import SEEDED_USER_UUID
 from tests.fakes.llm import FakeLLMPort
+
+MALLORY_UUID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
 
 
 async def _client(app: FastAPI) -> AsyncClient:
@@ -33,7 +36,7 @@ async def test_sync_chat_happy_path_creates_conversation_and_persists_messages(
     async with await _client(app) as client:
         response = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "hi", "document_id": seeded_document_id},
         )
 
@@ -63,14 +66,14 @@ async def test_sync_chat_continuation_includes_prior_history(
     async with await _client(app) as client:
         first = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "first", "document_id": seeded_document_id},
         )
         conversation_id = first.json()["conversation_id"]
 
         second = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "second", "conversation_id": conversation_id},
         )
 
@@ -93,14 +96,14 @@ async def test_sync_chat_cross_tenant_returns_404_problem(
     async with await _client(app) as client:
         owned = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "hi", "document_id": seeded_document_id},
         )
         conversation_id = owned.json()["conversation_id"]
 
         intruder = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "mallory"},
+            headers={"X-User-Id": MALLORY_UUID},
             json={"message": "leak", "conversation_id": conversation_id},
         )
 
@@ -133,7 +136,7 @@ async def test_sync_chat_empty_message_returns_422(
     async with await _client(app) as client:
         response = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "", "document_id": seeded_document_id},
         )
 
@@ -160,7 +163,7 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
     async with await _client(app) as client:
         response = await client.post(
             "/api/v1/chat",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": SEEDED_USER_UUID},
             json={"message": "hi", "document_id": seeded_document_id},
         )
 

@@ -14,6 +14,9 @@ CONV_ALICE_AAA_OLD = "conv-alice-aaa-old"
 CONV_ALICE_BBB_NEW = "conv-alice-bbb-new"
 CONV_BOB_AAA = "conv-bob-aaa"
 
+ALICE_UUID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+BOB_UUID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
 
 async def _client(app: FastAPI) -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
@@ -37,10 +40,26 @@ async def _seed_documents(engine: AsyncEngine) -> None:
             )
 
 
+async def _seed_users(engine: AsyncEngine) -> None:
+    async with engine.begin() as conn:
+        for user_uuid, cognito_sub, email in (
+            (ALICE_UUID, "sub-alice-chats", "alice@example.com"),
+            (BOB_UUID, "sub-bob-chats", "bob@example.com"),
+        ):
+            await conn.execute(
+                text(
+                    "INSERT INTO users (id, cognito_sub, email) "
+                    "VALUES (CAST(:id AS uuid), :sub, :email) "
+                    "ON CONFLICT (cognito_sub) DO NOTHING"
+                ),
+                {"id": user_uuid, "sub": cognito_sub, "email": email},
+            )
+
+
 async def _insert_conversation(
     engine: AsyncEngine,
     conv_id: str,
-    user_id: str,
+    user_uuid: str,
     document_id: str,
     created_at: datetime,
 ) -> None:
@@ -48,11 +67,11 @@ async def _insert_conversation(
         await conn.execute(
             text(
                 "INSERT INTO conversations (id, user_id, document_id, created_at) "
-                "VALUES (:id, :user_id, :document_id, :created_at)"
+                "VALUES (:id, CAST(:user_id AS uuid), :document_id, :created_at)"
             ),
             {
                 "id": conv_id,
-                "user_id": user_id,
+                "user_id": user_uuid,
                 "document_id": document_id,
                 "created_at": created_at,
             },
@@ -86,14 +105,15 @@ async def _insert_message(
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_users_three_chats(engine: AsyncEngine) -> None:
+    await _seed_users(engine)
     await _seed_documents(engine)
     base = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
 
-    await _insert_conversation(engine, CONV_ALICE_AAA_OLD, "alice", DOC_AAA, base)
+    await _insert_conversation(engine, CONV_ALICE_AAA_OLD, ALICE_UUID, DOC_AAA, base)
     await _insert_conversation(
-        engine, CONV_ALICE_BBB_NEW, "alice", DOC_BBB, base + timedelta(minutes=1)
+        engine, CONV_ALICE_BBB_NEW, ALICE_UUID, DOC_BBB, base + timedelta(minutes=1)
     )
-    await _insert_conversation(engine, CONV_BOB_AAA, "bob", DOC_AAA, base)
+    await _insert_conversation(engine, CONV_BOB_AAA, BOB_UUID, DOC_AAA, base)
 
     await _insert_message(
         engine,
@@ -145,8 +165,10 @@ async def test_list_chats_returns_only_requesting_users_conversations(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        alice_resp = await client.get("/api/v1/chats", headers={"X-User-Id": "alice"})
-        bob_resp = await client.get("/api/v1/chats", headers={"X-User-Id": "bob"})
+        alice_resp = await client.get(
+            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
+        )
+        bob_resp = await client.get("/api/v1/chats", headers={"X-User-Id": BOB_UUID})
 
     assert alice_resp.status_code == 200
     assert bob_resp.status_code == 200
@@ -164,7 +186,9 @@ async def test_list_chats_orders_by_last_message_at_desc_and_groups_by_document(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get("/api/v1/chats", headers={"X-User-Id": "alice"})
+        response = await client.get(
+            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
+        )
 
     assert response.status_code == 200
     items = response.json()["items"]
@@ -188,7 +212,9 @@ async def test_list_chats_document_shape_omits_page_and_includes_title(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get("/api/v1/chats", headers={"X-User-Id": "alice"})
+        response = await client.get(
+            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
+        )
 
     document = response.json()["items"][0]["document"]
     assert set(document.keys()) == {"id", "ticker", "year", "title"}
@@ -202,7 +228,7 @@ async def test_get_chat_messages_returns_messages_in_order(
     async with await _client(app) as client:
         response = await client.get(
             f"/api/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": ALICE_UUID},
         )
 
     assert response.status_code == 200
@@ -219,7 +245,7 @@ async def test_get_chat_messages_cross_user_access_returns_404(
     async with await _client(app) as client:
         response = await client.get(
             f"/api/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
-            headers={"X-User-Id": "bob"},
+            headers={"X-User-Id": BOB_UUID},
         )
 
     assert response.status_code == 404
@@ -234,7 +260,7 @@ async def test_get_chat_messages_unknown_conversation_returns_404(
     async with await _client(app) as client:
         response = await client.get(
             "/api/v1/chats/conv_deadbeefdeadbeefdeadbeefdeadbeef/messages",
-            headers={"X-User-Id": "alice"},
+            headers={"X-User-Id": ALICE_UUID},
         )
 
     assert response.status_code == 404
