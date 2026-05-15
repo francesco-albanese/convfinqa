@@ -23,6 +23,8 @@ module "edge" {
 module "compute" {
   source = "./modules/compute"
 
+  account_name             = var.account_name
+  app_domain               = var.app_domain
   cognito_hosted_ui_prefix = var.cognito_hosted_ui_prefix
 }
 
