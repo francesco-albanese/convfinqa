@@ -24,6 +24,11 @@ on:
           - uat
           - production
         default: "sandbox"
+      confirm:
+        description: "Type DESTROY to run the compute-destroy job"
+        required: false
+        type: string
+        default: ""
   workflow_call:
     inputs:
       environment:
@@ -247,3 +252,46 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/index.html" "/"
+
+  compute-destroy:
+    name: Compute Destroy
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'DESTROY'
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    environment:
+      name: ${{ inputs.environment || 'sandbox' }}
+
+    steps:
+      - name: Verify confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "DESTROY" ]; then
+            echo "confirm input must be exactly 'DESTROY' to proceed"
+            exit 1
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS & Terraform
+        uses: ./.github/actions/configure-aws-env
+        with:
+          environment: ${{ inputs.environment || 'sandbox' }}
+          aws_region: ${{ env.AWS_REGION }}
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          setup_terraform: "true"
+
+      - name: Terraform Init
+        env:
+          ACCOUNT: ${{ inputs.environment || 'sandbox' }}
+        run: make environmental-init ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE=""
+
+      - name: Terraform Destroy compute + keepalive
+        env:
+          ACCOUNT: ${{ inputs.environment || 'sandbox' }}
+        run: |
+          make environmental-destroy ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE="" \
+            TF_FLAGS="-target=module.compute -target=module.keepalive -auto-approve -no-color"
