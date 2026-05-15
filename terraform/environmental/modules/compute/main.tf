@@ -185,6 +185,8 @@ resource "aws_ssm_parameter" "bedrock_region" {
 }
 
 resource "aws_ssm_parameter" "system_prompt_override" {
+  count = var.system_prompt_override != "" ? 1 : 0
+
   name  = "/convfinqa/${var.account_name}/system_prompt_override"
   type  = "SecureString"
   value = var.system_prompt_override
