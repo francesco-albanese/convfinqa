@@ -89,7 +89,7 @@ async def test_list_documents_empty_db_returns_empty_page(
 ) -> None:
     del empty_documents
     async with await _client(app) as client:
-        response = await client.get("/v1/documents")
+        response = await client.get("/api/v1/documents")
 
     assert response.status_code == 200
     assert response.json() == {"items": [], "next_cursor": None}
@@ -101,7 +101,7 @@ async def test_list_documents_search_returns_matching_rows(
 ) -> None:
     del seeded_corpus
     async with await _client(app) as client:
-        response = await client.get("/v1/documents", params={"q": "jkhy"})
+        response = await client.get("/api/v1/documents", params={"q": "jkhy"})
 
     assert response.status_code == 200
     body = response.json()
@@ -122,7 +122,7 @@ async def test_list_documents_pagination_exhausts_corpus_exactly_once(
             params: dict[str, str] = {"limit": "2"}
             if cursor is not None:
                 params["cursor"] = cursor
-            response = await client.get("/v1/documents", params=params)
+            response = await client.get("/api/v1/documents", params=params)
             assert response.status_code == 200
             body = response.json()
             seen.extend(item["id"] for item in body["items"])
@@ -143,7 +143,7 @@ async def test_get_document_unknown_id_returns_404_problem(
 ) -> None:
     del seeded_corpus
     async with await _client(app) as client:
-        response = await client.get("/v1/documents/doc-does-not-exist")
+        response = await client.get("/api/v1/documents/doc-does-not-exist")
 
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("application/problem+json")
@@ -155,7 +155,7 @@ async def test_get_document_returns_full_payload_for_slash_bearing_id(
     app: FastAPI, seeded_document_id: str
 ) -> None:
     async with await _client(app) as client:
-        response = await client.get(f"/v1/documents/{seeded_document_id}")
+        response = await client.get(f"/api/v1/documents/{seeded_document_id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -191,7 +191,7 @@ async def test_get_document_response_includes_wire_column_order(
         )
 
     async with await _client(app) as client:
-        response = await client.get("/v1/documents/doc-jkhy-wire-order-api")
+        response = await client.get("/api/v1/documents/doc-jkhy-wire-order-api")
 
     assert response.status_code == 200
     body = response.json()
@@ -205,7 +205,7 @@ async def test_list_documents_malformed_cursor_returns_400_problem(
     del seeded_corpus
     async with await _client(app) as client:
         response = await client.get(
-            "/v1/documents", params={"cursor": "not-a-valid-cursor!!"}
+            "/api/v1/documents", params={"cursor": "not-a-valid-cursor!!"}
         )
 
     assert response.status_code == 400

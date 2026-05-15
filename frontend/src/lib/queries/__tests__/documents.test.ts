@@ -13,7 +13,7 @@ import {
 
 describe("buildDocumentsUrl", () => {
 	it("emits no query string when no filters and no cursor are set", () => {
-		expect(buildDocumentsUrl({}, null)).toBe("/v1/documents");
+		expect(buildDocumentsUrl({}, null)).toBe("/api/v1/documents");
 	});
 
 	it("includes q, year_min, year_max when set", () => {
@@ -21,16 +21,16 @@ describe("buildDocumentsUrl", () => {
 			{ q: "jkhy", yearMin: 2010, yearMax: 2015 },
 			null,
 		);
-		expect(url).toBe("/v1/documents?q=jkhy&year_min=2010&year_max=2015");
+		expect(url).toBe("/api/v1/documents?q=jkhy&year_min=2010&year_max=2015");
 	});
 
 	it("threads the cursor through", () => {
 		const url = buildDocumentsUrl({ q: "jkhy" }, "opaque-cursor");
-		expect(url).toBe("/v1/documents?q=jkhy&cursor=opaque-cursor");
+		expect(url).toBe("/api/v1/documents?q=jkhy&cursor=opaque-cursor");
 	});
 
 	it("omits empty/whitespace q so the request stays cache-stable", () => {
-		expect(buildDocumentsUrl({ q: "   " }, null)).toBe("/v1/documents");
+		expect(buildDocumentsUrl({ q: "   " }, null)).toBe("/api/v1/documents");
 	});
 });
 
@@ -97,7 +97,7 @@ describe("useDocumentList", () => {
 		await waitFor(() => {
 			expect(result.current.isSuccess).toBe(true);
 		});
-		expect(fetchMock.mock.calls[0]?.[0]).toBe("/v1/documents?q=jkhy");
+		expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/documents?q=jkhy");
 		expect(result.current.hasNextPage).toBe(true);
 
 		await result.current.fetchNextPage();
@@ -110,7 +110,7 @@ describe("useDocumentList", () => {
 		});
 
 		expect(fetchMock.mock.calls[1]?.[0]).toBe(
-			"/v1/documents?q=jkhy&cursor=cursor-2",
+			"/api/v1/documents?q=jkhy&cursor=cursor-2",
 		);
 
 		const flattened = result.current.data?.pages.flatMap((p) => p.items) ?? [];
@@ -125,7 +125,7 @@ describe("useDocumentList", () => {
 describe("buildDocumentUrl", () => {
 	it("appends the id path-style without encoding the slashes in compound ids", () => {
 		expect(buildDocumentUrl("Single_JKHY/2009/page_28.pdf-3")).toBe(
-			"/v1/documents/Single_JKHY/2009/page_28.pdf-3",
+			"/api/v1/documents/Single_JKHY/2009/page_28.pdf-3",
 		);
 	});
 });
@@ -166,7 +166,7 @@ describe("useDocument", () => {
 		});
 
 		expect(fetchMock.mock.calls[0]?.[0]).toBe(
-			"/v1/documents/Single_JKHY/2009/page_28.pdf-3",
+			"/api/v1/documents/Single_JKHY/2009/page_28.pdf-3",
 		);
 		expect(result.current.data?.table_data).toEqual({
 			"2009": { "net income": 103102 },

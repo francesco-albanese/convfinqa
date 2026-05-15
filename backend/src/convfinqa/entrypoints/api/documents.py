@@ -7,7 +7,7 @@ from convfinqa.domain.entities import Document, DocumentListPage
 from convfinqa.domain.ports.documents_port import ListDocumentsQuery
 from convfinqa.entrypoints.api.dependencies import GetDocument, ListDocuments
 
-documents_router = APIRouter(prefix="/v1", tags=["documents"])
+documents_router = APIRouter(prefix="/api/v1", tags=["documents"])
 
 DOCUMENT_ID_PATTERN = r"^[A-Za-z0-9._/\-]+$"
 DOCUMENT_ID_MAX_LENGTH = 512

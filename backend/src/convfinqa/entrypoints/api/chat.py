@@ -26,7 +26,7 @@ from convfinqa.entrypoints.api.sse import (
     to_ui_message_stream,
 )
 
-chat_router = APIRouter(prefix="/v1", tags=["chat"])
+chat_router = APIRouter(prefix="/api/v1", tags=["chat"])
 
 
 class ChatRequest(BaseModel):

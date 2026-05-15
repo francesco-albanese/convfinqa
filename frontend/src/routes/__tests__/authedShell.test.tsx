@@ -226,7 +226,7 @@ describe("/_authed layout — DocPicker → navigation wire-up", () => {
 			"fetch",
 			vi.fn().mockImplementation((input: RequestInfo | URL) => {
 				const url = typeof input === "string" ? input : input.toString();
-				const body = url.startsWith("/v1/chats") ? { items: [] } : page;
+				const body = url.startsWith("/api/v1/chats") ? { items: [] } : page;
 				return Promise.resolve(
 					new Response(JSON.stringify(body), {
 						status: 200,

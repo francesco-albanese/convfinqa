@@ -121,8 +121,8 @@ function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 		.fn()
 		.mockImplementation((input: RequestInfo | URL): Promise<Response> => {
 			const url = typeof input === "string" ? input : input.toString();
-			if (url.startsWith("/v1/chats/")) {
-				const match = url.match(/^\/v1\/chats\/([^/]+)\/messages/);
+			if (url.startsWith("/api/v1/chats/")) {
+				const match = url.match(/^\/api\/v1\/chats\/([^/]+)\/messages/);
 				const chatId = match ? decodeURIComponent(match[1] ?? "") : "";
 				const payload = overrides.chatMessagesByChatId?.[chatId] ?? {
 					items: [],
@@ -134,7 +134,7 @@ function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 					}),
 				);
 			}
-			if (url.startsWith("/v1/chats")) {
+			if (url.startsWith("/api/v1/chats")) {
 				return Promise.resolve(
 					new Response(JSON.stringify(overrides.chatList ?? { items: [] }), {
 						status: 200,

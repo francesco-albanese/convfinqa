@@ -60,7 +60,7 @@ async def test_stream_chat_emits_ai_sdk_v5_frames_in_order_with_streaming_header
 ) -> None:
     async with await _client(app) as client:
         response = await client.post(
-            "/v1/chat/stream",
+            "/api/v1/chat/stream",
             headers={"X-User-Id": "alice"},
             json={"message": "hi", "document_id": seeded_document_id},
         )
@@ -124,7 +124,7 @@ async def test_stream_chat_mid_stream_llm_error_emits_error_frame_and_done(
 
     async with await _client(app) as client:
         response = await client.post(
-            "/v1/chat/stream",
+            "/api/v1/chat/stream",
             headers={"X-User-Id": "alice"},
             json={"message": "hi", "document_id": seeded_document_id},
         )
@@ -190,7 +190,7 @@ async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
 
     async with await _client(app) as client:
         response = await client.post(
-            "/v1/chat/stream",
+            "/api/v1/chat/stream",
             headers={"X-User-Id": "alice"},
             json={"message": "hi", "document_id": seeded_document_id},
         )

@@ -134,7 +134,7 @@ async def two_users_three_chats(engine: AsyncEngine) -> None:
 @pytest.mark.asyncio
 async def test_list_chats_missing_user_id_header_returns_401(app: FastAPI) -> None:
     async with await _client(app) as client:
-        response = await client.get("/v1/chats")
+        response = await client.get("/api/v1/chats")
 
     assert response.status_code == 401
 
@@ -145,8 +145,8 @@ async def test_list_chats_returns_only_requesting_users_conversations(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        alice_resp = await client.get("/v1/chats", headers={"X-User-Id": "alice"})
-        bob_resp = await client.get("/v1/chats", headers={"X-User-Id": "bob"})
+        alice_resp = await client.get("/api/v1/chats", headers={"X-User-Id": "alice"})
+        bob_resp = await client.get("/api/v1/chats", headers={"X-User-Id": "bob"})
 
     assert alice_resp.status_code == 200
     assert bob_resp.status_code == 200
@@ -164,7 +164,7 @@ async def test_list_chats_orders_by_last_message_at_desc_and_groups_by_document(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get("/v1/chats", headers={"X-User-Id": "alice"})
+        response = await client.get("/api/v1/chats", headers={"X-User-Id": "alice"})
 
     assert response.status_code == 200
     items = response.json()["items"]
@@ -188,7 +188,7 @@ async def test_list_chats_document_shape_omits_page_and_includes_title(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get("/v1/chats", headers={"X-User-Id": "alice"})
+        response = await client.get("/api/v1/chats", headers={"X-User-Id": "alice"})
 
     document = response.json()["items"][0]["document"]
     assert set(document.keys()) == {"id", "ticker", "year", "title"}
@@ -201,7 +201,7 @@ async def test_get_chat_messages_returns_messages_in_order(
     del two_users_three_chats
     async with await _client(app) as client:
         response = await client.get(
-            f"/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
+            f"/api/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
             headers={"X-User-Id": "alice"},
         )
 
@@ -218,7 +218,7 @@ async def test_get_chat_messages_cross_user_access_returns_404(
     del two_users_three_chats
     async with await _client(app) as client:
         response = await client.get(
-            f"/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
+            f"/api/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
             headers={"X-User-Id": "bob"},
         )
 
@@ -233,7 +233,7 @@ async def test_get_chat_messages_unknown_conversation_returns_404(
 ) -> None:
     async with await _client(app) as client:
         response = await client.get(
-            "/v1/chats/conv_deadbeefdeadbeefdeadbeefdeadbeef/messages",
+            "/api/v1/chats/conv_deadbeefdeadbeefdeadbeefdeadbeef/messages",
             headers={"X-User-Id": "alice"},
         )
 
@@ -246,7 +246,7 @@ async def test_get_chat_messages_missing_user_id_header_returns_401(
 ) -> None:
     async with await _client(app) as client:
         response = await client.get(
-            "/v1/chats/conv_deadbeefdeadbeefdeadbeefdeadbeef/messages"
+            "/api/v1/chats/conv_deadbeefdeadbeefdeadbeefdeadbeef/messages"
         )
 
     assert response.status_code == 401

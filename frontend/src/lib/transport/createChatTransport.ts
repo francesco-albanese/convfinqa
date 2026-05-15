@@ -11,7 +11,7 @@ export function createChatTransport(
 	options: CreateChatTransportOptions,
 ): DefaultChatTransport<UIMessage> {
 	return new DefaultChatTransport<UIMessage>({
-		api: "/v1/chat/stream",
+		api: "/api/v1/chat/stream",
 		headers: () => ({ "X-User-Id": options.getUserId() }),
 		prepareSendMessagesRequest: ({ messages }) => ({
 			body: buildChatRequestBody({

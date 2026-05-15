@@ -39,7 +39,7 @@ export type ChatList = z.infer<typeof ChatListSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatMessageList = z.infer<typeof ChatMessageListSchema>;
 
-const CHATS_PATH = "/v1/chats";
+const CHATS_PATH = "/api/v1/chats";
 
 export function buildChatListUrl(): string {
 	return CHATS_PATH;

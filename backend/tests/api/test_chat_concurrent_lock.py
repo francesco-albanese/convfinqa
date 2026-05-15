@@ -18,7 +18,7 @@ async def _client(app: FastAPI) -> AsyncClient:
 async def _create_conversation(app: FastAPI, document_id: str) -> str:
     async with await _client(app) as client:
         response = await client.post(
-            "/v1/chat",
+            "/api/v1/chat",
             headers={"X-User-Id": "alice"},
             json={"message": "hi", "document_id": document_id},
         )
@@ -40,7 +40,7 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
     async def post_stream() -> tuple[int, str, dict[str, str]]:
         async with await _client(app) as client:
             response = await client.post(
-                "/v1/chat/stream",
+                "/api/v1/chat/stream",
                 headers={"X-User-Id": "alice"},
                 json={"message": "second", "conversation_id": conversation_id},
             )
@@ -92,7 +92,7 @@ async def test_sync_chat_concurrent_returns_409(
     async def post_sync() -> tuple[int, dict[str, object]]:
         async with await _client(app) as client:
             response = await client.post(
-                "/v1/chat",
+                "/api/v1/chat",
                 headers={"X-User-Id": "alice"},
                 json={"message": "again", "conversation_id": conversation_id},
             )

@@ -38,7 +38,7 @@ export type DocumentListFilters = {
 	yearMax?: number;
 };
 
-const DOCUMENTS_PATH = "/v1/documents";
+const DOCUMENTS_PATH = "/api/v1/documents";
 
 export function buildDocumentsUrl(
 	filters: DocumentListFilters,

@@ -102,7 +102,7 @@ async def _send(
     try:
         async with client.stream(
             "POST",
-            "/v1/chat/stream",
+            "/api/v1/chat/stream",
             headers={"X-User-Id": user_id, "accept": "text/event-stream"},
             json=payload,
         ) as response:
