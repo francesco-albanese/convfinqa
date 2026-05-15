@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -92,7 +93,9 @@ class SqlAlchemyConversationRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def get(self, conversation_id: str, user_id: str) -> Conversation | None:
+    async def get(
+        self, conversation_id: str, user_id: uuid.UUID
+    ) -> Conversation | None:
         async with self._session_factory() as session:
             stmt = (
                 select(ConversationOrm)
@@ -108,7 +111,7 @@ class SqlAlchemyConversationRepository:
                 return None
             return _to_conversation(orm)
 
-    async def create(self, user_id: str, document_id: str) -> Conversation:
+    async def create(self, user_id: uuid.UUID, document_id: str) -> Conversation:
         async with self._session_factory() as session:
             orm = ConversationOrm(
                 id=new_conversation_id(),
@@ -140,7 +143,7 @@ class SqlAlchemyConversationRepository:
             session.add(orm)
             await session.commit()
 
-    async def list_for_user(self, user_id: str) -> tuple[ConversationSummary, ...]:
+    async def list_for_user(self, user_id: uuid.UUID) -> tuple[ConversationSummary, ...]:
         async with self._session_factory() as session:
             result = await session.execute(
                 LIST_CHATS_SQL,
@@ -167,7 +170,7 @@ class SqlAlchemyConversationRepository:
         )
 
     async def get_messages(
-        self, conversation_id: str, user_id: str
+        self, conversation_id: str, user_id: uuid.UUID
     ) -> tuple[Message, ...] | None:
         async with self._session_factory() as session:
             owner_stmt = select(ConversationOrm.id).where(

@@ -15,7 +15,7 @@ from convfinqa.application.use_cases.send_message import (
 )
 from convfinqa.domain.value_objects import StopReason
 from convfinqa.entrypoints.api.dependencies import (
-    CurrentUserId,
+    CurrentUserDep,
     SendMessage,
     SettingsDep,
 )
@@ -69,7 +69,7 @@ class ChatResponse(BaseModel):
 )
 async def sync_chat(
     body: ChatRequest,
-    user_id: CurrentUserId,
+    user_id: CurrentUserDep,
     send_message: SendMessage,
     settings: SettingsDep,
 ) -> ChatResponse:
@@ -131,7 +131,7 @@ async def sync_chat(
 )
 async def stream_chat(
     body: ChatRequest,
-    user_id: CurrentUserId,
+    user_id: CurrentUserDep,
     send_message: SendMessage,
 ) -> StreamingResponse:
     events = send_message.stream(

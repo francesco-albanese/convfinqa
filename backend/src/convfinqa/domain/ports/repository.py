@@ -1,3 +1,4 @@
+import uuid
 from typing import Protocol
 
 from convfinqa.domain.entities import (
@@ -9,16 +10,20 @@ from convfinqa.domain.entities import (
 
 
 class ConversationRepository(Protocol):
-    async def get(self, conversation_id: str, user_id: str) -> Conversation | None: ...
+    async def get(
+        self, conversation_id: str, user_id: uuid.UUID
+    ) -> Conversation | None: ...
 
-    async def create(self, user_id: str, document_id: str) -> Conversation: ...
+    async def create(self, user_id: uuid.UUID, document_id: str) -> Conversation: ...
 
     async def append_message(self, conversation_id: str, message: Message) -> None: ...
 
-    async def list_for_user(self, user_id: str) -> tuple[ConversationSummary, ...]: ...
+    async def list_for_user(
+        self, user_id: uuid.UUID
+    ) -> tuple[ConversationSummary, ...]: ...
 
     async def get_messages(
-        self, conversation_id: str, user_id: str
+        self, conversation_id: str, user_id: uuid.UUID
     ) -> tuple[Message, ...] | None: ...
 
 
