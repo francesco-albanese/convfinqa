@@ -17,3 +17,8 @@ output "oac_id" {
   description = "ID of the CloudFront Origin Access Control"
   value       = aws_cloudfront_origin_access_control.site.id
 }
+
+output "acm_certificate_arn" {
+  description = "ARN of the validated ACM certificate (us-east-1, for CloudFront)"
+  value       = aws_acm_certificate_validation.app.certificate_arn
+}

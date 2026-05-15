@@ -32,3 +32,17 @@ provider "aws" {
     }
   }
 }
+
+# ACM certs for CloudFront must be in us-east-1 regardless of the stack region.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      "franco:terraform_stack" = "convfinqa"
+      "franco:managed_by"      = "terraform"
+      "franco:environment"     = var.account_name
+    }
+  }
+}
