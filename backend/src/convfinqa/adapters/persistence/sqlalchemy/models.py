@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -12,7 +13,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -110,4 +111,22 @@ class DocumentOrm(Base):
         Index("ix_documents_search_tsv", "search_tsv", postgresql_using="gin"),
         Index("ix_documents_year", "year"),
         Index("ix_documents_ticker_year", "ticker", "year"),
+    )
+
+
+class UserOrm(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    cognito_sub: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
