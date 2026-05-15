@@ -16,6 +16,7 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyDocumentRepository,
 )
 from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUserLookup
+from convfinqa.adapters.rate_limit.postgres import PostgresRateLimitAdapter
 from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
 from convfinqa.application.use_cases.list_chats import ListChatsUseCase
@@ -26,6 +27,7 @@ from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
+from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
     DocumentRepository,
@@ -49,6 +51,7 @@ class Container:
     list_chats: ListChatsUseCase
     get_chat_messages: GetChatMessagesUseCase
     cache: CachePort
+    rate_limit: RateLimitPort
     session: SessionPort | None = None
 
     @classmethod
@@ -92,6 +95,7 @@ class Container:
                 find_user_by_sub=SqlAlchemyUserLookup(session_factory),
             )
         cache: CachePort = PostgresCacheAdapter(session_factory)
+        rate_limit: RateLimitPort = PostgresRateLimitAdapter(session_factory)
         return cls(
             settings=settings,
             engine=engine,
@@ -107,6 +111,7 @@ class Container:
             list_chats=list_chats,
             get_chat_messages=get_chat_messages,
             cache=cache,
+            rate_limit=rate_limit,
             session=session,
         )
 
@@ -119,6 +124,7 @@ class Container:
         llm: LLMPort,
         session: SessionPort | None = None,
         cache: CachePort | None = None,
+        rate_limit: RateLimitPort | None = None,
     ) -> "Container":
         conversations: ConversationRepository = SqlAlchemyConversationRepository(
             session_factory
@@ -138,6 +144,7 @@ class Container:
         list_chats = ListChatsUseCase(conversations=conversations)
         get_chat_messages = GetChatMessagesUseCase(conversations=conversations)
         resolved_cache: CachePort = cache if cache is not None else PostgresCacheAdapter(session_factory)
+        resolved_rate_limit: RateLimitPort = rate_limit if rate_limit is not None else PostgresRateLimitAdapter(session_factory)
         return cls(
             settings=settings,
             engine=engine,
@@ -153,5 +160,6 @@ class Container:
             list_chats=list_chats,
             get_chat_messages=get_chat_messages,
             cache=resolved_cache,
+            rate_limit=resolved_rate_limit,
             session=session,
         )
