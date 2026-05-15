@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { WakeupGate } from "@/components/WakeupGate";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import "./styles/globals.css";
 import { routeTree } from "./routeTree.gen";
@@ -28,10 +29,12 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
 	<StrictMode>
-		<AuthProvider>
-			<QueryClientProvider client={queryClient}>
-				<RouterProvider router={router} />
-			</QueryClientProvider>
-		</AuthProvider>
+		<WakeupGate>
+			<AuthProvider>
+				<QueryClientProvider client={queryClient}>
+					<RouterProvider router={router} />
+				</QueryClientProvider>
+			</AuthProvider>
+		</WakeupGate>
 	</StrictMode>,
 );
