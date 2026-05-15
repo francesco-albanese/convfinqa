@@ -1,10 +1,11 @@
 import { expect } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
-import { seedAuthedSession } from "./_authedSession";
+import { mockHealthz, seedAuthedSession } from "./_authedSession";
 
 const { Given, When, Then } = createBdd();
 
 Given("I open the sign-in page", async ({ page }) => {
+	await mockHealthz(page);
 	await page.goto("/sign-in");
 	await expect(
 		page.getByRole("heading", { name: /welcome back/i }),
@@ -12,6 +13,7 @@ Given("I open the sign-in page", async ({ page }) => {
 });
 
 Given("I am signed in on the app page", async ({ page }) => {
+	await mockHealthz(page);
 	await seedAuthedSession(page);
 	await page.goto("/app");
 	await expect(page.getByTestId("authed-shell")).toBeVisible();

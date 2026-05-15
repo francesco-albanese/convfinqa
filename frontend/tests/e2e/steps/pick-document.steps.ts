@@ -50,7 +50,7 @@ function inYearRange(doc: SeededDoc, min: number, max: number): boolean {
 
 async function stubSeededDocumentList(page: Page): Promise<void> {
 	await page.route(
-		(url) => url.pathname === "/v1/documents",
+		(url) => url.pathname === "/api/v1/documents",
 		async (route, request) => {
 			const url = new URL(request.url());
 			const q = url.searchParams.get("q") ?? "";

@@ -45,7 +45,7 @@ function summaryListBody(): { items: SidebarSummary[] } {
 async function ensureChatsRoutes(page: Page): Promise<void> {
 	if (!chatRouted) {
 		await page.route(
-			(url) => url.pathname === "/v1/chats",
+			(url) => url.pathname === "/api/v1/chats",
 			async (route) => {
 				await route.fulfill({
 					status: 200,
@@ -58,10 +58,10 @@ async function ensureChatsRoutes(page: Page): Promise<void> {
 	}
 	if (!messagesRouted) {
 		await page.route(
-			(url) => /^\/v1\/chats\/[^/]+\/messages$/.test(url.pathname),
+			(url) => /^\/api\/v1\/chats\/[^/]+\/messages$/.test(url.pathname),
 			async (route, request) => {
 				const path = new URL(request.url()).pathname;
-				const match = path.match(/^\/v1\/chats\/([^/]+)\/messages$/);
+				const match = path.match(/^\/api\/v1\/chats\/([^/]+)\/messages$/);
 				const chatId = match ? decodeURIComponent(match[1] ?? "") : "";
 				const items = persistedMessages.get(chatId) ?? [];
 				await route.fulfill({
@@ -129,7 +129,7 @@ Given(
 	) => {
 		await ensureChatsRoutes(page);
 		await page.route(
-			(url) => url.pathname === "/v1/chat/stream",
+			(url) => url.pathname === "/api/v1/chat/stream",
 			async (route) => {
 				sidebarSummaries.set(chatId, {
 					id: chatId,

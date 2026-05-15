@@ -38,7 +38,7 @@ const JKHY_CSV = [
 	"net cash from operating activities,206588,181001,174247",
 ].join("\r\n");
 
-const JKHY_DETAIL_PATHNAME = `/v1/documents/${encodeURI(JKHY_DOCUMENT_ID)}`;
+const JKHY_DETAIL_PATHNAME = `/api/v1/documents/${encodeURI(JKHY_DOCUMENT_ID)}`;
 
 async function stubDocumentsBackend(page: Page): Promise<void> {
 	await page.route(
@@ -52,7 +52,7 @@ async function stubDocumentsBackend(page: Page): Promise<void> {
 		},
 	);
 	await page.route(
-		(url) => url.pathname === "/v1/documents",
+		(url) => url.pathname === "/api/v1/documents",
 		async (route) => {
 			await route.fulfill({
 				status: 200,

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
+import { WakeupGate } from "@/components/WakeupGate";
 import { readPersistedAuthUserId, useAuth } from "@/lib/auth/AuthProvider";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
 import {
@@ -41,8 +42,16 @@ export const Route = createFileRoute("/_authed")({
 		const parsed = LayoutSearchSchema.safeParse(raw);
 		return parsed.success ? parsed.data : {};
 	},
-	component: AuthedLayout,
+	component: AuthedRoute,
 });
+
+function AuthedRoute() {
+	return (
+		<WakeupGate>
+			<AuthedLayout />
+		</WakeupGate>
+	);
+}
 
 function AuthedLayout() {
 	const { documentId } = Route.useSearch();

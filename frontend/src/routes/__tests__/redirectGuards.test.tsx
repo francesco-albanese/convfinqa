@@ -9,6 +9,10 @@ import { describe, expect, it, vi } from "vitest";
 import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
+vi.mock("@/lib/api/healthcheck", () => ({
+	checkHealth: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("@/lib/chat/useConvfinqaChat", () => ({
 	useConvfinqaChat: () => ({
 		id: "stub",
