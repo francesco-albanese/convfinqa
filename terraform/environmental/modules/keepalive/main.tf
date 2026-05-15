@@ -70,7 +70,7 @@ resource "aws_lambda_function" "keepalive" {
   runtime          = "python3.13"
   filename         = "${path.module}/keepalive.zip"
   source_code_hash = filebase64sha256("${path.module}/keepalive.zip")
-  timeout          = 10
+  timeout          = 60
   memory_size      = 128
 
   vpc_config {
@@ -80,7 +80,7 @@ resource "aws_lambda_function" "keepalive" {
 
   environment {
     variables = {
-      AURORA_HOST = var.aurora_host
+      DATABASE_URL = var.database_url
     }
   }
 

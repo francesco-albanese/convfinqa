@@ -32,8 +32,15 @@ module "compute" {
   cognito_hosted_ui_prefix = var.cognito_hosted_ui_prefix
   public_subnet_ids        = module.network.public_subnet_ids
   ecs_sg_id                = module.network.ecs_sg_id
+  vpc_id                   = module.network.vpc_id
 }
 
 module "keepalive" {
   source = "./modules/keepalive"
+
+  vpc_id            = module.network.vpc_id
+  public_subnet_ids = module.network.public_subnet_ids
+  aurora_sg_id      = module.network.aurora_sg_id
+  account_name      = var.account_name
+  database_url      = module.data.database_url
 }
