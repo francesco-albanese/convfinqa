@@ -75,30 +75,16 @@ function renderSignInRoute() {
 }
 
 describe("/sign-in route", () => {
-	it("renders the form skeleton: email, password, Sign in, Continue with Google", async () => {
+	it("renders the heading and Google sign-in button", async () => {
 		renderSignInRoute();
 		expect(
 			await screen.findByRole("heading", { name: /welcome back/i }),
 		).toBeInTheDocument();
-		expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-		expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /^sign in$/i }),
-		).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: /continue with google/i }),
 		).toBeInTheDocument();
-	});
-
-	it("redirects to the BFF login when 'Sign in' is clicked", async () => {
-		const captured = captureLocationHref();
-		const user = userEvent.setup();
-		renderSignInRoute();
-		await screen.findByRole("heading", { name: /welcome back/i });
-
-		await user.click(screen.getByRole("button", { name: /^sign in$/i }));
-
-		expect(captured.get()).toBe("/api/auth/login");
+		expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+		expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
 	});
 
 	it("redirects to the BFF login when 'Continue with Google' is clicked", async () => {
@@ -110,17 +96,6 @@ describe("/sign-in route", () => {
 		await user.click(
 			screen.getByRole("button", { name: /continue with google/i }),
 		);
-
-		expect(captured.get()).toBe("/api/auth/login");
-	});
-
-	it("redirects to the BFF login even when email and password are empty", async () => {
-		const captured = captureLocationHref();
-		const user = userEvent.setup();
-		renderSignInRoute();
-		await screen.findByRole("heading", { name: /welcome back/i });
-
-		await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
 		expect(captured.get()).toBe("/api/auth/login");
 	});
