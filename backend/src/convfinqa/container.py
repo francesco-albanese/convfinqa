@@ -23,7 +23,6 @@ from convfinqa.application.use_cases.list_chats import ListChatsUseCase
 from convfinqa.application.use_cases.list_documents import ListDocumentsUseCase
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
-from convfinqa.logging import get_logger
 from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
@@ -34,6 +33,7 @@ from convfinqa.domain.ports.repository import (
     DocumentRepository,
 )
 from convfinqa.domain.ports.session import SessionPort
+from convfinqa.logging import get_logger
 
 _log = get_logger(__name__)
 
