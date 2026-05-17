@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-const E2E_USER_ID = "e2e-user-id";
+const E2E_USER_ID = "00000000-0000-0000-0000-000000000001";
 const E2E_EMAIL = "e2e@example.com";
 
 export async function mockHealthz(page: Page): Promise<void> {
