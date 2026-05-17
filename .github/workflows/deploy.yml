@@ -243,7 +243,7 @@ jobs:
             --task-definition "${{ vars.ECS_TASK_FAMILY }}" \
             --launch-type FARGATE \
             --network-configuration "$NET" \
-            --overrides '{"containerOverrides":[{"name":"api","command":["uv","run","alembic","upgrade","head"]}]}' \
+            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}' \
             --query 'tasks[0].taskArn' \
             --output text)
           echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
