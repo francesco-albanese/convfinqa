@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "$#" -gt 0 ]; then
+	exec "$@"
+fi
+
 alembic upgrade head
 python -m convfinqa.adapters.persistence.documents_seeder
 
