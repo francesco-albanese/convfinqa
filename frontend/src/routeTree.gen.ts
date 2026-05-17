@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AnonymousRouteImport } from './routes/_anonymous'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AnonymousSignUpRouteImport } from './routes/_anonymous/sign-up'
 import { Route as AnonymousSignInRouteImport } from './routes/_anonymous/sign-in'
 import { Route as AuthedAppIndexRouteImport } from './routes/_authed/app/index'
 
@@ -29,11 +28,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AnonymousSignUpRoute = AnonymousSignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => AnonymousRoute,
-} as any)
 const AnonymousSignInRoute = AnonymousSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -48,13 +42,11 @@ const AuthedAppIndexRoute = AuthedAppIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof AnonymousSignInRoute
-  '/sign-up': typeof AnonymousSignUpRoute
   '/app/': typeof AuthedAppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof AnonymousSignInRoute
-  '/sign-up': typeof AnonymousSignUpRoute
   '/app': typeof AuthedAppIndexRoute
 }
 export interface FileRoutesById {
@@ -63,21 +55,19 @@ export interface FileRoutesById {
   '/_anonymous': typeof AnonymousRouteWithChildren
   '/_authed': typeof AuthedRouteWithChildren
   '/_anonymous/sign-in': typeof AnonymousSignInRoute
-  '/_anonymous/sign-up': typeof AnonymousSignUpRoute
   '/_authed/app/': typeof AuthedAppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/sign-up' | '/app/'
+  fullPaths: '/' | '/sign-in' | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/sign-up' | '/app'
+  to: '/' | '/sign-in' | '/app'
   id:
     | '__root__'
     | '/'
     | '/_anonymous'
     | '/_authed'
     | '/_anonymous/sign-in'
-    | '/_anonymous/sign-up'
     | '/_authed/app/'
   fileRoutesById: FileRoutesById
 }
@@ -110,13 +100,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_anonymous/sign-up': {
-      id: '/_anonymous/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof AnonymousSignUpRouteImport
-      parentRoute: typeof AnonymousRoute
-    }
     '/_anonymous/sign-in': {
       id: '/_anonymous/sign-in'
       path: '/sign-in'
@@ -136,12 +119,10 @@ declare module '@tanstack/react-router' {
 
 interface AnonymousRouteChildren {
   AnonymousSignInRoute: typeof AnonymousSignInRoute
-  AnonymousSignUpRoute: typeof AnonymousSignUpRoute
 }
 
 const AnonymousRouteChildren: AnonymousRouteChildren = {
   AnonymousSignInRoute: AnonymousSignInRoute,
-  AnonymousSignUpRoute: AnonymousSignUpRoute,
 }
 
 const AnonymousRouteWithChildren = AnonymousRoute._addFileChildren(
