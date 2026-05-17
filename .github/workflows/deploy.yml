@@ -229,6 +229,7 @@ jobs:
     name: Run Alembic Migrations
     needs: [detect-changes, terraform-apply, backend-deploy]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.backend == 'true')) &&
@@ -287,6 +288,7 @@ jobs:
     name: Backend Deploy
     needs: [detect-changes, terraform-apply]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.backend_deploy == 'true')) &&
@@ -360,6 +362,7 @@ jobs:
     name: Auth Lambda Deploy
     needs: [detect-changes, terraform-apply]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.auth_lambda == 'true')) &&
@@ -411,6 +414,7 @@ jobs:
     name: Frontend Deploy
     needs: [detect-changes, terraform-apply]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.frontend == 'true')) &&
@@ -528,6 +532,7 @@ jobs:
     name: Seed Documents
     needs: [terraform-apply, migrations, backend-deploy]
     if: |
+      !cancelled() && !failure() &&
       github.event_name == 'workflow_dispatch' &&
       inputs.run_seed == true &&
       (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
