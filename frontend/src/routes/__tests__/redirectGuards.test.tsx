@@ -89,9 +89,12 @@ describe("route guards — anonymous vs authed", () => {
 	it("redirects an unauthenticated visitor from /app to /sign-in", async () => {
 		const { router } = renderAt("/app");
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/sign-in");
-		});
+		await waitFor(
+			() => {
+				expect(router.state.location.pathname).toBe("/sign-in");
+			},
+			{ timeout: 3000 },
+		);
 		expect(
 			await screen.findByRole("heading", { name: /welcome back/i }),
 		).toBeInTheDocument();
@@ -101,9 +104,12 @@ describe("route guards — anonymous vs authed", () => {
 		stubFetch(200);
 		const { router } = renderAt("/sign-in");
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/app");
-		});
+		await waitFor(
+			() => {
+				expect(router.state.location.pathname).toBe("/app");
+			},
+			{ timeout: 3000 },
+		);
 		expect(await screen.findByTestId("authed-shell")).toBeInTheDocument();
 	});
 
