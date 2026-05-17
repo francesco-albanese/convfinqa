@@ -84,16 +84,6 @@ function SignInPage() {
 						<p className="text-center text-[11px] text-muted-foreground">
 							secured by AWS Cognito · SSO via Google OAuth 2.0
 						</p>
-
-						<p className="text-center text-muted-foreground text-xs">
-							New here?{" "}
-							<a
-								href="/sign-up"
-								className="text-link hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-							>
-								Create an account
-							</a>
-						</p>
 					</div>
 				</section>
 			</div>
