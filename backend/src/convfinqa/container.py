@@ -33,6 +33,9 @@ from convfinqa.domain.ports.repository import (
     DocumentRepository,
 )
 from convfinqa.domain.ports.session import SessionPort
+from convfinqa.logging import get_logger
+
+_log = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +96,12 @@ class Container:
                 ),
                 client_id=settings.cognito_client_id,
                 find_user_by_sub=SqlAlchemyUserLookup(session_factory),
+            )
+        if session is None:
+            _log.warning(
+                "Cognito session disabled: COGNITO_USER_POOL_ID or COGNITO_CLIENT_ID "
+                "not set. Auth middleware is bypassed; X-User-Id header is trusted as "
+                "identity. Do NOT run in this state in production.",
             )
         cache: CachePort = PostgresCacheAdapter(session_factory)
         rate_limit: RateLimitPort = PostgresRateLimitAdapter(session_factory)

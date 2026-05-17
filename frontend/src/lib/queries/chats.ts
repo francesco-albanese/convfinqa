@@ -1,5 +1,6 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { apiFetch } from "@/lib/api/client";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 
 const IsoDatetime = z.iso.datetime({ offset: true });
@@ -62,7 +63,7 @@ function authHeaders(userId: string): HeadersInit {
 }
 
 export async function fetchChatList(userId: string): Promise<ChatList> {
-	const response = await fetch(buildChatListUrl(), {
+	const response = await apiFetch(buildChatListUrl(), {
 		headers: authHeaders(userId),
 	});
 	if (!response.ok) {
@@ -75,7 +76,7 @@ export async function fetchChatMessages(
 	chatId: string,
 	userId: string,
 ): Promise<ChatMessageList> {
-	const response = await fetch(buildChatMessagesUrl(chatId), {
+	const response = await apiFetch(buildChatMessagesUrl(chatId), {
 		headers: authHeaders(userId),
 	});
 	if (!response.ok) {
@@ -90,7 +91,7 @@ export function useChatList() {
 	const userId = useAuthedUserId();
 	return useQuery({
 		queryKey: chatListQueryKey(userId),
-		queryFn: () => fetchChatList(userId),
+		queryFn: userId ? () => fetchChatList(userId) : skipToken,
 	});
 }
 
@@ -98,7 +99,8 @@ export function useChatMessages(chatId: string | null | undefined) {
 	const userId = useAuthedUserId();
 	return useQuery({
 		queryKey: chatMessagesQueryKey(chatId),
-		queryFn: chatId ? () => fetchChatMessages(chatId, userId) : skipToken,
+		queryFn:
+			chatId && userId ? () => fetchChatMessages(chatId, userId) : skipToken,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 }

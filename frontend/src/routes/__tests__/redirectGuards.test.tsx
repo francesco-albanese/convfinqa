@@ -5,9 +5,11 @@ import {
 	RouterProvider,
 } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
+
+const TEST_USER = { user_id: "guard-test-user", email: "guard@test.com" };
 
 vi.mock("@/lib/api/healthcheck", () => ({
 	checkHealth: vi.fn(() => Promise.resolve()),
@@ -31,6 +33,35 @@ vi.mock("@/lib/chat/useConvfinqaChat", () => ({
 	}),
 }));
 
+function stubFetch(meStatus: 200 | 401) {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.includes("/api/auth/refresh")) {
+				return Promise.resolve(new Response(null, { status: 401 }));
+			}
+			if (url === "/api/v1/me") {
+				if (meStatus === 200) {
+					return Promise.resolve(
+						new Response(JSON.stringify(TEST_USER), {
+							status: 200,
+							headers: { "Content-Type": "application/json" },
+						}),
+					);
+				}
+				return Promise.resolve(new Response(null, { status: 401 }));
+			}
+			return Promise.resolve(
+				new Response(JSON.stringify({ items: [] }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+		}),
+	);
+}
+
 function renderAt(initialPath: string) {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
@@ -51,6 +82,10 @@ function renderAt(initialPath: string) {
 }
 
 describe("route guards — anonymous vs authed", () => {
+	beforeEach(() => {
+		stubFetch(401);
+	});
+
 	it("redirects an unauthenticated visitor from /app to /sign-in", async () => {
 		const { router } = renderAt("/app");
 
@@ -63,8 +98,7 @@ describe("route guards — anonymous vs authed", () => {
 	});
 
 	it("redirects an authenticated visitor from /sign-in to /app", async () => {
-		window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-guard-test");
-
+		stubFetch(200);
 		const { router } = renderAt("/sign-in");
 
 		await waitFor(() => {
@@ -73,9 +107,8 @@ describe("route guards — anonymous vs authed", () => {
 		expect(await screen.findByTestId("authed-shell")).toBeInTheDocument();
 	});
 
-	it("keeps an authenticated visitor on /app on a fresh load (storage hydrated synchronously)", async () => {
-		window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-reload-test");
-
+	it("keeps an authenticated visitor on /app after session resolves", async () => {
+		stubFetch(200);
 		const { router } = renderAt("/app");
 
 		expect(await screen.findByTestId("authed-shell")).toBeInTheDocument();

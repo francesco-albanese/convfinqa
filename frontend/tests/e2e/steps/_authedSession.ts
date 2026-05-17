@@ -1,11 +1,7 @@
 import type { Page } from "@playwright/test";
 
-const AUTH_STORAGE_KEY = "auth.userId";
-const DEV_USER_ID = "dev-user-e2e";
-
-type BrowserGlobals = {
-	localStorage: { setItem(key: string, value: string): void };
-};
+const E2E_USER_ID = "00000000-0000-0000-0000-000000000001";
+const E2E_EMAIL = "e2e@example.com";
 
 export async function mockHealthz(page: Page): Promise<void> {
 	await page.route("**/api/v1/healthz", (route) =>
@@ -19,13 +15,17 @@ export async function mockHealthz(page: Page): Promise<void> {
 
 export async function seedAuthedSession(page: Page): Promise<void> {
 	await mockHealthz(page);
-	await page.addInitScript(
-		([key, value]) => {
-			(globalThis as unknown as BrowserGlobals).localStorage.setItem(
-				key,
-				value,
-			);
-		},
-		[AUTH_STORAGE_KEY, DEV_USER_ID] as const,
+	await page.route("**/api/v1/me", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ user_id: E2E_USER_ID, email: E2E_EMAIL }),
+		}),
+	);
+	await page.route("**/api/auth/refresh", (route) =>
+		route.fulfill({ status: 401 }),
+	);
+	await page.route("**/api/auth/logout", (route) =>
+		route.fulfill({ status: 204 }),
 	);
 }

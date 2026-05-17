@@ -50,10 +50,9 @@ data "aws_route53_zone" "parent" {
 }
 
 resource "aws_acm_certificate" "app" {
-  provider                  = aws.us_east_1
-  domain_name               = var.app_domain
-  subject_alternative_names = [var.apex_domain]
-  validation_method         = "DNS"
+  provider          = aws.us_east_1
+  domain_name       = var.app_domain
+  validation_method = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -98,7 +97,8 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
 }
 
 locals {
-  s3_origin_id = "convfinqa-site-s3"
+  s3_origin_id  = "convfinqa-site-s3"
+  alb_origin_id = "convfinqa-api-alb"
   bff_origins = {
     login    = trimsuffix(trimprefix(var.bff_login_url, "https://"), "/")
     callback = trimsuffix(trimprefix(var.bff_callback_url, "https://"), "/")
@@ -177,7 +177,7 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
 }
 
 resource "aws_cloudfront_distribution" "app" {
-  aliases             = [var.app_domain, var.apex_domain]
+  aliases             = [var.app_domain]
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
@@ -187,6 +187,17 @@ resource "aws_cloudfront_distribution" "app" {
     origin_id                = local.s3_origin_id
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+  }
+
+  origin {
+    origin_id   = local.alb_origin_id
+    domain_name = var.alb_dns_name
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
   }
 
   origin {
@@ -271,6 +282,17 @@ resource "aws_cloudfront_distribution" "app" {
     allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = "bff-logout"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = false
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/v1/*"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    target_origin_id         = local.alb_origin_id
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
     viewer_protocol_policy   = "redirect-to-https"
@@ -385,28 +407,3 @@ resource "aws_route53_record" "app_ipv6" {
   }
 }
 
-resource "aws_route53_record" "apex_ipv4" {
-  provider = aws.shared_services
-  zone_id  = data.aws_route53_zone.parent.zone_id
-  name     = var.apex_domain
-  type     = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.app.domain_name
-    zone_id                = aws_cloudfront_distribution.app.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "apex_ipv6" {
-  provider = aws.shared_services
-  zone_id  = data.aws_route53_zone.parent.zone_id
-  name     = var.apex_domain
-  type     = "AAAA"
-
-  alias {
-    name                   = aws_cloudfront_distribution.app.domain_name
-    zone_id                = aws_cloudfront_distribution.app.hosted_zone_id
-    evaluate_target_health = false
-  }
-}

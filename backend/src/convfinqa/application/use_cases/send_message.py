@@ -1,4 +1,5 @@
 import logging
+import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -105,7 +106,7 @@ class SendMessageUseCase:
 
     async def stream(
         self,
-        user_id: str,
+        user_id: uuid.UUID,
         conversation_id: str | None,
         user_text: str,
         document_id: str | None = None,
@@ -180,7 +181,7 @@ class SendMessageUseCase:
     async def _resolve_conversation_and_document(
         self,
         conversation_id: str | None,
-        user_id: str,
+        user_id: uuid.UUID,
         document_id: str | None,
     ) -> tuple[Conversation, Document]:
         if conversation_id is None:

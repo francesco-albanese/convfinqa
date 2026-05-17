@@ -3,59 +3,78 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useState,
 } from "react";
+import { apiFetch, registerUnauthHandler } from "@/lib/api/client";
 
-export const AUTH_STORAGE_KEY = "auth.userId";
-const DEV_USER_PREFIX = "dev-user-";
+export type AuthStatus = "loading" | "authed" | "unauthed";
 
 export type AuthContextValue = {
 	userId: string | null;
+	email: string | null;
+	status: AuthStatus;
 	signIn: () => void;
-	signOut: () => void;
+	signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function readPersistedAuthUserId(): string | null {
-	try {
-		const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-		return raw?.startsWith(DEV_USER_PREFIX) ? raw : null;
-	} catch {
-		return null;
-	}
-}
-
-function persistUserId(userId: string | null): void {
-	try {
-		if (userId === null) {
-			window.localStorage.removeItem(AUTH_STORAGE_KEY);
-		} else {
-			window.localStorage.setItem(AUTH_STORAGE_KEY, userId);
-		}
-	} catch {
-		// Quota exceeded or storage blocked — silently drop.
-	}
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-	const [userId, setUserId] = useState<string | null>(readPersistedAuthUserId);
+	const [userId, setUserId] = useState<string | null>(null);
+	const [email, setEmail] = useState<string | null>(null);
+	const [status, setStatus] = useState<AuthStatus>("loading");
 
-	const signIn = useCallback(() => {
-		const next = `${DEV_USER_PREFIX}${crypto.randomUUID()}`;
-		persistUserId(next);
-		setUserId(next);
+	const handleUnauthed = useCallback(() => {
+		setUserId(null);
+		setEmail(null);
+		setStatus("unauthed");
 	}, []);
 
-	const signOut = useCallback(() => {
-		persistUserId(null);
+	useEffect(() => {
+		return registerUnauthHandler(handleUnauthed);
+	}, [handleUnauthed]);
+
+	useEffect(() => {
+		let ignore = false;
+		apiFetch("/api/v1/me")
+			.then(async (res) => {
+				if (ignore) return;
+				if (res.ok) {
+					const data = (await res.json()) as {
+						user_id: string;
+						email: string | null;
+					};
+					setUserId(data.user_id);
+					setEmail(data.email);
+					setStatus("authed");
+				} else {
+					setStatus("unauthed");
+				}
+			})
+			.catch(() => {
+				if (!ignore) setStatus("unauthed");
+			});
+		return () => {
+			ignore = true;
+		};
+	}, []);
+
+	const signIn = useCallback(() => {
+		window.location.href = "/api/auth/login";
+	}, []);
+
+	const signOut = useCallback(async () => {
+		await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
 		setUserId(null);
+		setEmail(null);
+		setStatus("unauthed");
 	}, []);
 
 	const value = useMemo<AuthContextValue>(
-		() => ({ userId, signIn, signOut }),
-		[userId, signIn, signOut],
+		() => ({ userId, email, status, signIn, signOut }),
+		[userId, email, status, signIn, signOut],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -70,7 +89,10 @@ export function useAuth(): AuthContextValue {
 }
 
 export function useAuthedUserId(): string {
-	const { userId } = useAuth();
+	const { userId, status } = useAuth();
+	if (status === "loading") {
+		return "";
+	}
 	if (userId === null) {
 		throw new Error(
 			"useAuthedUserId requires an authenticated session; call only inside the /_authed route subtree.",

@@ -3,11 +3,6 @@ variable "app_domain" {
   type        = string
 }
 
-variable "apex_domain" {
-  description = "Apex project domain included as a SAN on the ACM cert"
-  type        = string
-}
-
 variable "parent_zone_name" {
   description = "Route53 hosted zone name in shared-services for ACM DNS-validation CNAMEs"
   type        = string
@@ -30,5 +25,10 @@ variable "bff_refresh_url" {
 
 variable "bff_logout_url" {
   description = "Lambda Function URL for /api/auth/logout."
+  type        = string
+}
+
+variable "alb_dns_name" {
+  description = "ALB DNS name for the FastAPI service (CloudFront /api/v1/* origin)."
   type        = string
 }

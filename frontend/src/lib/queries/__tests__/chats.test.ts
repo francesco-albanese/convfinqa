@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import {
 	buildChatListUrl,
 	buildChatMessagesUrl,
@@ -15,7 +15,7 @@ import {
 	useChatMessages,
 } from "@/lib/queries/chats";
 
-const TEST_USER_ID = "dev-user-test";
+const TEST_USER = { user_id: "chats-test-user-uuid", email: "chats@test.com" };
 
 function jsonResponse(body: unknown): Response {
 	return new Response(JSON.stringify(body), {
@@ -27,7 +27,6 @@ function jsonResponse(body: unknown): Response {
 function withProviders(): {
 	wrapper: (props: { children: ReactNode }) => ReactNode;
 } {
-	window.localStorage.setItem(AUTH_STORAGE_KEY, TEST_USER_ID);
 	const client = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
 	});
@@ -122,9 +121,20 @@ describe("ChatMessageListSchema", () => {
 });
 
 describe("useChatList", () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((input: RequestInfo | URL) => {
+				const url = typeof input === "string" ? input : input.toString();
+				if (url === "/api/v1/me")
+					return Promise.resolve(jsonResponse(TEST_USER));
+				return Promise.resolve(new Response(null, { status: 404 }));
+			}),
+		);
+	});
+
 	afterEach(() => {
 		vi.unstubAllGlobals();
-		window.localStorage.clear();
 	});
 
 	it("requests /api/v1/chats with the X-User-Id header and parses the response", async () => {
@@ -143,7 +153,11 @@ describe("useChatList", () => {
 				},
 			],
 		};
-		const fetchMock = vi.fn().mockResolvedValue(jsonResponse(list));
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") return Promise.resolve(jsonResponse(TEST_USER));
+			return Promise.resolve(jsonResponse(list));
+		});
 		vi.stubGlobal("fetch", fetchMock);
 
 		const { result } = renderHook(() => useChatList(), {
@@ -154,17 +168,20 @@ describe("useChatList", () => {
 			expect(result.current.isSuccess).toBe(true);
 		});
 
-		expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/chats");
-		expect(headerValue(fetchMock.mock.calls[0], "X-User-Id")).toBe(
-			TEST_USER_ID,
+		const chatsCall = fetchMock.mock.calls.find(
+			([u]) => String(u) === "/api/v1/chats",
 		);
+		expect(chatsCall).toBeDefined();
+		expect(headerValue(chatsCall, "X-User-Id")).toBe(TEST_USER.user_id);
 		expect(result.current.data?.items[0]?.id).toBe("conv_abc");
 	});
 
 	it("surfaces a non-2xx response as an error", async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValue(new Response("nope", { status: 401 }));
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") return Promise.resolve(jsonResponse(TEST_USER));
+			return Promise.resolve(new Response("server error", { status: 500 }));
+		});
 		vi.stubGlobal("fetch", fetchMock);
 
 		const { result } = renderHook(() => useChatList(), {
@@ -178,9 +195,20 @@ describe("useChatList", () => {
 });
 
 describe("useChatMessages", () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((input: RequestInfo | URL) => {
+				const url = typeof input === "string" ? input : input.toString();
+				if (url === "/api/v1/me")
+					return Promise.resolve(jsonResponse(TEST_USER));
+				return Promise.resolve(new Response(null, { status: 404 }));
+			}),
+		);
+	});
+
 	afterEach(() => {
 		vi.unstubAllGlobals();
-		window.localStorage.clear();
 	});
 
 	it("fetches /api/v1/chats/{id}/messages with X-User-Id when a chatId is provided", async () => {
@@ -194,7 +222,11 @@ describe("useChatMessages", () => {
 				},
 			],
 		};
-		const fetchMock = vi.fn().mockResolvedValue(jsonResponse(messages));
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") return Promise.resolve(jsonResponse(TEST_USER));
+			return Promise.resolve(jsonResponse(messages));
+		});
 		vi.stubGlobal("fetch", fetchMock);
 
 		const { result } = renderHook(() => useChatMessages("conv_abc"), {
@@ -205,25 +237,34 @@ describe("useChatMessages", () => {
 			expect(result.current.isSuccess).toBe(true);
 		});
 
-		expect(fetchMock.mock.calls[0]?.[0]).toBe(
-			"/api/v1/chats/conv_abc/messages",
+		const messagesCall = fetchMock.mock.calls.find(
+			([u]) => String(u) === "/api/v1/chats/conv_abc/messages",
 		);
-		expect(headerValue(fetchMock.mock.calls[0], "X-User-Id")).toBe(
-			TEST_USER_ID,
-		);
+		expect(messagesCall).toBeDefined();
+		expect(headerValue(messagesCall, "X-User-Id")).toBe(TEST_USER.user_id);
 		expect(result.current.data?.items[0]?.content).toBe("hi");
 	});
 
-	it("stays idle when chatId is null", () => {
-		const fetchMock = vi.fn();
+	it("stays idle when chatId is null", async () => {
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") return Promise.resolve(jsonResponse(TEST_USER));
+			return Promise.resolve(new Response(null, { status: 404 }));
+		});
 		vi.stubGlobal("fetch", fetchMock);
 
 		const { result } = renderHook(() => useChatMessages(null), {
 			wrapper: withProviders().wrapper,
 		});
 
-		expect(fetchMock).not.toHaveBeenCalled();
-		expect(result.current.fetchStatus).toBe("idle");
+		await waitFor(() => {
+			expect(result.current.fetchStatus).toBe("idle");
+		});
+
+		const chatsCall = fetchMock.mock.calls.find(([u]) =>
+			String(u).includes("/api/v1/chats/"),
+		);
+		expect(chatsCall).toBeUndefined();
 	});
 });
 

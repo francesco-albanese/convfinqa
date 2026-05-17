@@ -7,5 +7,4 @@ account_name = "sandbox"
 cognito_hosted_ui_prefix = "convfinqa-sandbox"
 
 # Domain
-app_domain  = "app.convfinqa-sandbox.francescoalbanese.dev"
-apex_domain = "convfinqa-sandbox.francescoalbanese.dev"
+app_domain = "convfinqa-sandbox.francescoalbanese.dev"

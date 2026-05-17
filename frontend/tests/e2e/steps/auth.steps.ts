@@ -13,7 +13,6 @@ Given("I open the sign-in page", async ({ page }) => {
 });
 
 Given("I am signed in on the app page", async ({ page }) => {
-	await mockHealthz(page);
 	await seedAuthedSession(page);
 	await page.goto("/app");
 	await expect(page.getByTestId("authed-shell")).toBeVisible();
@@ -45,24 +44,4 @@ Then("I land on the sign-in page", async ({ page }) => {
 	await expect(
 		page.getByRole("heading", { name: /welcome back/i }),
 	).toBeVisible();
-});
-
-type BrowserGlobals = { localStorage: { getItem(key: string): string | null } };
-
-Then("my dev user id is persisted", async ({ page }) => {
-	const stored = await page.evaluate(() =>
-		(globalThis as unknown as BrowserGlobals).localStorage.getItem(
-			"auth.userId",
-		),
-	);
-	expect(stored).toMatch(/^dev-user-/);
-});
-
-Then("my dev user id is cleared", async ({ page }) => {
-	const stored = await page.evaluate(() =>
-		(globalThis as unknown as BrowserGlobals).localStorage.getItem(
-			"auth.userId",
-		),
-	);
-	expect(stored).toBeNull();
 });

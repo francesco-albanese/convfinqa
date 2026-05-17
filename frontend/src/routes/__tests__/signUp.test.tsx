@@ -6,8 +6,8 @@ import {
 } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
 vi.mock("@/lib/chat/useConvfinqaChat", () => ({
@@ -27,6 +27,27 @@ vi.mock("@/lib/chat/useConvfinqaChat", () => ({
 		sendMessage: async () => undefined,
 	}),
 }));
+
+beforeEach(() => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockResolvedValue(new Response(null, { status: 401 })),
+	);
+});
+
+function captureLocationHref() {
+	let href = "";
+	vi.stubGlobal("location", {
+		get href() {
+			return href;
+		},
+		set href(v: string) {
+			href = v;
+		},
+		pathname: "/sign-up",
+	});
+	return { get: () => href };
+}
 
 function renderSignUpRoute() {
 	const queryClient = new QueryClient({
@@ -64,32 +85,28 @@ describe("/sign-up route", () => {
 		).toBeInTheDocument();
 	});
 
-	it("signs the user in and navigates to /app when 'Sign up' is clicked", async () => {
+	it("redirects to the BFF login when 'Sign up' is clicked", async () => {
+		const captured = captureLocationHref();
 		const user = userEvent.setup();
-		const { router } = renderSignUpRoute();
+		renderSignUpRoute();
 		await screen.findByRole("heading", { name: /create an account/i });
 
 		await user.click(screen.getByRole("button", { name: /^sign up$/i }));
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/app");
-		});
-		expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toMatch(/^dev-user-/);
+		expect(captured.get()).toBe("/api/auth/login");
 	});
 
-	it("signs the user in and navigates to /app when 'Continue with Google' is clicked", async () => {
+	it("redirects to the BFF login when 'Continue with Google' is clicked", async () => {
+		const captured = captureLocationHref();
 		const user = userEvent.setup();
-		const { router } = renderSignUpRoute();
+		renderSignUpRoute();
 		await screen.findByRole("heading", { name: /create an account/i });
 
 		await user.click(
 			screen.getByRole("button", { name: /continue with google/i }),
 		);
 
-		await waitFor(() => {
-			expect(router.state.location.pathname).toBe("/app");
-		});
-		expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toMatch(/^dev-user-/);
+		expect(captured.get()).toBe("/api/auth/login");
 	});
 
 	it("navigates to /sign-in when 'Sign in' footer link is clicked", async () => {
@@ -102,6 +119,5 @@ describe("/sign-up route", () => {
 		await waitFor(() => {
 			expect(router.state.location.pathname).toBe("/sign-in");
 		});
-		expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
 	});
 });

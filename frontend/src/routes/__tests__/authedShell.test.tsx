@@ -7,7 +7,7 @@ import {
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTH_STORAGE_KEY, AuthProvider } from "@/lib/auth/AuthProvider";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import type { DocumentListPage } from "@/lib/queries/documents";
 import { setDocPickerOpen } from "@/lib/ui/docPickerStore";
 import {
@@ -16,6 +16,28 @@ import {
 } from "@/lib/ui/responsiveStore";
 import { setSidebarCollapsed } from "@/lib/ui/sidebarStore";
 import { routeTree } from "@/routeTree.gen";
+
+const TEST_USER = {
+	user_id: "authed-shell-test-user",
+	email: "test@example.com",
+};
+
+function meResponse() {
+	return new Response(JSON.stringify(TEST_USER), {
+		status: 200,
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
+function makeFetchWithMe(
+	handler: (url: string) => Promise<Response> | Response,
+) {
+	return vi.fn().mockImplementation((input: RequestInfo | URL) => {
+		const url = typeof input === "string" ? input : input.toString();
+		if (url === "/api/v1/me") return Promise.resolve(meResponse());
+		return handler(url);
+	});
+}
 
 function installMatchMediaMock(belowLg: boolean): void {
 	vi.stubGlobal(
@@ -75,7 +97,10 @@ function renderApp(initialPath: string) {
 }
 
 beforeEach(() => {
-	window.localStorage.setItem(AUTH_STORAGE_KEY, "dev-user-authed-shell-test");
+	vi.stubGlobal(
+		"fetch",
+		makeFetchWithMe(() => Promise.resolve(new Response(null, { status: 404 }))),
+	);
 });
 
 describe("/_authed layout — three-panel grid", () => {
@@ -161,25 +186,25 @@ describe("/_authed layout — drawer + sheet a11y (below lg)", () => {
 	});
 
 	it("marks the right-panel sheet as role=dialog and closes via Escape", async () => {
+		const documentBody = {
+			id: "Single_NKE/2010/page_28.pdf-3",
+			ticker: "NKE",
+			year: 2010,
+			page: 28,
+			title: "NKE 2010 page 28",
+			pre_text: null,
+			post_text: null,
+			column_order: null,
+			table_data: null,
+		};
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockResolvedValue(
-				new Response(
-					JSON.stringify({
-						id: "Single_NKE/2010/page_28.pdf-3",
-						ticker: "NKE",
-						year: 2010,
-						page: 28,
-						title: "NKE 2010 page 28",
-						pre_text: null,
-						post_text: null,
-						column_order: null,
-						table_data: null,
-					}),
-					{
+			makeFetchWithMe(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(documentBody), {
 						status: 200,
 						headers: { "Content-Type": "application/json" },
-					},
+					}),
 				),
 			),
 		);
@@ -228,8 +253,7 @@ describe("/_authed layout — DocPicker → navigation wire-up", () => {
 		};
 		vi.stubGlobal(
 			"fetch",
-			vi.fn().mockImplementation((input: RequestInfo | URL) => {
-				const url = typeof input === "string" ? input : input.toString();
+			makeFetchWithMe((url) => {
 				const body = url.startsWith("/api/v1/chats") ? { items: [] } : page;
 				return Promise.resolve(
 					new Response(JSON.stringify(body), {

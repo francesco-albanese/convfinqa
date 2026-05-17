@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from convfinqa.domain.entities import ConversationSummary, Message
 from convfinqa.entrypoints.api.dependencies import (
-    CurrentUserId,
+    CurrentUserDep,
     GetChatMessages,
     ListChats,
 )
@@ -75,7 +75,7 @@ def _to_message_response(message: Message) -> ChatMessageResponse:
     status_code=status.HTTP_200_OK,
 )
 async def list_chats(
-    user_id: CurrentUserId,
+    user_id: CurrentUserDep,
     list_use_case: ListChats,
 ) -> ChatListResponse:
     summaries = await list_use_case.execute(user_id)
@@ -88,7 +88,7 @@ async def list_chats(
     status_code=status.HTTP_200_OK,
 )
 async def get_chat_messages(
-    user_id: CurrentUserId,
+    user_id: CurrentUserDep,
     get_use_case: GetChatMessages,
     conversation_id: Annotated[
         str,

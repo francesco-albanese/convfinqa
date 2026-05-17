@@ -1,5 +1,6 @@
 import { skipToken, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { apiFetch } from "@/lib/api/client";
 
 export const DocumentSummarySchema = z.object({
 	id: z.string().min(1),
@@ -66,7 +67,7 @@ export async function fetchDocumentList(
 	filters: DocumentListFilters,
 	cursor: string | null,
 ): Promise<DocumentListPage> {
-	const response = await fetch(buildDocumentsUrl(filters, cursor), {
+	const response = await apiFetch(buildDocumentsUrl(filters, cursor), {
 		headers: { Accept: "application/json" },
 	});
 	if (!response.ok) {
@@ -103,7 +104,7 @@ export function buildDocumentUrl(id: string): string {
 }
 
 export async function fetchDocument(id: string): Promise<Document> {
-	const response = await fetch(buildDocumentUrl(id), {
+	const response = await apiFetch(buildDocumentUrl(id), {
 		headers: { Accept: "application/json" },
 	});
 	if (!response.ok) {

@@ -1,7 +1,4 @@
-import { useForm } from "@tanstack/react-form";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
-import { useId } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 export const Route = createFileRoute("/_anonymous/sign-in")({
@@ -10,22 +7,6 @@ export const Route = createFileRoute("/_anonymous/sign-in")({
 
 function SignInPage() {
 	const { signIn } = useAuth();
-	const navigate = useNavigate();
-	const emailId = useId();
-	const passwordId = useId();
-	const rememberId = useId();
-
-	const goToApp = () => {
-		signIn();
-		void navigate({ to: "/app" });
-	};
-
-	const form = useForm({
-		defaultValues: { email: "", password: "" },
-		onSubmit: () => {
-			goToApp();
-		},
-	});
 
 	return (
 		<main className="min-h-screen w-screen bg-background text-foreground">
@@ -75,13 +56,7 @@ function SignInPage() {
 					aria-labelledby="sign-in-heading"
 					className="flex items-center justify-center px-6 py-12 sm:px-10"
 				>
-					<form
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-						className="flex w-full max-w-sm flex-col gap-5 rounded-lg border border-border bg-card p-8 shadow-sm"
-					>
+					<div className="flex w-full max-w-sm flex-col gap-5 rounded-lg border border-border bg-card p-8 shadow-sm">
 						<header className="flex flex-col gap-1">
 							<p className="text-muted-foreground text-xs uppercase tracking-widest">
 								Sign in
@@ -99,85 +74,11 @@ function SignInPage() {
 
 						<button
 							type="button"
-							onClick={goToApp}
+							onClick={signIn}
 							className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-input font-medium text-foreground text-sm hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
 						>
 							<GoogleGlyph />
 							Continue with Google
-						</button>
-
-						<div className="flex items-center gap-3 text-muted-foreground text-xs">
-							<span aria-hidden="true" className="h-px flex-1 bg-border" />
-							<span>OR</span>
-							<span aria-hidden="true" className="h-px flex-1 bg-border" />
-						</div>
-
-						<form.Field name="email">
-							{(field) => (
-								<label
-									htmlFor={emailId}
-									className="flex flex-col gap-1.5 text-foreground text-sm"
-								>
-									<span className="text-muted-foreground text-xs">Email</span>
-									<input
-										id={emailId}
-										type="email"
-										autoComplete="email"
-										value={field.state.value}
-										onChange={(event) => field.handleChange(event.target.value)}
-										className="h-10 rounded-md border border-border bg-input px-3 text-foreground text-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-									/>
-								</label>
-							)}
-						</form.Field>
-
-						<form.Field name="password">
-							{(field) => (
-								<label
-									htmlFor={passwordId}
-									className="flex flex-col gap-1.5 text-foreground text-sm"
-								>
-									<span className="text-muted-foreground text-xs">
-										Password
-									</span>
-									<input
-										id={passwordId}
-										type="password"
-										autoComplete="current-password"
-										value={field.state.value}
-										onChange={(event) => field.handleChange(event.target.value)}
-										className="h-10 rounded-md border border-border bg-input px-3 text-foreground text-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-									/>
-								</label>
-							)}
-						</form.Field>
-
-						<div className="flex items-center justify-between text-muted-foreground text-xs">
-							<label
-								htmlFor={rememberId}
-								className="inline-flex items-center gap-2"
-							>
-								<input
-									id={rememberId}
-									type="checkbox"
-									className="size-3.5 rounded border-border bg-input accent-primary"
-								/>
-								Remember me
-							</label>
-							<a
-								href="#forgot"
-								className="text-link hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-							>
-								Forgot password?
-							</a>
-						</div>
-
-						<button
-							type="submit"
-							className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary font-medium text-primary-foreground text-sm hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-						>
-							Sign in
-							<ArrowRight aria-hidden="true" className="size-4" />
 						</button>
 
 						<p className="text-center text-[11px] text-muted-foreground">
@@ -193,7 +94,7 @@ function SignInPage() {
 								Create an account
 							</a>
 						</p>
-					</form>
+					</div>
 				</section>
 			</div>
 		</main>

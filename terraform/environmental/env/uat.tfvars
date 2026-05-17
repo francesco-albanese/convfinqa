@@ -7,5 +7,4 @@ account_name = "uat"
 cognito_hosted_ui_prefix = "convfinqa-uat"
 
 # Domain
-app_domain  = "app.convfinqa-uat.francescoalbanese.dev"
-apex_domain = "convfinqa-uat.francescoalbanese.dev"
+app_domain = "convfinqa-uat.francescoalbanese.dev"

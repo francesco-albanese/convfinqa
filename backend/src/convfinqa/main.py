@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from convfinqa.config import SETTINGS
 from convfinqa.container import Container
 from convfinqa.entrypoints.api.errors import install_exception_handlers
+from convfinqa.entrypoints.api.middleware.auth import AuthMiddleware
 from convfinqa.entrypoints.api.router import api_router
 from convfinqa.logging import configure_logging
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="convfinqa", lifespan=lifespan)
+    app.add_middleware(AuthMiddleware)
     install_exception_handlers(app)
     app.include_router(router=api_router)
     return app
