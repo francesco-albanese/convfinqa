@@ -68,6 +68,25 @@ resource "aws_iam_role_policy" "ecs_task_bedrock" {
   })
 }
 
+resource "aws_iam_role_policy" "ecs_task_exec" {
+  name = "ecs-exec"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_iam_role" "ecs_execution" {
   name = "convfinqa-${var.account_name}-ecs-execution"
 
@@ -143,10 +162,11 @@ resource "aws_ecs_task_definition" "api" {
 }
 
 resource "aws_ecs_service" "api" {
-  name            = "convfinqa-${var.account_name}-api"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = 1
+  name                   = "convfinqa-${var.account_name}-api"
+  cluster                = aws_ecs_cluster.main.id
+  task_definition        = aws_ecs_task_definition.api.arn
+  desired_count          = 1
+  enable_execute_command = true
 
   capacity_provider_strategy {
     capacity_provider = "FARGATE"

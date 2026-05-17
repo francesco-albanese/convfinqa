@@ -21,6 +21,9 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.13-slim-bookworm
 
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --system --create-home --uid 1000 convfinqa
 
 WORKDIR /app
