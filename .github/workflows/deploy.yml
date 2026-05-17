@@ -306,18 +306,33 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: |
-            ${{ vars.ECR_REGISTRY }}:${{ github.sha }}
-            ${{ vars.ECR_REGISTRY }}:latest
+          tags: ${{ vars.ECR_REGISTRY }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Register new task definition revision
+        id: register-td
+        run: |
+          NEW_TD=$(aws ecs describe-task-definition \
+            --task-definition "${{ vars.ECS_TASK_FAMILY }}" \
+            --query taskDefinition \
+            --output json \
+            | jq --arg IMAGE "${{ vars.ECR_REGISTRY }}:${{ github.sha }}" \
+              'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+               .containerDefinitions[0].image = $IMAGE')
+          echo "$NEW_TD" > /tmp/new-td.json
+          NEW_TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/new-td.json \
+            --query taskDefinition.taskDefinitionArn \
+            --output text)
+          echo "arn=$NEW_TD_ARN" >> "$GITHUB_OUTPUT"
 
       - name: Update ECS service
         run: |
           aws ecs update-service \
             --cluster "${{ vars.ECS_CLUSTER }}" \
             --service "${{ vars.ECS_SERVICE }}" \
-            --force-new-deployment
+            --task-definition "${{ steps.register-td.outputs.arn }}"
 
       - name: Wait for service stability
         run: |
