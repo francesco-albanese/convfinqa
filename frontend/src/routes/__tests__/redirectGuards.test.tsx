@@ -11,10 +11,6 @@ import { routeTree } from "@/routeTree.gen";
 
 const TEST_USER = { user_id: "guard-test-user", email: "guard@test.com" };
 
-vi.mock("@/lib/api/healthcheck", () => ({
-	checkHealth: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock("@/lib/chat/useConvfinqaChat", () => ({
 	useConvfinqaChat: () => ({
 		id: "stub",
@@ -119,5 +115,28 @@ describe("route guards — anonymous vs authed", () => {
 
 		expect(await screen.findByTestId("authed-shell")).toBeInTheDocument();
 		expect(router.state.location.pathname).toBe("/app");
+	});
+
+	it("redirects an unauthenticated visitor from / to /sign-in", async () => {
+		const { router } = renderAt("/");
+
+		await waitFor(
+			() => {
+				expect(router.state.location.pathname).toBe("/sign-in");
+			},
+			{ timeout: 3000 },
+		);
+	});
+
+	it("redirects an authenticated visitor from / to /app", async () => {
+		stubFetch(200);
+		const { router } = renderAt("/");
+
+		await waitFor(
+			() => {
+				expect(router.state.location.pathname).toBe("/app");
+			},
+			{ timeout: 3000 },
+		);
 	});
 });

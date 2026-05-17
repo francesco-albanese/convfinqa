@@ -1,17 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 export const Route = createFileRoute("/")({
-	component: LandingPage,
+	component: RootRedirect,
 });
 
-function LandingPage() {
-	return (
-		<main className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-foreground">
-			<h1 className="text-2xl font-semibold">ConvFinQA — coming online</h1>
-			<p className="text-muted-foreground text-sm">
-				Pin a 10-K. Ask follow-ups. Cite every number.
-			</p>
-			<span className="numeric text-accent text-base">$1,234,567.89</span>
-		</main>
-	);
+function RootRedirect() {
+	const { status } = useAuth();
+	const navigate = useNavigate();
+
+	useEffect(() => {
+		if (status === "authed") {
+			void navigate({ to: "/app", replace: true });
+		} else if (status === "unauthed") {
+			void navigate({ to: "/sign-in", replace: true });
+		}
+	}, [status, navigate]);
+
+	return null;
 }
