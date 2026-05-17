@@ -180,6 +180,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      variables: write
 
     environment:
       name: ${{ needs.terraform-plan.outputs.environment }}
@@ -208,6 +209,21 @@ jobs:
         env:
           ACCOUNT: ${{ needs.terraform-plan.outputs.environment }}
         run: make environmental-apply ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE="" TF_FLAGS="-auto-approve -no-color"
+
+      - name: Populate GitHub environment variables
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENV: ${{ needs.terraform-plan.outputs.environment }}
+        run: |
+          gh variable set ECR_REGISTRY               --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecr_registry)"
+          gh variable set ECS_CLUSTER                --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_cluster)"
+          gh variable set ECS_SERVICE                --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_service)"
+          gh variable set ECS_TASK_FAMILY            --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_task_family)"
+          gh variable set ECS_SG_ID                  --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_sg_id)"
+          gh variable set PUBLIC_SUBNET_IDS          --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw public_subnet_ids)"
+          gh variable set BFF_FUNCTION_PREFIX        --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw bff_function_prefix)"
+          gh variable set S3_BUCKET                  --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw s3_bucket)"
+          gh variable set CLOUDFRONT_DISTRIBUTION_ID --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw cloudfront_distribution_id)"
 
   migrations:
     name: Run Alembic Migrations

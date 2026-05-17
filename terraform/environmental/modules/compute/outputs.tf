@@ -82,3 +82,13 @@ output "bff_logout_url" {
   description = "Lambda Function URL for /api/auth/logout."
   value       = aws_lambda_function_url.bff_logout.function_url
 }
+
+output "ecs_task_family" {
+  description = "ECS task definition family name."
+  value       = aws_ecs_task_definition.api.family
+}
+
+output "bff_function_prefix" {
+  description = "Common prefix for all BFF Lambda function names (append -login, -callback, etc.)."
+  value       = "convfinqa-${var.account_name}-bff"
+}
