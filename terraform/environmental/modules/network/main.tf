@@ -64,14 +64,6 @@ resource "aws_security_group" "ecs_task" {
   description = "ECS task SG: ingress from CloudFront origin-facing prefix list on port 8000"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "HTTP from CloudFront origin-facing"
-    from_port       = 8000
-    to_port         = 8000
-    protocol        = "tcp"
-    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing.id]
-  }
-
   egress {
     description = "Allow all outbound"
     from_port   = 0
@@ -85,30 +77,44 @@ resource "aws_security_group" "ecs_task" {
   }
 }
 
+resource "aws_security_group_rule" "ecs_task_from_cloudfront" {
+  type              = "ingress"
+  description       = "HTTP from CloudFront origin-facing"
+  from_port         = 8000
+  to_port           = 8000
+  protocol          = "tcp"
+  security_group_id = aws_security_group.ecs_task.id
+  prefix_list_ids   = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing.id]
+}
+
 resource "aws_security_group" "aurora" {
   name        = "convfinqa-aurora"
   description = "Aurora SG: ingress from ECS task SG and public internet (BFF Lambda) on port 5432"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "Postgres from ECS task"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_task.id]
-  }
-
-  # BFF Lambda (callback, post_confirmation) runs without VPC config to avoid NAT Gateway.
-  # 32-char random password is the auth boundary. Demo-grade: acceptable for this deployment.
-  ingress {
-    description = "Postgres from BFF Lambda (no-VPC, public internet)"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = {
     Name = "convfinqa-aurora"
   }
+}
+
+resource "aws_security_group_rule" "aurora_from_ecs_task" {
+  type                     = "ingress"
+  description              = "Postgres from ECS task"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.aurora.id
+  source_security_group_id = aws_security_group.ecs_task.id
+}
+
+# BFF Lambda (callback, post_confirmation) runs without VPC config to avoid NAT Gateway.
+# 32-char random password is the auth boundary. Demo-grade: acceptable for this deployment.
+resource "aws_security_group_rule" "aurora_from_public" {
+  type              = "ingress"
+  description       = "Postgres from BFF Lambda (no-VPC, public internet)"
+  from_port         = 5432
+  to_port           = 5432
+  protocol          = "tcp"
+  security_group_id = aws_security_group.aurora.id
+  cidr_blocks       = ["0.0.0.0/0"]
 }
