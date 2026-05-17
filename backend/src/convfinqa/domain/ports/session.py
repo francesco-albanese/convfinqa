@@ -8,6 +8,12 @@ class SessionVerificationError(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class UserRecord:
+    user_id: uuid.UUID
+    email: str
+
+
+@dataclass(frozen=True, slots=True)
 class ValidatedClaims:
     sub: str
     exp: int

@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
 from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
-from convfinqa.domain.ports.session import SessionVerificationError
+from convfinqa.domain.ports.session import SessionVerificationError, UserRecord
 
 pytestmark = pytest.mark.unit
 
@@ -102,12 +102,12 @@ async def test_valid_token_returns_claims(
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
     private_key, _ = rsa_keys
-    token = _mint_token(private_key, sub="abc-123", email="user@example.com")
+    token = _mint_token(private_key, sub="abc-123")
 
     claims = await adapter.verify_access_token(token)
 
     assert claims.sub == "abc-123"
-    assert claims.email == "user@example.com"
+    assert claims.email is None
     assert claims.exp > int(time.time())
 
 
@@ -195,28 +195,44 @@ async def test_user_id_is_none_without_lookup(
     assert claims.user_id is None
 
 
-async def test_user_id_resolved_from_db(
+async def test_user_id_and_email_resolved_from_db(
     fetch_mock: AsyncMock,
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
-    expected_user_id = uuid.uuid4()
-    find_user = AsyncMock(return_value=expected_user_id)
+    expected = UserRecord(user_id=uuid.uuid4(), email="user@example.com")
+    find_user = AsyncMock(return_value=expected)
     adapter = _make_adapter_with_lookup(fetch_mock, find_user)
     private_key, _ = rsa_keys
     token = _mint_token(private_key, sub="user-sub-123")
 
     claims = await adapter.verify_access_token(token)
 
-    assert claims.user_id == expected_user_id
+    assert claims.user_id == expected.user_id
+    assert claims.email == "user@example.com"
     find_user.assert_called_once_with("user-sub-123")
+
+
+async def test_email_comes_from_db_not_jwt_claim(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    expected = UserRecord(user_id=uuid.uuid4(), email="db@example.com")
+    find_user = AsyncMock(return_value=expected)
+    adapter = _make_adapter_with_lookup(fetch_mock, find_user)
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, sub="user-sub-123", email="jwt@example.com")
+
+    claims = await adapter.verify_access_token(token)
+
+    assert claims.email == "db@example.com"
 
 
 async def test_cache_hit_avoids_second_db_lookup(
     fetch_mock: AsyncMock,
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
-    expected_user_id = uuid.uuid4()
-    find_user = AsyncMock(return_value=expected_user_id)
+    expected = UserRecord(user_id=uuid.uuid4(), email="user@example.com")
+    find_user = AsyncMock(return_value=expected)
     adapter = _make_adapter_with_lookup(fetch_mock, find_user)
     private_key, _ = rsa_keys
     token = _mint_token(private_key, sub="abc-123")
@@ -224,7 +240,7 @@ async def test_cache_hit_avoids_second_db_lookup(
     await adapter.verify_access_token(token)
     claims = await adapter.verify_access_token(token)
 
-    assert claims.user_id == expected_user_id
+    assert claims.user_id == expected.user_id
     find_user.assert_called_once()
 
 
@@ -240,14 +256,15 @@ async def test_db_miss_returns_none_user_id(
     claims = await adapter.verify_access_token(token)
 
     assert claims.user_id is None
+    assert claims.email is None
 
 
 async def test_ttl_expiry_triggers_relookup(
     fetch_mock: AsyncMock,
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
-    expected_user_id = uuid.uuid4()
-    find_user = AsyncMock(return_value=expected_user_id)
+    expected = UserRecord(user_id=uuid.uuid4(), email="user@example.com")
+    find_user = AsyncMock(return_value=expected)
     adapter = _make_adapter_with_lookup(fetch_mock, find_user, cache_ttl_seconds=0.05)
     private_key, _ = rsa_keys
     token = _mint_token(private_key, sub="ttl-test-sub")

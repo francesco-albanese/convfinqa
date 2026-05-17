@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Final
@@ -9,7 +8,11 @@ import jwt
 from cachetools import TTLCache
 from jwt.algorithms import RSAAlgorithm
 
-from convfinqa.domain.ports.session import SessionVerificationError, ValidatedClaims
+from convfinqa.domain.ports.session import (
+    SessionVerificationError,
+    UserRecord,
+    ValidatedClaims,
+)
 
 _CACHE_MAXSIZE: Final = 10_000
 _CACHE_TTL_SECONDS: Final[float] = 300.0
@@ -30,11 +33,11 @@ class CognitoJwksAdapter:
     fetch_jwks: Callable[[str], Awaitable[dict[str, Any]]] = field(
         default=_default_fetch_jwks
     )
-    find_user_by_sub: Callable[[str], Awaitable[uuid.UUID | None]] | None = None
+    find_user_by_sub: Callable[[str], Awaitable[UserRecord | None]] | None = None
     cache_ttl_seconds: float = _CACHE_TTL_SECONDS
     _keys: dict[str, Any] = field(default_factory=dict, init=False, repr=False)  # pyright: ignore[reportUnknownVariableType]
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
-    _user_cache: TTLCache[str, uuid.UUID | None] = field(  # pyright: ignore[reportUnknownVariableType,reportAssignmentType]
+    _user_cache: TTLCache[str, UserRecord | None] = field(  # pyright: ignore[reportUnknownVariableType,reportAssignmentType]
         default_factory=lambda: TTLCache(maxsize=_CACHE_MAXSIZE, ttl=_CACHE_TTL_SECONDS),
         init=False,
         repr=False,
@@ -55,15 +58,15 @@ class CognitoJwksAdapter:
                 for jwk in data["keys"]
             }
 
-    async def _resolve_user_id(self, sub: str) -> uuid.UUID | None:
+    async def _resolve_user_record(self, sub: str) -> UserRecord | None:
         if self.find_user_by_sub is None:
             return None
         try:
             return self._user_cache[sub]
         except KeyError:
-            user_id = await self.find_user_by_sub(sub)
-            self._user_cache[sub] = user_id
-            return user_id
+            record = await self.find_user_by_sub(sub)
+            self._user_cache[sub] = record
+            return record
 
     async def verify_access_token(self, token: str) -> ValidatedClaims:
         await self._ensure_keys()
@@ -84,12 +87,12 @@ class CognitoJwksAdapter:
             if payload.get("client_id") != self.client_id:
                 raise SessionVerificationError("Invalid client_id")
             sub = str(payload["sub"])
-            user_id = await self._resolve_user_id(sub)
+            record = await self._resolve_user_record(sub)
             return ValidatedClaims(
                 sub=sub,
                 exp=int(payload["exp"]),
-                email=str(payload["email"]) if payload.get("email") else None,
-                user_id=user_id,
+                email=record.email if record else None,
+                user_id=record.user_id if record else None,
             )
         except jwt.ExpiredSignatureError as exc:
             raise SessionVerificationError("Token expired") from exc
