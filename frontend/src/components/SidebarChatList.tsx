@@ -1,14 +1,16 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
-import { useChatList } from "@/lib/queries/chats";
 import {
-	type ChatDocumentGroup,
-	groupByDocument,
-} from "@/lib/transforms/groupByDocument";
+	type FlattenedRow,
+	filterGroups,
+	flattenRows,
+} from "@/lib/chat/chatListHelpers";
+import { useChatList } from "@/lib/queries/chats";
+import { groupByDocument } from "@/lib/transforms/groupByDocument";
 import { useCollapsedGroups } from "@/lib/ui/collapsedGroupsStore";
-import { cn } from "@/lib/utils";
+import { ChatRow, DocGroupHeader } from "./SidebarChatRow";
 
 const VIRTUAL_THRESHOLD = 50;
 const ROW_HEIGHT_PX = 56;
@@ -19,82 +21,6 @@ export type SidebarChatListProps = {
 	collapsed: boolean;
 	onSelectChat: (chatId: string, documentId: string) => void;
 };
-
-type FlattenedRow =
-	| { kind: "header"; group: ChatDocumentGroup; isCollapsed: boolean }
-	| {
-			kind: "chat";
-			groupId: string;
-			chat: ChatDocumentGroup["conversations"][number];
-	  };
-
-function documentLabel(document: ChatDocumentGroup["document"]): string {
-	if (document.ticker && document.year !== null) {
-		return `${document.ticker} · ${document.year}`;
-	}
-	return document.title ?? document.ticker ?? document.id;
-}
-
-function formatTimestamp(iso: string): string {
-	const parsed = new Date(iso);
-	if (Number.isNaN(parsed.getTime())) {
-		return "";
-	}
-	return parsed.toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-	});
-}
-
-function documentMatches(
-	document: ChatDocumentGroup["document"],
-	needle: string,
-): boolean {
-	const title = document.title?.toLowerCase() ?? "";
-	const ticker = document.ticker?.toLowerCase() ?? "";
-	return title.includes(needle) || ticker.includes(needle);
-}
-
-function filterGroups(
-	groups: ChatDocumentGroup[],
-	query: string,
-): ChatDocumentGroup[] {
-	const needle = query.trim().toLowerCase();
-	if (needle.length === 0) {
-		return groups;
-	}
-	const filtered: ChatDocumentGroup[] = [];
-	for (const group of groups) {
-		if (documentMatches(group.document, needle)) {
-			filtered.push(group);
-			continue;
-		}
-		const conversations = group.conversations.filter((conversation) =>
-			conversation.last_message_preview.toLowerCase().includes(needle),
-		);
-		if (conversations.length > 0) {
-			filtered.push({ document: group.document, conversations });
-		}
-	}
-	return filtered;
-}
-
-function flattenRows(
-	groups: ChatDocumentGroup[],
-	collapsedGroups: Set<string>,
-): FlattenedRow[] {
-	const rows: FlattenedRow[] = [];
-	for (const group of groups) {
-		const isCollapsed = collapsedGroups.has(group.document.id);
-		rows.push({ kind: "header", group, isCollapsed });
-		if (!isCollapsed) {
-			for (const chat of group.conversations) {
-				rows.push({ kind: "chat", groupId: group.document.id, chat });
-			}
-		}
-	}
-	return rows;
-}
 
 export function SidebarChatList({
 	query,
@@ -138,7 +64,7 @@ export function SidebarChatList({
 	if (isError) {
 		return (
 			<p className="px-3 py-2 text-muted-foreground text-xs">
-				Couldn’t load conversations.
+				Couldn't load conversations.
 			</p>
 		);
 	}
@@ -263,63 +189,5 @@ function VirtualizedRows({
 				})}
 			</ul>
 		</div>
-	);
-}
-
-type DocGroupHeaderProps = {
-	group: ChatDocumentGroup;
-	isCollapsed: boolean;
-	onToggle: (documentId: string) => void;
-};
-
-function DocGroupHeader({ group, isCollapsed, onToggle }: DocGroupHeaderProps) {
-	const Chevron = isCollapsed ? ChevronRight : ChevronDown;
-	return (
-		<button
-			type="button"
-			onClick={() => onToggle(group.document.id)}
-			aria-expanded={!isCollapsed}
-			aria-controls={`group-${group.document.id}`}
-			className={cn(
-				"flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left",
-				"font-medium text-muted-foreground text-xs uppercase tracking-wide",
-				"hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-			)}
-		>
-			<Chevron aria-hidden="true" className="size-3" />
-			<span className="truncate">{documentLabel(group.document)}</span>
-			<span className="ml-auto text-muted-foreground/70 tabular-nums">
-				{group.conversations.length}
-			</span>
-		</button>
-	);
-}
-
-type ChatRowProps = {
-	chat: ChatDocumentGroup["conversations"][number];
-	documentId: string;
-	onSelectChat: (chatId: string, documentId: string) => void;
-};
-
-function ChatRow({ chat, documentId, onSelectChat }: ChatRowProps) {
-	const preview = chat.last_message_preview.trim() || "(no messages)";
-	const timestamp = formatTimestamp(chat.last_message_at);
-	return (
-		<button
-			type="button"
-			onClick={() => onSelectChat(chat.id, documentId)}
-			aria-label={`Open conversation: ${preview}`}
-			data-testid="sidebar-chat-row"
-			data-chat-id={chat.id}
-			className={cn(
-				"flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left",
-				"hover:bg-secondary focus-visible:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-			)}
-		>
-			<span className="line-clamp-2 w-full text-foreground text-sm">
-				{preview}
-			</span>
-			<span className="text-muted-foreground text-xs">{timestamp}</span>
-		</button>
 	);
 }
