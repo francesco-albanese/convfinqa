@@ -72,6 +72,7 @@ resource "aws_rds_cluster_instance" "main" {
   engine               = aws_rds_cluster.main.engine
   engine_version       = aws_rds_cluster.main.engine_version
   db_subnet_group_name = aws_db_subnet_group.main.name
+  publicly_accessible  = true
   apply_immediately    = true
 
   tags = {
