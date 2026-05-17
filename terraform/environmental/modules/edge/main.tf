@@ -96,6 +96,10 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
   name = "Managed-AllViewer"
 }
 
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 locals {
   s3_origin_id  = "convfinqa-site-s3"
   alb_origin_id = "convfinqa-api-alb"
@@ -250,7 +254,7 @@ resource "aws_cloudfront_distribution" "app" {
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = "bff-login"
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
     viewer_protocol_policy   = "redirect-to-https"
     compress                 = false
   }
@@ -261,7 +265,7 @@ resource "aws_cloudfront_distribution" "app" {
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = "bff-callback"
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
     viewer_protocol_policy   = "redirect-to-https"
     compress                 = false
   }
@@ -272,7 +276,7 @@ resource "aws_cloudfront_distribution" "app" {
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = "bff-refresh"
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
     viewer_protocol_policy   = "redirect-to-https"
     compress                 = false
   }
@@ -283,7 +287,7 @@ resource "aws_cloudfront_distribution" "app" {
     cached_methods           = ["GET", "HEAD"]
     target_origin_id         = "bff-logout"
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
     viewer_protocol_policy   = "redirect-to-https"
     compress                 = false
   }
