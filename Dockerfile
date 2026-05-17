@@ -14,6 +14,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend/src/ ./backend/src/
 COPY backend/alembic/ ./backend/alembic/
+COPY data/ ./data/
 COPY alembic.ini README.md ./
 RUN uv sync --frozen --no-dev
 
