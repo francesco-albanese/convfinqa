@@ -214,8 +214,8 @@ jobs:
     needs: [detect-changes, terraform-apply]
     if: |
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push' &&
-      needs.detect-changes.outputs.backend == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && needs.detect-changes.outputs.backend == 'true')) &&
       (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
     runs-on: ubuntu-latest
 
@@ -271,8 +271,8 @@ jobs:
     needs: [detect-changes, migrations]
     if: |
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push' &&
-      needs.detect-changes.outputs.backend_deploy == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && needs.detect-changes.outputs.backend_deploy == 'true')) &&
       (needs.migrations.result == 'success' || needs.migrations.result == 'skipped')
     runs-on: ubuntu-latest
 
@@ -326,8 +326,8 @@ jobs:
     needs: [detect-changes, terraform-apply]
     if: |
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'push' &&
-      needs.detect-changes.outputs.auth_lambda == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && needs.detect-changes.outputs.auth_lambda == 'true')) &&
       (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
     runs-on: ubuntu-latest
 
@@ -374,8 +374,12 @@ jobs:
 
   frontend-deploy:
     name: Frontend Deploy
-    needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [detect-changes, terraform-apply]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && needs.detect-changes.outputs.frontend == 'true')) &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
     runs-on: ubuntu-latest
 
     permissions:
@@ -487,7 +491,13 @@ jobs:
 
   documents-seed:
     name: Seed Documents
-    if: github.event_name == 'workflow_dispatch' && inputs.run_seed == true
+    needs: [terraform-apply, migrations, backend-deploy]
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      inputs.run_seed == true &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
+      (needs.migrations.result == 'success' || needs.migrations.result == 'skipped') &&
+      (needs.backend-deploy.result == 'success' || needs.backend-deploy.result == 'skipped')
     runs-on: ubuntu-latest
 
     permissions:
