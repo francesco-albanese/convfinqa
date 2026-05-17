@@ -35,7 +35,7 @@ resource "aws_rds_cluster" "main" {
   cluster_identifier              = "convfinqa-${var.account_name}"
   engine                          = "aurora-postgresql"
   engine_mode                     = "provisioned"
-  engine_version                  = "16.4"
+  engine_version                  = "16.11"
   database_name                   = "convfinqa"
   master_username                 = "convfinqa"
   master_password                 = random_password.db.result
