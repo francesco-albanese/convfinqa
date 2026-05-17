@@ -1,5 +1,5 @@
 import { PostgreSqlContainer } from "@testcontainers/postgresql"
-import { Pool } from "pg"
+import postgres, { type Sql } from "postgres"
 import {
 	afterAll,
 	beforeAll,
@@ -30,21 +30,21 @@ function cookieHeader(cookies: Record<string, string>): string {
 		.join("; ")
 }
 
-let pool: Pool
+let sql: Sql
 let container: Awaited<ReturnType<PostgreSqlContainer["start"]>>
 
 beforeAll(async () => {
 	container = await new PostgreSqlContainer("postgres:16-bookworm").start()
-	pool = new Pool({ connectionString: container.getConnectionUri() })
-	await pool.query(`
-    CREATE TABLE users (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      cognito_sub TEXT UNIQUE NOT NULL,
-      email TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `)
+	sql = postgres(container.getConnectionUri())
+	await sql`
+		CREATE TABLE users (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			cognito_sub TEXT UNIQUE NOT NULL,
+			email TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)
+	`
 	process.env.COGNITO_TOKEN_URL = COGNITO_TOKEN_URL
 	process.env.COGNITO_CLIENT_ID = CLIENT_ID
 	process.env.COGNITO_CLIENT_SECRET = CLIENT_SECRET
@@ -52,12 +52,12 @@ beforeAll(async () => {
 }, 60_000)
 
 afterAll(async () => {
-	await pool.end()
+	await sql.end()
 	await container.stop()
 })
 
 beforeEach(async () => {
-	await pool.query("DELETE FROM users")
+	await sql`DELETE FROM users`
 	vi.restoreAllMocks()
 })
 
@@ -75,7 +75,7 @@ describe("GET /api/auth/callback", () => {
 				}),
 		})
 
-		const app = buildApp({ pool, fetchFn: fetchMock as typeof fetch })
+		const app = buildApp({ sql, fetchFn: fetchMock as typeof fetch })
 		const res = await app.request(`/callback?code=auth-code&state=csrf-state`, {
 			headers: {
 				Cookie: cookieHeader({
@@ -106,10 +106,8 @@ describe("GET /api/auth/callback", () => {
 		expect(setCookies.some((c) => c.includes("HttpOnly"))).toBe(true)
 		expect(setCookies.some((c) => c.includes("SameSite=Lax"))).toBe(true)
 
-		const { rows } = await pool.query(
-			"SELECT cognito_sub, email FROM users WHERE cognito_sub = $1",
-			[sub],
-		)
+		const rows =
+			await sql`SELECT cognito_sub, email FROM users WHERE cognito_sub = ${sub}`
 		expect(rows).toHaveLength(1)
 		expect(rows[0]).toMatchObject({ cognito_sub: sub, email })
 	})
@@ -117,10 +115,7 @@ describe("GET /api/auth/callback", () => {
 	it("upsert is a no-op when user row already exists", async () => {
 		const sub = "returning-user"
 		const email = "returning@example.com"
-		await pool.query("INSERT INTO users (cognito_sub, email) VALUES ($1, $2)", [
-			sub,
-			email,
-		])
+		await sql`INSERT INTO users (cognito_sub, email) VALUES (${sub}, ${email})`
 
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
@@ -131,7 +126,7 @@ describe("GET /api/auth/callback", () => {
 					id_token: fakeIdToken(sub, email),
 				}),
 		})
-		const app = buildApp({ pool, fetchFn: fetchMock as typeof fetch })
+		const app = buildApp({ sql, fetchFn: fetchMock as typeof fetch })
 		const res = await app.request(`/callback?code=code&state=s`, {
 			headers: {
 				Cookie: cookieHeader({
@@ -142,15 +137,12 @@ describe("GET /api/auth/callback", () => {
 		})
 
 		expect(res.status).toBe(302)
-		const { rows } = await pool.query(
-			"SELECT * FROM users WHERE cognito_sub = $1",
-			[sub],
-		)
+		const rows = await sql`SELECT * FROM users WHERE cognito_sub = ${sub}`
 		expect(rows).toHaveLength(1)
 	})
 
 	it("returns 400 when code is missing", async () => {
-		const app = buildApp({ pool })
+		const app = buildApp({ sql })
 		const res = await app.request(`/callback?state=csrf-state`, {
 			headers: {
 				Cookie: cookieHeader({
@@ -165,7 +157,7 @@ describe("GET /api/auth/callback", () => {
 	})
 
 	it("returns 400 when state does not match cookie", async () => {
-		const app = buildApp({ pool })
+		const app = buildApp({ sql })
 		const res = await app.request(`/callback?code=auth-code&state=tampered`, {
 			headers: {
 				Cookie: cookieHeader({
@@ -181,7 +173,7 @@ describe("GET /api/auth/callback", () => {
 
 	it("returns 500 when Cognito token exchange fails", async () => {
 		const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 400 })
-		const app = buildApp({ pool, fetchFn: fetchMock as typeof fetch })
+		const app = buildApp({ sql, fetchFn: fetchMock as typeof fetch })
 		const res = await app.request(`/callback?code=bad-code&state=s`, {
 			headers: {
 				Cookie: cookieHeader({

@@ -1,10 +1,12 @@
-import { Pool } from "pg"
+import postgres, { type Sql } from "postgres"
 
-let pool: Pool | undefined
+let sql: Sql | undefined
 
-export function getPool(): Pool {
-	if (!pool) {
-		pool = new Pool({ connectionString: process.env.DATABASE_URL })
+export function getSql(): Sql {
+	if (!sql) {
+		const url = process.env.DATABASE_URL
+		if (!url) throw new Error("DATABASE_URL is not set")
+		sql = postgres(url, { max: 1 })
 	}
-	return pool
+	return sql
 }
