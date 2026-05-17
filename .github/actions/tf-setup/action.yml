@@ -1,0 +1,39 @@
+name: 'Terraform Setup'
+description: 'Configure AWS credentials, setup Terraform, build Lambda bundles, and run terraform init for the given environment.'
+
+inputs:
+  role_arn:
+    description: 'IAM role ARN to assume'
+    required: true
+  environment:
+    description: 'Target environment (sandbox/staging/uat/production)'
+    required: true
+  aws_region:
+    description: 'AWS region'
+    required: false
+    default: 'eu-west-2'
+  terraform_version:
+    description: 'Terraform version to install'
+    required: false
+    default: '1.14.3'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS & Terraform
+      uses: ./.github/actions/configure-aws-env
+      with:
+        environment: ${{ inputs.environment }}
+        aws_region: ${{ inputs.aws_region }}
+        role_arn: ${{ inputs.role_arn }}
+        setup_terraform: 'true'
+        terraform_version: ${{ inputs.terraform_version }}
+
+    - name: Build lambdas
+      uses: ./.github/actions/build-lambdas
+
+    - name: Terraform Init
+      shell: bash
+      env:
+        ACCOUNT: ${{ inputs.environment }}
+      run: make environmental-init ACCOUNT=${{ inputs.environment }} AWS_PROFILE=""
