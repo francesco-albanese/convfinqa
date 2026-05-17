@@ -211,12 +211,13 @@ jobs:
 
   migrations:
     name: Run Alembic Migrations
-    needs: [detect-changes, terraform-apply]
+    needs: [detect-changes, terraform-apply, backend-deploy]
     if: |
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.backend == 'true')) &&
-      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
+      needs.backend-deploy.result == 'success'
     runs-on: ubuntu-latest
 
     permissions:
@@ -268,12 +269,12 @@ jobs:
 
   backend-deploy:
     name: Backend Deploy
-    needs: [detect-changes, migrations]
+    needs: [detect-changes, terraform-apply]
     if: |
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.backend_deploy == 'true')) &&
-      (needs.migrations.result == 'success' || needs.migrations.result == 'skipped')
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped')
     runs-on: ubuntu-latest
 
     permissions:
@@ -304,7 +305,9 @@ jobs:
         with:
           context: backend
           push: true
-          tags: ${{ vars.ECR_REGISTRY }}:${{ github.sha }}
+          tags: |
+            ${{ vars.ECR_REGISTRY }}:${{ github.sha }}
+            ${{ vars.ECR_REGISTRY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
