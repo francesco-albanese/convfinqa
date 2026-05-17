@@ -55,10 +55,6 @@ function installMatchMediaMock(belowLg: boolean): void {
 	);
 }
 
-vi.mock("@/lib/api/healthcheck", () => ({
-	checkHealth: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock("@/lib/chat/useConvfinqaChat", () => ({
 	useConvfinqaChat: () => ({
 		id: "stub",

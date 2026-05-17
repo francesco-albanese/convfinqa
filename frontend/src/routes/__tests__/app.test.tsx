@@ -27,10 +27,6 @@ function resetStreamScript() {
 	streamScript.assistantText = undefined;
 }
 
-vi.mock("@/lib/api/healthcheck", () => ({
-	checkHealth: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock("@/lib/chat/useConvfinqaChat", () => {
 	return {
 		useConvfinqaChat: (options: {
