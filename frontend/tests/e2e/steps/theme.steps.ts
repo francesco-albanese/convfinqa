@@ -38,6 +38,10 @@ Given("I have saved {string} as my theme", async ({ page }, mode: string) => {
 	);
 });
 
+When("I open the home page", async ({ page }) => {
+	await page.goto("/");
+});
+
 When("I switch back to the system theme", async ({ page }) => {
 	await page.evaluate(
 		([key, value]) => {
