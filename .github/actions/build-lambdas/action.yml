@@ -1,5 +1,5 @@
 name: 'Build Lambdas'
-description: 'Run make build-lambdas: pnpm-bundle auth-lambda TS handlers + build keepalive:local Docker image (linux/amd64). ECR push is handled by null_resource during terraform apply.'
+description: 'Run make build-lambdas: pnpm-bundle auth-lambda TS handlers (including keepalive) to dist/*.mjs. Terraform archive_file zips them at plan/apply time.'
 
 runs:
   using: 'composite'

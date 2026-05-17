@@ -63,74 +63,22 @@ resource "aws_cloudwatch_log_group" "lambda" {
   }
 }
 
-data "aws_region" "current" {}
-
-resource "aws_ecr_repository" "keepalive" {
-  name                 = "convfinqa-${var.account_name}-keepalive"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    "franco:terraform_stack" = "convfinqa-keepalive"
-    "franco:environment"     = var.account_name
-    "franco:managed_by"      = "terraform"
-  }
-}
-
-resource "aws_ecr_lifecycle_policy" "keepalive" {
-  repository = aws_ecr_repository.keepalive.name
-
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Retain last 10 images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 10
-      }
-      action = { type = "expire" }
-    }]
-  })
-}
-
-resource "null_resource" "keepalive_image" {
-  depends_on = [aws_ecr_repository.keepalive]
-
-  triggers = {
-    handler    = filemd5("${path.module}/handler.py")
-    pyproject  = filemd5("${path.module}/pyproject.toml")
-    dockerfile = filemd5("${path.module}/Dockerfile")
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-      unset AWS_PROFILE
-      REPO="${aws_ecr_repository.keepalive.repository_url}"
-      REGION="${data.aws_region.current.name}"
-      aws ecr get-login-password --region "$REGION" | \
-        docker login --username AWS --password-stdin "$(echo "$REPO" | cut -d/ -f1)"
-      docker build --platform linux/amd64 -t keepalive:local -t "$REPO:latest" "${abspath(path.module)}"
-      docker push "$REPO:latest"
-    EOT
-  }
+data "archive_file" "keepalive" {
+  type        = "zip"
+  source_file = "${path.module}/../../../../auth-lambda/dist/keepalive.mjs"
+  output_path = "${path.module}/keepalive.zip"
 }
 
 resource "aws_lambda_function" "keepalive" {
-  function_name = "convfinqa-${var.account_name}-keepalive"
-  role          = aws_iam_role.lambda.arn
-  package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.keepalive.repository_url}:latest"
-  timeout       = 60
-  memory_size   = 128
-
-  lifecycle {
-    replace_triggered_by = [null_resource.keepalive_image]
-  }
+  function_name    = "convfinqa-${var.account_name}-keepalive"
+  role             = aws_iam_role.lambda.arn
+  package_type     = "Zip"
+  runtime          = "nodejs24.x"
+  handler          = "keepalive.handler"
+  filename         = data.archive_file.keepalive.output_path
+  source_code_hash = data.archive_file.keepalive.output_base64sha256
+  timeout          = 60
+  memory_size      = 128
 
   vpc_config {
     subnet_ids         = var.public_subnet_ids
@@ -143,7 +91,7 @@ resource "aws_lambda_function" "keepalive" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.lambda, null_resource.keepalive_image]
+  depends_on = [aws_cloudwatch_log_group.lambda]
 
   tags = {
     "franco:terraform_stack" = "convfinqa-keepalive"
