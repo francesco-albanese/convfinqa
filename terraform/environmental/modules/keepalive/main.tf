@@ -109,6 +109,7 @@ resource "null_resource" "keepalive_image" {
   provisioner "local-exec" {
     command = <<-EOT
       set -e
+      unset AWS_PROFILE
       REPO="${aws_ecr_repository.keepalive.repository_url}"
       REGION="${data.aws_region.current.name}"
       aws ecr get-login-password --region "$REGION" | \
