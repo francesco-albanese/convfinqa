@@ -24,6 +24,12 @@ resource "aws_rds_cluster_parameter_group" "pg_cron" {
     apply_method = "pending-reboot"
   }
 
+  parameter {
+    name         = "cron.database_name"
+    value        = "convfinqa"
+    apply_method = "pending-reboot"
+  }
+
   tags = {
     "franco:terraform_stack" = "convfinqa-data"
     "franco:environment"     = var.account_name
