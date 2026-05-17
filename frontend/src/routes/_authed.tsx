@@ -135,7 +135,6 @@ function AuthedLayout() {
 	const sidebarWidth = collapsed
 		? SIDEBAR_WIDTH_COLLAPSED
 		: SIDEBAR_WIDTH_EXPANDED;
-	const rightWidth = isRightPanelOpen ? "auto" : "0px";
 
 	return (
 		<div
@@ -145,12 +144,7 @@ function AuthedLayout() {
 			data-drawer={drawerOpen ? "open" : "closed"}
 			data-sheet={sheetOpen ? "open" : "closed"}
 			className="authed-grid h-screen w-screen overflow-hidden bg-background text-foreground"
-			style={
-				{
-					"--sb-w": sidebarWidth,
-					"--rp-w": rightWidth,
-				} as React.CSSProperties
-			}
+			style={{ "--sb-w": sidebarWidth } as React.CSSProperties}
 		>
 			<button
 				type="button"
