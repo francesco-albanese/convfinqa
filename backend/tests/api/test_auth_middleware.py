@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, status
 from httpx import ASGITransport, AsyncClient
 
 from convfinqa.config import Settings
-from convfinqa.container import Container
+from convfinqa.container import for_testing
 from convfinqa.domain.ports.session import SessionVerificationError, ValidatedClaims
 from convfinqa.entrypoints.api.dependencies import get_current_user_id
 from convfinqa.entrypoints.api.errors import install_exception_handlers
@@ -41,8 +41,8 @@ def _make_app(session: FakeSessionPort | None) -> FastAPI:
     app.add_middleware(AuthMiddleware)
     install_exception_handlers(app)
 
-    @app.get("/probe")
-    async def probe(
+    @app.get("/protected")
+    async def protected(
         user_id: Annotated[uuid.UUID, Depends(get_current_user_id)],
     ) -> dict[str, str]:
         return {"user_id": str(user_id)}
@@ -56,7 +56,7 @@ def _make_app(session: FakeSessionPort | None) -> FastAPI:
         return {"status": "ready"}
 
     settings = Settings()
-    container = Container.for_testing(
+    container = for_testing(
         settings=settings,
         engine=None,  # type: ignore[arg-type]
         session_factory=None,  # type: ignore[arg-type]
@@ -85,7 +85,7 @@ async def no_session_client() -> AsyncClient:
 
 @pytest.mark.asyncio
 async def test_missing_cookie_returns_401(authed_client: AsyncClient) -> None:
-    response = await authed_client.get("/probe")
+    response = await authed_client.get("/protected")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     body = response.json()
     assert body["status"] == 401
@@ -95,7 +95,7 @@ async def test_missing_cookie_returns_401(authed_client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_valid_cookie_sets_current_user_id(authed_client: AsyncClient) -> None:
     response = await authed_client.get(
-        "/probe", cookies={"access_token": _TOKEN_VALID}
+        "/protected", cookies={"access_token": _TOKEN_VALID}
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["user_id"] == SEEDED_USER_UUID
@@ -104,7 +104,7 @@ async def test_valid_cookie_sets_current_user_id(authed_client: AsyncClient) -> 
 @pytest.mark.asyncio
 async def test_expired_token_returns_401(authed_client: AsyncClient) -> None:
     response = await authed_client.get(
-        "/probe", cookies={"access_token": _TOKEN_EXPIRED}
+        "/protected", cookies={"access_token": _TOKEN_EXPIRED}
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -112,7 +112,7 @@ async def test_expired_token_returns_401(authed_client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_token_without_db_user_returns_401(authed_client: AsyncClient) -> None:
     response = await authed_client.get(
-        "/probe", cookies={"access_token": _TOKEN_NO_DB_USER}
+        "/protected", cookies={"access_token": _TOKEN_NO_DB_USER}
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json()["type"] == _UNAUTHORIZED_TYPE
@@ -123,7 +123,7 @@ async def test_header_bypass_blocked_when_session_configured(
     authed_client: AsyncClient,
 ) -> None:
     response = await authed_client.get(
-        "/probe", headers={"X-User-Id": SEEDED_USER_UUID}
+        "/protected", headers={"X-User-Id": SEEDED_USER_UUID}
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -143,7 +143,7 @@ async def test_readyz_accessible_without_cookie(authed_client: AsyncClient) -> N
 @pytest.mark.asyncio
 async def test_no_session_falls_back_to_header(no_session_client: AsyncClient) -> None:
     response = await no_session_client.get(
-        "/probe",
+        "/protected",
         headers={"X-User-Id": SEEDED_USER_UUID},
     )
     assert response.status_code == status.HTTP_200_OK

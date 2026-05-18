@@ -24,9 +24,7 @@ _ISSUER = f"https://cognito-idp.{_REGION}.amazonaws.com/{_POOL_ID}"
 _KID = "test-key-1"
 
 
-def _generate_rsa_key_pair() -> (
-    tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]
-):
+def _generate_rsa_key_pair() -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     return private_key, private_key.public_key()
 
@@ -154,6 +152,44 @@ async def test_bad_signature_raises(
         await adapter.verify_access_token(token)
 
 
+async def test_id_token_use_rejected(
+    adapter: CognitoJwksAdapter,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, token_use="id")
+
+    with pytest.raises(SessionVerificationError, match="Not an access token"):
+        await adapter.verify_access_token(token)
+
+
+async def test_unknown_kid_raises(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    private_key, _ = rsa_keys
+    unknown_kid = "unknown-key-999"
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "sub": "s",
+            "iss": _ISSUER,
+            "client_id": _CLIENT_ID,
+            "token_use": "access",
+            "iat": now,
+            "exp": now + 3600,
+        },
+        private_key,  # type: ignore[arg-type]
+        algorithm="RS256",
+        headers={"kid": unknown_kid},
+    )
+
+    with pytest.raises(
+        SessionVerificationError, match=f"Unknown key ID: {unknown_kid}"
+    ):
+        await _make_adapter(fetch_mock).verify_access_token(token)
+
+
 async def test_jwks_fetched_once_across_multiple_verifications(
     adapter: CognitoJwksAdapter,
     fetch_mock: AsyncMock,
@@ -270,7 +306,7 @@ async def test_ttl_expiry_triggers_relookup(
     token = _mint_token(private_key, sub="ttl-test-sub")
 
     await adapter.verify_access_token(token)
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)
     await adapter.verify_access_token(token)
 
     assert find_user.call_count == 2
