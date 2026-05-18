@@ -185,4 +185,41 @@ describe("GET /api/auth/callback", () => {
 
 		expect(res.status).toBe(500)
 	})
+
+	it("logs error and still redirects when DB upsert fails", async () => {
+		const consoleSpy = vi.spyOn(console, "error")
+		const sub = "db-fail-sub"
+		const failingSql = vi
+			.fn()
+			.mockRejectedValue(new Error("conn refused")) as unknown as Sql
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					access_token: "a",
+					refresh_token: "r",
+					id_token: fakeIdToken(sub, "x@example.com"),
+				}),
+		})
+
+		const app = buildApp({
+			sql: failingSql,
+			fetchFn: fetchMock as typeof fetch,
+		})
+		const res = await app.request(`/callback?code=code&state=s`, {
+			headers: {
+				Cookie: cookieHeader({
+					[COOKIE.STATE]: "s",
+					[COOKIE.PKCE_VERIFIER]: "p",
+				}),
+			},
+		})
+
+		expect(res.status).toBe(302)
+		expect(res.headers.get("Location")).toBe("/app")
+		expect(consoleSpy).toHaveBeenCalledWith(
+			"callback: DB upsert failed",
+			expect.objectContaining({ sub, err: "conn refused" }),
+		)
+	})
 })

@@ -83,11 +83,18 @@ export function buildApp(deps: Deps = {}): Hono {
 		) as IdTokenPayload
 
 		const sql = deps.sql ?? getSql()
-		await sql`
-			INSERT INTO users (cognito_sub, email)
-			VALUES (${idPayload.sub}, ${idPayload.email})
-			ON CONFLICT (cognito_sub) DO NOTHING
-		`
+		try {
+			await sql`
+				INSERT INTO users (cognito_sub, email)
+				VALUES (${idPayload.sub}, ${idPayload.email})
+				ON CONFLICT (cognito_sub) DO NOTHING
+			`
+		} catch (err) {
+			console.error("callback: DB upsert failed", {
+				sub: idPayload.sub,
+				err: err instanceof Error ? err.message : String(err),
+			})
+		}
 
 		const headers = new Headers({ Location: "/app" })
 		headers.append(

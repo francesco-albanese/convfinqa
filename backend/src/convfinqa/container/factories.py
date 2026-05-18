@@ -1,3 +1,5 @@
+from collections.abc import Awaitable, Callable
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
@@ -22,7 +24,9 @@ from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
-from convfinqa.domain.ports.session import SessionPort
+from convfinqa.domain.ports.session import SessionPort, UserRecord
+
+UserLookup = Callable[[str], Awaitable[UserRecord | None]]
 
 
 def build_persistence(
@@ -32,7 +36,7 @@ def build_persistence(
     DocumentRepository,
     DocumentsPort,
     ConversationLockPort,
-    SqlAlchemyUserLookup,
+    UserLookup,
 ]:
     conversations: ConversationRepository = SqlAlchemyConversationRepository(
         session_factory
@@ -40,13 +44,13 @@ def build_persistence(
     documents: DocumentRepository = SqlAlchemyDocumentRepository(session_factory)
     documents_port: DocumentsPort = SqlAlchemyDocumentsRepository(session_factory)
     locks: ConversationLockPort = SqlAlchemyConversationLock(session_factory)
-    user_lookup = SqlAlchemyUserLookup(session_factory)
+    user_lookup: UserLookup = SqlAlchemyUserLookup(session_factory)
     return conversations, documents, documents_port, locks, user_lookup
 
 
 def build_session(
     settings: Settings,
-    user_lookup: SqlAlchemyUserLookup,
+    user_lookup: UserLookup,
 ) -> SessionPort | None:
     if settings.cognito_user_pool_id and settings.cognito_client_id:
         return CognitoJwksAdapter(
