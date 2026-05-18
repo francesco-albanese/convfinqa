@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
 from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
-from convfinqa.domain.ports.session import SessionVerificationError
+from convfinqa.domain.ports.session import SessionVerificationError, UserRecord
 
 pytestmark = pytest.mark.unit
 
@@ -24,9 +24,7 @@ _ISSUER = f"https://cognito-idp.{_REGION}.amazonaws.com/{_POOL_ID}"
 _KID = "test-key-1"
 
 
-def _generate_rsa_key_pair() -> (
-    tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]
-):
+def _generate_rsa_key_pair() -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     return private_key, private_key.public_key()
 
@@ -102,12 +100,12 @@ async def test_valid_token_returns_claims(
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
     private_key, _ = rsa_keys
-    token = _mint_token(private_key, sub="abc-123", email="user@example.com")
+    token = _mint_token(private_key, sub="abc-123")
 
     claims = await adapter.verify_access_token(token)
 
     assert claims.sub == "abc-123"
-    assert claims.email == "user@example.com"
+    assert claims.email is None
     assert claims.exp > int(time.time())
 
 
@@ -154,6 +152,44 @@ async def test_bad_signature_raises(
         await adapter.verify_access_token(token)
 
 
+async def test_id_token_use_rejected(
+    adapter: CognitoJwksAdapter,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, token_use="id")
+
+    with pytest.raises(SessionVerificationError, match="Not an access token"):
+        await adapter.verify_access_token(token)
+
+
+async def test_unknown_kid_raises(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    private_key, _ = rsa_keys
+    unknown_kid = "unknown-key-999"
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "sub": "s",
+            "iss": _ISSUER,
+            "client_id": _CLIENT_ID,
+            "token_use": "access",
+            "iat": now,
+            "exp": now + 3600,
+        },
+        private_key,  # type: ignore[arg-type]
+        algorithm="RS256",
+        headers={"kid": unknown_kid},
+    )
+
+    with pytest.raises(
+        SessionVerificationError, match=f"Unknown key ID: {unknown_kid}"
+    ):
+        await _make_adapter(fetch_mock).verify_access_token(token)
+
+
 async def test_jwks_fetched_once_across_multiple_verifications(
     adapter: CognitoJwksAdapter,
     fetch_mock: AsyncMock,
@@ -195,28 +231,44 @@ async def test_user_id_is_none_without_lookup(
     assert claims.user_id is None
 
 
-async def test_user_id_resolved_from_db(
+async def test_user_id_and_email_resolved_from_db(
     fetch_mock: AsyncMock,
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
-    expected_user_id = uuid.uuid4()
-    find_user = AsyncMock(return_value=expected_user_id)
+    expected = UserRecord(user_id=uuid.uuid4(), email="user@example.com")
+    find_user = AsyncMock(return_value=expected)
     adapter = _make_adapter_with_lookup(fetch_mock, find_user)
     private_key, _ = rsa_keys
     token = _mint_token(private_key, sub="user-sub-123")
 
     claims = await adapter.verify_access_token(token)
 
-    assert claims.user_id == expected_user_id
+    assert claims.user_id == expected.user_id
+    assert claims.email == "user@example.com"
     find_user.assert_called_once_with("user-sub-123")
+
+
+async def test_email_comes_from_db_not_jwt_claim(
+    fetch_mock: AsyncMock,
+    rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    expected = UserRecord(user_id=uuid.uuid4(), email="db@example.com")
+    find_user = AsyncMock(return_value=expected)
+    adapter = _make_adapter_with_lookup(fetch_mock, find_user)
+    private_key, _ = rsa_keys
+    token = _mint_token(private_key, sub="user-sub-123", email="jwt@example.com")
+
+    claims = await adapter.verify_access_token(token)
+
+    assert claims.email == "db@example.com"
 
 
 async def test_cache_hit_avoids_second_db_lookup(
     fetch_mock: AsyncMock,
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
-    expected_user_id = uuid.uuid4()
-    find_user = AsyncMock(return_value=expected_user_id)
+    expected = UserRecord(user_id=uuid.uuid4(), email="user@example.com")
+    find_user = AsyncMock(return_value=expected)
     adapter = _make_adapter_with_lookup(fetch_mock, find_user)
     private_key, _ = rsa_keys
     token = _mint_token(private_key, sub="abc-123")
@@ -224,7 +276,7 @@ async def test_cache_hit_avoids_second_db_lookup(
     await adapter.verify_access_token(token)
     claims = await adapter.verify_access_token(token)
 
-    assert claims.user_id == expected_user_id
+    assert claims.user_id == expected.user_id
     find_user.assert_called_once()
 
 
@@ -240,20 +292,21 @@ async def test_db_miss_returns_none_user_id(
     claims = await adapter.verify_access_token(token)
 
     assert claims.user_id is None
+    assert claims.email is None
 
 
 async def test_ttl_expiry_triggers_relookup(
     fetch_mock: AsyncMock,
     rsa_keys: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
-    expected_user_id = uuid.uuid4()
-    find_user = AsyncMock(return_value=expected_user_id)
+    expected = UserRecord(user_id=uuid.uuid4(), email="user@example.com")
+    find_user = AsyncMock(return_value=expected)
     adapter = _make_adapter_with_lookup(fetch_mock, find_user, cache_ttl_seconds=0.05)
     private_key, _ = rsa_keys
     token = _mint_token(private_key, sub="ttl-test-sub")
 
     await adapter.verify_access_token(token)
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)
     await adapter.verify_access_token(token)
 
     assert find_user.call_count == 2

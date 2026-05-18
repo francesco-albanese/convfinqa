@@ -1,16 +1,16 @@
 import { Hono } from "hono"
 import { handle } from "hono/aws-lambda"
 import { getCookie } from "hono/cookie"
-import type { Pool } from "pg"
+import type { Sql } from "postgres"
 import {
 	ACCESS_TOKEN_MAX_AGE,
 	COOKIE,
 	REFRESH_TOKEN_MAX_AGE,
 } from "../lib/cookies.ts"
-import { getPool } from "../lib/db.ts"
+import { getSql } from "../lib/db.ts"
 
 type Deps = {
-	pool?: Pool
+	sql?: Sql
 	fetchFn?: typeof fetch
 }
 
@@ -82,13 +82,19 @@ export function buildApp(deps: Deps = {}): Hono {
 			Buffer.from(payloadB64, "base64url").toString(),
 		) as IdTokenPayload
 
-		const pool = deps.pool ?? getPool()
-		await pool.query(
-			`INSERT INTO users (cognito_sub, email)
-       VALUES ($1, $2)
-       ON CONFLICT (cognito_sub) DO NOTHING`,
-			[idPayload.sub, idPayload.email],
-		)
+		const sql = deps.sql ?? getSql()
+		try {
+			await sql`
+				INSERT INTO users (cognito_sub, email)
+				VALUES (${idPayload.sub}, ${idPayload.email})
+				ON CONFLICT (cognito_sub) DO NOTHING
+			`
+		} catch (err) {
+			console.error("callback: DB upsert failed", {
+				sub: idPayload.sub,
+				err: err instanceof Error ? err.message : String(err),
+			})
+		}
 
 		const headers = new Headers({ Location: "/app" })
 		headers.append(

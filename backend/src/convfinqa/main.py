@@ -5,7 +5,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from convfinqa.config import SETTINGS
-from convfinqa.container import Container
+from convfinqa.container import bootstrap_application
 from convfinqa.entrypoints.api.errors import install_exception_handlers
 from convfinqa.entrypoints.api.middleware.auth import AuthMiddleware
 from convfinqa.entrypoints.api.router import api_router
@@ -14,7 +14,7 @@ from convfinqa.logging import configure_logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    container = Container.bootstrap_application(settings=SETTINGS)
+    container = bootstrap_application(settings=SETTINGS)
     app.state.container = container
     try:
         yield

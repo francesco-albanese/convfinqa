@@ -244,4 +244,20 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 			expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chats"] });
 		});
 	});
+
+	it("unpin button clears documentId and chatId from the URL", async () => {
+		const user = userEvent.setup();
+		const { router } = renderApp("/app?documentId=doc-1&chatId=conv-7");
+		const unpinButton = await screen.findByTestId("unpin-button");
+		await user.click(unpinButton);
+		await waitFor(() => {
+			expect(router.state.location.href).toBe("/app");
+		});
+	});
+
+	it("unpin button is not rendered when no document is pinned", async () => {
+		renderApp("/app");
+		await screen.findByLabelText("Message");
+		expect(screen.queryByTestId("unpin-button")).not.toBeInTheDocument();
+	});
 });

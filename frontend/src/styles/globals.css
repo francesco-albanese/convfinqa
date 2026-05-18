@@ -95,6 +95,13 @@ body {
 
 @media (min-width: 1024px) {
 	.authed-grid {
-		grid-template-columns: var(--sb-w, 280px) minmax(0, 1fr) var(--rp-w, 0px);
+		grid-template-columns: var(--sb-w, 280px) minmax(0, 1fr) minmax(
+				360px,
+				480px
+			);
+		grid-template-rows: 100%;
+	}
+	.authed-grid[data-right-panel="closed"] {
+		grid-template-columns: var(--sb-w, 280px) minmax(0, 1fr) 0;
 	}
 }

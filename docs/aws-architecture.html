@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>convfinqa — AWS Architecture &amp; Decisions</title>
-<meta name="description" content="Canonical AWS stack design, decision lineage, flows, and operational runbook for the convfinqa portfolio project." />
+<title>convfinqa — AWS Architecture Diagrams</title>
+<meta name="description" content="Rendered Mermaid diagrams for the convfinqa AWS architecture. Decisions and rationale live in docs/aws-architecture.md." />
 <script>
   (function() {
     try {
@@ -22,317 +22,84 @@
   :root {
     --bg: #ffffff;
     --bg-soft: #f7f7f5;
-    --bg-code: #f1f1ee;
     --fg: #1c1c1a;
     --fg-soft: #5a5a55;
     --fg-mute: #8a8a85;
     --accent: #0a5d4a;
     --accent-soft: #e8f1ed;
     --accent-border: #c1ddd1;
-    --warn: #8b3a14;
-    --warn-soft: #fbeee5;
-    --warn-border: #ebd2bd;
-    --danger: #8a1f1f;
     --border: #e3e3df;
     --border-strong: #c8c8c2;
-    --cost-bg: #eef3f8;
-    --cost-fg: #234b6b;
-    --cost-border: #cfdbe6;
-    --rejected-bg: #f0eeec;
     --shadow: 0 1px 2px rgba(20, 20, 18, 0.04), 0 4px 12px rgba(20, 20, 18, 0.04);
     --radius-sm: 6px;
     --radius-md: 10px;
-    --radius-lg: 14px;
     --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
     --ease: cubic-bezier(.2,.7,.3,1);
     color-scheme: light;
   }
-
   [data-theme="dark"] {
     --bg: #0f0f0e;
     --bg-soft: #18181a;
-    --bg-code: #1f1f21;
     --fg: #e8e8e3;
     --fg-soft: #a8a8a3;
     --fg-mute: #6a6a65;
     --accent: #4fb593;
     --accent-soft: #15302a;
     --accent-border: #2a5a48;
-    --warn: #e8a87b;
-    --warn-soft: #2b1d12;
-    --warn-border: #5a3a20;
-    --danger: #e58b8b;
     --border: #2a2a28;
     --border-strong: #3a3a38;
-    --cost-bg: #16222e;
-    --cost-fg: #8eb5d6;
-    --cost-border: #2a4a6a;
-    --rejected-bg: #161614;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35);
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
-  body { scroll-behavior: smooth; }
-
-  .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 0; min-height: 100vh; }
-  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
-
-  /* Sticky TOC sidebar */
-  aside.toc {
-    position: sticky; top: 0; align-self: start;
-    height: 100vh; overflow-y: auto;
-    background: var(--bg-soft);
-    border-right: 1px solid var(--border);
-    padding: 24px 20px;
-    font-size: 13.5px;
-  }
-  @media (max-width: 980px) { aside.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); } }
-  aside.toc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-mute); margin: 0 0 12px 0; font-weight: 600; }
-  aside.toc ol { list-style: none; padding: 0; margin: 0 0 18px 0; counter-reset: toc; }
-  aside.toc ol li { counter-increment: toc; margin: 2px 0; }
-  aside.toc ol > li > a::before { content: counter(toc) ". "; color: var(--fg-mute); }
-  aside.toc a { color: var(--fg); text-decoration: none; display: block; padding: 4px 8px; border-radius: var(--radius-sm); transition: background 120ms var(--ease); }
-  aside.toc a:hover { background: var(--accent-soft); color: var(--accent); }
-  aside.toc ul { list-style: none; padding: 4px 0 4px 16px; margin: 0; border-left: 1px solid var(--border); font-size: 12.5px; }
-  aside.toc ul a { color: var(--fg-soft); padding: 2px 8px; }
-  aside.toc .meta { color: var(--fg-mute); font-size: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
-
-  /* Main content */
-  main.content { padding: 48px 56px 96px 56px; max-width: 980px; }
-  @media (max-width: 980px) { main.content { padding: 32px 20px 64px 20px; } }
-
-  header.hero { margin-bottom: 56px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
-  header.hero h1 { font-size: 32px; margin: 0 0 8px 0; letter-spacing: -0.02em; font-weight: 700; }
-  header.hero p.lede { font-size: 17px; color: var(--fg-soft); margin: 0 0 16px 0; max-width: 70ch; }
-  header.hero .stamp { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-mute); font-family: var(--font-mono); }
-
-  section { margin: 56px 0; scroll-margin-top: 20px; }
-  section > h2 { font-size: 24px; margin: 0 0 8px 0; letter-spacing: -0.01em; font-weight: 700; padding-top: 24px; border-top: 1px solid var(--border); }
-  section > h2:first-child { padding-top: 0; border-top: none; }
-  section > p.section-lede { color: var(--fg-soft); margin: 0 0 24px 0; max-width: 75ch; }
-  section h3 { font-size: 18px; margin: 32px 0 8px 0; font-weight: 700; letter-spacing: -0.005em; }
-  section h4 { font-size: 14.5px; margin: 16px 0 6px 0; font-weight: 600; color: var(--fg-soft); text-transform: uppercase; letter-spacing: 0.06em; }
-
-  p { margin: 0 0 12px 0; }
-  ul, ol { margin: 8px 0 16px 0; padding-left: 24px; }
-  ul li, ol li { margin: 4px 0; }
-  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border 120ms var(--ease); }
-  a:hover { border-bottom-color: var(--accent); }
-
-  code { font-family: var(--font-mono); font-size: 0.88em; background: var(--bg-code); padding: 1px 6px; border-radius: 4px; color: var(--fg); }
-  pre { background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.55; margin: 12px 0; }
-  pre code { background: transparent; padding: 0; font-size: inherit; }
-
-  /* Decision badge */
-  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--font-mono); }
-  .badge.decided { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
-  .badge.rejected { background: var(--rejected-bg); color: var(--fg-mute); border: 1px solid var(--border); text-decoration: line-through; }
-  .badge.warning { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-border); }
-  .badge.cost { background: var(--cost-bg); color: var(--cost-fg); border: 1px solid var(--cost-border); font-family: var(--font-mono); }
-
-  /* Decision card */
-  .decision { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin: 18px 0 28px 0; background: var(--bg); box-shadow: var(--shadow); }
-  .decision header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-  .decision header h3 { margin: 0; flex: 1; min-width: 0; }
-  .decision .lineage { font-size: 13.5px; color: var(--fg-soft); border-left: 3px solid var(--accent); padding: 6px 12px; background: var(--accent-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 8px 0 16px 0; }
-  .decision .lineage strong { color: var(--accent); }
-  .decision .gotcha { font-size: 13.5px; color: var(--warn); border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--warn-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 12px 0; }
-  .decision .gotcha strong { color: var(--warn); }
-
-  /* Callouts */
-  .callout { border-left: 3px solid var(--border-strong); padding: 10px 14px; margin: 16px 0; background: var(--bg-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 14px; }
-  .callout.warn { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
-  .callout.warn strong { color: var(--warn); }
-  .callout.info { border-color: var(--accent); background: var(--accent-soft); }
-  .callout.info strong { color: var(--accent); }
-
-  /* Tables */
-  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px 0; font-size: 14px; }
-  th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
-  th { background: var(--bg-soft); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-soft); }
-  tr:hover td { background: var(--bg-soft); }
-  td code { background: var(--bg); border: 1px solid var(--border); }
-
-  /* Flow steps */
-  ol.steps { counter-reset: step; padding-left: 0; list-style: none; }
-  ol.steps > li { counter-increment: step; padding: 8px 0 8px 38px; position: relative; border-bottom: 1px solid var(--border); }
-  ol.steps > li:last-child { border-bottom: none; }
-  ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 8px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-family: var(--font-mono); }
-
-  /* Mermaid containers */
-  .diagram { background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; margin: 16px 0; overflow-x: auto; }
-  .diagram-caption { font-size: 13px; color: var(--fg-mute); margin-top: 6px; font-style: italic; }
-
-  /* Cost summary card */
-  .cost-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
-  .cost-card { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); }
-  .cost-card .label { font-size: 12px; color: var(--fg-mute); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-  .cost-card .value { font-size: 22px; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
-  .cost-card .detail { font-size: 13px; color: var(--fg-soft); margin-top: 4px; }
-
-  /* Helper utilities */
-  .grep-anchor { color: var(--fg-mute); font-size: 11px; font-family: var(--font-mono); margin-left: 8px; opacity: 0; transition: opacity 120ms var(--ease); }
-  h2:hover .grep-anchor, h3:hover .grep-anchor { opacity: 1; }
-  .kbd { font-family: var(--font-mono); font-size: 0.85em; padding: 1px 6px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--bg); color: var(--fg-soft); }
-  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-family: var(--font-mono); background: var(--bg-soft); border: 1px solid var(--border); color: var(--fg-soft); }
-
-  /* Theme toggle button */
+  main { padding: 48px 56px 96px 56px; max-width: 1100px; margin: 0 auto; }
+  @media (max-width: 980px) { main { padding: 32px 20px 64px 20px; } }
+  header.hero { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  header.hero h1 { font-size: 28px; margin: 0 0 8px 0; letter-spacing: -0.02em; font-weight: 700; }
+  header.hero p { font-size: 15px; color: var(--fg-soft); margin: 0; max-width: 75ch; }
+  header.hero a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-border); }
+  header.hero a:hover { border-bottom-color: var(--accent); }
+  h2 { font-size: 20px; margin: 48px 0 6px 0; font-weight: 700; letter-spacing: -0.005em; padding-top: 24px; border-top: 1px solid var(--border); }
+  h2:first-of-type { padding-top: 0; border-top: none; }
+  .diagram { background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; margin: 12px 0; overflow-x: auto; }
+  .diagram-caption { font-size: 13px; color: var(--fg-mute); margin-top: 8px; font-style: italic; }
+  code { font-family: var(--font-mono); font-size: 0.88em; }
   .theme-toggle {
-    position: fixed;
-    top: 14px;
-    right: 18px;
-    z-index: 100;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--bg);
-    color: var(--fg);
+    position: fixed; top: 14px; right: 18px; z-index: 100;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bg); color: var(--fg);
     border: 1px solid var(--border-strong);
-    padding: 7px 14px;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    cursor: pointer;
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
     box-shadow: var(--shadow);
-    transition: border-color 120ms var(--ease), color 120ms var(--ease), background 120ms var(--ease);
+    transition: border-color 120ms var(--ease), color 120ms var(--ease);
   }
   .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
   .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .theme-toggle .theme-icon { width: 14px; height: 14px; display: inline-block; }
-  @media (max-width: 980px) { .theme-toggle { top: 10px; right: 10px; padding: 6px 10px; font-size: 11px; } }
-
-  /* Print */
-  @media print {
-    .theme-toggle { display: none; }
-    aside.toc { display: none; }
-    .layout { display: block; }
-    main.content { max-width: none; padding: 0; }
-    section { page-break-inside: avoid; }
-    .diagram { page-break-inside: avoid; }
-    a { color: var(--fg); border-bottom: none; }
-    pre, code { background: transparent; border: 1px solid var(--border); }
-  }
+  .theme-icon { width: 14px; height: 14px; }
 </style>
 </head>
 <body>
 
-<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme">
   <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
   </svg>
   <span id="theme-toggle-label">Dark</span>
 </button>
 
-<div class="layout">
-
-<aside class="toc" aria-label="Table of contents">
-  <h2>Sections</h2>
-  <ol>
-    <li><a href="#executive-summary">Executive summary &amp; cost</a></li>
-    <li><a href="#architecture-diagram">System architecture diagram</a></li>
-    <li>
-      <a href="#decisions">Architectural decisions</a>
-      <ul>
-        <li><a href="#decision-backend-compute">Backend compute</a></li>
-        <li><a href="#decision-database">Database</a></li>
-        <li><a href="#decision-frontend-hosting">Frontend hosting</a></li>
-        <li><a href="#decision-edge-routing">Edge / routing</a></li>
-        <li><a href="#decision-cache-ratelimit">Cache &amp; rate limit</a></li>
-        <li><a href="#decision-secrets">Secrets</a></li>
-        <li><a href="#decision-dns-tls">DNS / TLS</a></li>
-        <li><a href="#decision-teardown">Tear-down ergonomics</a></li>
-        <li><a href="#decision-observability">Observability</a></li>
-        <li><a href="#decision-cicd">CI/CD</a></li>
-        <li><a href="#decision-api-url">API URL convention</a></li>
-        <li><a href="#decision-auth-bff">Auth Lambda BFF</a></li>
-        <li><a href="#decision-user-identity">User identity (Cognito ↔ Postgres)</a></li>
-        <li><a href="#decision-pg-cron">Postgres TTL via pg_cron</a></li>
-        <li><a href="#decision-tf-modules">Terraform module split</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#flows">Runtime flows</a>
-      <ul>
-        <li><a href="#flow-signup">Sign-up (first-time user)</a></li>
-        <li><a href="#flow-signin">Sign-in (returning user)</a></li>
-        <li><a href="#flow-chat">Streaming chat request</a></li>
-        <li><a href="#flow-cold-start">Aurora cold-start</a></li>
-        <li><a href="#flow-teardown">Tear-down / restore</a></li>
-        <li><a href="#flow-cicd">CI/CD pipeline</a></li>
-      </ul>
-    </li>
-    <li><a href="#alternatives">Disqualified alternatives</a></li>
-    <li><a href="#research">2026 research findings</a></li>
-    <li><a href="#runbook">Operational runbook</a></li>
-    <li><a href="#glossary">Glossary &amp; critical files</a></li>
-  </ol>
-  <div class="meta">
-    Single source of truth for the AWS stack. Updated alongside any architectural change. Read this before touching <code>terraform/</code>, CloudFront behaviors, the Lambda BFF, or the users/cognito_sub schema.
-  </div>
-</aside>
-
-<main class="content">
+<main>
 
 <header class="hero">
-  <h1>convfinqa — AWS Architecture &amp; Decisions</h1>
-  <p class="lede">Canonical reference for how the convfinqa portfolio app is deployed to AWS: stack choice, decision lineage, runtime flows, disqualified alternatives, operational runbook. Designed to be re-read on demand by both the author and AI agents that touch infrastructure.</p>
-  <div class="stamp">
-    <span>Status: design approved, not yet implemented</span>
-    <span>·</span>
-    <span>Project: convfinqa portfolio</span>
-    <span>·</span>
-    <span>Reference repo: <code>../francescoalbanese-dev-infra</code></span>
-  </div>
+  <h1>convfinqa — AWS Architecture Diagrams</h1>
+  <p>Rendered Mermaid diagrams for the convfinqa AWS stack. All decisions, rationale, runtime flows, disqualified alternatives, and the operational runbook live in <a href="./aws-architecture.md"><code>docs/aws-architecture.md</code></a>. This page exists for humans who want to see the diagrams visually.</p>
 </header>
 
-<!-- =================================================================== -->
-<section id="executive-summary">
-  <h2>1. Executive summary &amp; cost <span class="grep-anchor">#executive-summary</span></h2>
-  <p class="section-lede">The convfinqa app is a streaming LLM-powered financial QA SPA. It runs on AWS with cost as the dominant constraint and a "tear it down between showings" lifecycle.</p>
-
-  <h3>The stack in one paragraph</h3>
-  <p>A React/Vite SPA served from <strong>S3 behind a single CloudFront distribution</strong>. The same CloudFront domain (<code>app.convfinqa.francescoalbanese.dev</code>) routes <code>/api/v1/*</code> to a <strong>FastAPI service on ECS Express Mode</strong> (Fargate-backed, auto-wired ALB) and <code>/api/auth/*</code> to a <strong>TypeScript Lambda BFF</strong> that handles the Cognito + Google OAuth flow and sets HTTPOnly + Secure cookies. Persistence is <strong>Aurora Serverless v2 (Postgres-compatible) scaled to 0 ACU when idle</strong>; cache, rate-limit, and idempotency live in the same Aurora cluster as Postgres tables. Secrets are in <strong>SSM Parameter Store</strong>. DNS records are written by convfinqa terraform via a cross-account provider into the parent <code>francescoalbanese.dev</code> zone owned by <code>../francescoalbanese-dev-infra</code>. Everything is one Terraform stack split into modules so that <code>terraform destroy -target=module.compute</code> drops the monthly cost to ~$1-2 when not actively shown.</p>
-
-  <h3>Cost at a glance</h3>
-  <div class="cost-grid">
-    <div class="cost-card">
-      <div class="label">Idle, full stack up</div>
-      <div class="value">~$28-32 / mo</div>
-      <div class="detail">ALB dominates (~$16). Fargate baseline task ~$10. Aurora paused storage ~pennies. CloudFront/S3/Route53/Lambda BFF ~$0 idle.</div>
-    </div>
-    <div class="cost-card">
-      <div class="label">"Going on holiday" (compute destroyed)</div>
-      <div class="value">~$1-2 / mo</div>
-      <div class="detail">Aurora paused storage (~$0.05/GB-mo) + S3 site bucket (~$0.50/mo) + ACM cert (free) + Route53 zone (free, shared). CloudFront only pays on request.</div>
-    </div>
-    <div class="cost-card">
-      <div class="label">Project fully destroyed</div>
-      <div class="value">~$0 / mo</div>
-      <div class="detail">All resources removed. DNS records vanish, ACM cert revoked, S3 emptied. Domain registration handled out-of-band by Porkbun.</div>
-    </div>
-  </div>
-
-  <h3>Hard cost invariants</h3>
-  <ul>
-    <li>No EKS — <code>$72/mo control plane</code> alone is a disqualifier.</li>
-    <li>No NAT Gateway — <code>~$32/mo</code>. We use public-subnet Fargate locked to the CloudFront origin prefix list instead.</li>
-    <li>No ElastiCache (~$11/mo floor) or DynamoDB until measurement proves the need.</li>
-    <li>No Secrets Manager ($0.40/secret/mo) — SSM Parameter Store SecureString is free.</li>
-    <li>No CloudFront Container Insights, no X-Ray, no WAF — cost-priority defaults off.</li>
-  </ul>
-</section>
-
-<!-- =================================================================== -->
-<section id="architecture-diagram">
-  <h2>2. System architecture diagram <span class="grep-anchor">#architecture</span></h2>
-  <p class="section-lede">Single-domain CloudFront edge fans out to three origins by path. HTTPOnly cookies set by the Lambda BFF travel automatically to the FastAPI origin because both share the same hostname.</p>
-
-  <div class="diagram">
+<h2 id="architecture-diagram">1. System architecture</h2>
+<div class="diagram">
 <pre class="mermaid">
 flowchart TB
     user["Browser / SPA<br/>app.convfinqa.francescoalbanese.dev"]
@@ -371,451 +138,13 @@ flowchart TB
     cognito -.->|Post-Confirmation trigger| bff
     ka -->|SELECT 1| aurora
 </pre>
-    <div class="diagram-caption">Top-level architecture. Solid lines are request-path; dotted lines are async / out-of-band.</div>
-  </div>
+  <div class="diagram-caption">Top-level architecture. Solid lines are request-path; dotted lines are async / out-of-band.</div>
+</div>
 
-  <h3>Architecture in plain text (for agents that cannot render Mermaid)</h3>
-  <ol class="steps">
-    <li>The browser hits a single hostname (<code>app.convfinqa.francescoalbanese.dev</code>). CloudFront terminates TLS using a SAN ACM cert.</li>
-    <li>CloudFront routes by path: <code>/*</code> goes to a private S3 bucket via Origin Access Control (the SPA bundle), <code>/api/auth/*</code> goes to a Lambda Function URL (TypeScript BFF for auth), <code>/api/v1/*</code> goes to an ALB auto-wired by ECS Express Mode.</li>
-    <li>The ALB forwards to a Fargate task running FastAPI + uvicorn (the convfinqa container).</li>
-    <li>FastAPI reads/writes Aurora Serverless v2 (Postgres-compatible). Aurora hosts the business tables (users, conversations, messages, documents) <em>and</em> the cache/rate-limit/idempotency tables.</li>
-    <li>FastAPI calls Bedrock for LLM inference, reads secrets from SSM, and emits traces to Langfuse SaaS (external).</li>
-    <li>The Lambda BFF orchestrates the Cognito OAuth flow with Google, sets HTTPOnly + Secure + SameSite=Lax cookies for <code>access_token</code> and <code>refresh_token</code>, and performs a defensive <code>INSERT ON CONFLICT DO NOTHING</code> into the <code>users</code> table.</li>
-    <li>A Post-Confirmation Lambda Trigger (Cognito-invoked, no Function URL) creates the <code>users</code> row when Cognito confirms a new identity. The BFF UPSERT is a fallback if this trigger fails.</li>
-    <li>A keep-alive Lambda fired by EventBridge every ~20 hours runs <code>SELECT 1</code> against Aurora to prevent it from entering the &gt;24h "deep sleep" state that doubles resume latency.</li>
-  </ol>
-</section>
+<h2 id="flows">2. Runtime flows</h2>
 
-<!-- =================================================================== -->
-<section id="decisions">
-  <h2>3. Architectural decisions <span class="grep-anchor">#decisions</span></h2>
-  <p class="section-lede">Every load-bearing choice with its one-line lineage (the punchline), what we chose, and what we explicitly rejected. The full alternative comparison lives in section 5.</p>
-
-  <!-- Backend compute -->
-  <article class="decision" id="decision-backend-compute">
-    <header>
-      <h3>3.1 Backend compute decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">~$26-30/mo idle</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Chose ECS Express Mode after EKS ($72/mo control plane), App Runner (sunset 2026-04-30), API Gateway (HTTP API can't stream; REST API has no Cognito authorizer), Lambda Web Adapter (not the user's preferred "production AI streaming" optic), and hand-wired Fargate (same cost, more Terraform).</div>
-
-    <p><strong>Chose:</strong> <code>ECS Express Mode</code> (the re:Invent 2025 deployment mode that auto-wires Fargate + ALB + cert + scaling + networking). Backed by Fargate; one on-demand baseline task; capacity provider strategy for cost.</p>
-
-    <h4>Why this won</h4>
-    <ul>
-      <li>Same cost floor as hand-wired Fargate (~$26-30/mo, ALB ~$16 dominates) with far less Terraform — AWS auto-wires the LB, cert, autoscaling, networking.</li>
-      <li>Public-subnet Fargate with security group locked to the <code>com.amazonaws.global.cloudfront.origin-facing</code> prefix list — avoids the silent <strong>$32/mo NAT Gateway</strong> or <strong>$22/mo VPC interface endpoints</strong> tax.</li>
-      <li>SSE / long-lived HTTP response streaming works natively (Fargate is just a long-lived process).</li>
-      <li>Shares the ALB across multiple Express Mode services if more portfolio apps land on the same network config later.</li>
-      <li>Cognito offload could later move onto the ALB if the BFF pattern is dropped (we are NOT doing that — see <a href="#decision-edge-routing">routing decision</a>).</li>
-    </ul>
-
-    <h4>Implementation notes</h4>
-    <ul>
-      <li>Capacity provider strategy: 1 Fargate on-demand baseline, room for Fargate Spot extras when autoscaling kicks in. Spot is NOT used for the baseline — AWS guidance explicitly excludes user-facing services.</li>
-      <li>Task size: 0.25 vCPU / 0.5 GB. Minimum Fargate tier.</li>
-      <li>Container image stored in ECR private repo, built on every merge to main, tagged with git SHA.</li>
-    </ul>
-
-    <div class="gotcha"><strong>Gotcha:</strong> ECS Express Mode cannot scale to zero with an ALB attached. The "scale to zero" lever is <code>terraform destroy -target=module.compute</code>, not autoscaling.</div>
-  </article>
-
-  <!-- Database -->
-  <article class="decision" id="decision-database">
-    <header>
-      <h3>3.2 Database decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">~$0/mo idle (storage only)</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Chose Aurora Serverless v2 min 0 ACU (true scale-to-zero, AWS-native) after rejecting RDS db.t4g.micro ($12-14/mo always-on), Aurora min 0.5 ACU ($43/mo), and Neon (off-AWS — breaks the all-AWS narrative). The 15-30s cold-start UX hit is accepted in exchange for ~$0 idle cost.</div>
-
-    <p><strong>Chose:</strong> <code>Aurora Serverless v2 (Postgres-compatible)</code>, min 0 ACU, max ~2 ACU. Auto-pause after configurable idle window (5min–24h).</p>
-
-    <h4>Verified resume-latency facts (AWS docs, Nov 2024 GA)</h4>
-    <ul>
-      <li>Resume "up to 15 seconds" for clusters paused less than 24h.</li>
-      <li><strong>30+ seconds for "deep sleep"</strong> after &gt;24h paused.</li>
-      <li>Won't auto-pause if any user connection is open, RDS Proxy is attached, binlog replication is on, global database primary, or Zero-ETL active.</li>
-      <li>Storage cost when paused: <code>$0.10/GB-month</code>.</li>
-    </ul>
-
-    <h4>Four mandatory mitigations (the cost saving only materialises with ALL four)</h4>
-    <ol>
-      <li><strong>Keep-alive Lambda on EventBridge cron</strong>, every ~20h, runs <code>SELECT 1</code>. Keeps the cluster out of deep sleep so resume stays at ~15s rather than 30s+. Cost: ~$0.04/mo.</li>
-      <li><strong>SQLAlchemy pool tuning</strong>: <code>pool_recycle=300</code>, <code>pool_size=2</code>, <code>max_overflow=2</code>, <code>pool_pre_ping=True</code>. Without this, the pool keeps connections persistent and Aurora <em>never</em> pauses.</li>
-      <li><strong>NO RDS Proxy</strong>. It pins connections and blocks auto-pause.</li>
-      <li><strong>Frontend "waking up..." loader</strong> + SPA-on-mount fetch to <code>/api/v1/healthz</code> to warm the DB while the user reads the page, before they click Send.</li>
-    </ol>
-
-    <div class="callout warn"><strong>Code gotcha (verified):</strong> <code>backend/src/convfinqa/adapters/persistence/sqlalchemy/engine.py</code> today calls <code>create_async_engine(database_url, pool_pre_ping=True, future=True)</code> — SQLAlchemy's default <code>pool_recycle=-1</code> means connections are <em>never</em> recycled. Aurora will not pause under this config. Fix is required when Aurora is provisioned.</div>
-
-    <h4>Why this won</h4>
-    <ul>
-      <li>True scale-to-zero. Compute portion of DB cost is exactly $0 during idle hours.</li>
-      <li>Postgres-compatible — no app or alembic changes vs current docker-compose Postgres 18.</li>
-      <li>Stays inside AWS — preserves the all-AWS portfolio narrative.</li>
-      <li><code>asyncpg</code> connect/SSL timeouts already default well above the 15s resume window.</li>
-    </ul>
-
-    <div class="gotcha"><strong>Caveat:</strong> The first click after &gt;24h idle without keep-alive working will hang ~30s. This is the explicit UX trade-off the user accepted in exchange for zero idle cost.</div>
-  </article>
-
-  <!-- Frontend hosting -->
-  <article class="decision" id="decision-frontend-hosting">
-    <header>
-      <h3>3.3 Frontend hosting decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">~$0.50/mo</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Mirror <code>../francescoalbanese-dev-infra</code> exactly — that pattern is proven, audited, and reusable. No need to invent.</div>
-
-    <p><strong>Chose:</strong> Private S3 bucket behind CloudFront with OAC. ACM cert in <code>us-east-1</code>. <code>PriceClass_100</code>. Dual-tier cache. SPA fallback. No WAF.</p>
-
-    <h4>Components</h4>
-    <ul>
-      <li><strong>S3 bucket</strong>: <code>convfinqa-site-&lt;account_id&gt;</code>, versioned, encrypted SSE-S3, public access blocked, accessed only via CloudFront OAC.</li>
-      <li><strong>CloudFront distribution</strong>: aliases <code>app.convfinqa.francescoalbanese.dev</code> + <code>convfinqa.francescoalbanese.dev</code>; PriceClass_100 (NA + EU edges only).</li>
-      <li><strong>ACM cert</strong>: us-east-1 (CloudFront requirement), single SAN over both names, DNS-validated.</li>
-      <li><strong>Cache policies</strong>: 1-year immutable for <code>/_assets/*</code> and <code>/assets/*</code> (hashed); 5-min TTL for <code>/</code> and <code>/index.html</code>.</li>
-      <li><strong>SPA routing</strong>: 403 and 404 from S3 are rewritten to <code>/index.html</code> with HTTP 200 — the canonical SPA pattern.</li>
-      <li><strong>Security headers policy</strong>: HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin.</li>
-      <li><strong>No WAF</strong>. Acceptable for portfolio risk profile; revisit if abuse surfaces.</li>
-    </ul>
-
-    <h4>Additional CloudFront behaviors layered on top (auth-aware routing)</h4>
-    <table>
-      <thead><tr><th>Path pattern</th><th>Origin</th><th>Cache policy</th><th>Origin request policy</th></tr></thead>
-      <tbody>
-        <tr><td><code>/api/v1/*</code></td><td>ALB (ECS Express)</td><td><code>Managed-CachingDisabled</code></td><td><code>Managed-AllViewer</code></td></tr>
-        <tr><td><code>/api/auth/*</code></td><td>Lambda Function URL (BFF)</td><td><code>Managed-CachingDisabled</code></td><td><code>Managed-AllViewer</code></td></tr>
-        <tr><td><code>/*</code></td><td>S3 (SPA)</td><td>Dual-tier (1y / 5min)</td><td>None (default)</td></tr>
-      </tbody>
-    </table>
-  </article>
-
-  <!-- Edge / routing -->
-  <article class="decision" id="decision-edge-routing">
-    <header>
-      <h3>3.4 Edge / routing decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Single CloudFront domain with path-based routing keeps HTTPOnly cookies same-origin — no CORS, no cross-subdomain cookie loss. Rejected ALB's built-in Cognito auth because its opaque session cookie cannot expose the raw Cognito tokens the BFF needs.</div>
-
-    <p><strong>Chose:</strong> One hostname (<code>app.convfinqa.francescoalbanese.dev</code>), three CloudFront behaviors fan out to three origins. Auth and API share the cookie jar because they share the domain.</p>
-
-    <h4>Why same-origin matters</h4>
-    <p>The Lambda BFF sets <code>Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax</code> on <code>app.convfinqa.francescoalbanese.dev</code>. Because <code>/api/v1/*</code> lives on the same domain, the browser attaches that cookie automatically on every backend call. No CORS preflight, no <code>document.cookie</code> exposure, no cross-subdomain refresh handshake.</p>
-
-    <h4>Why not ALB's built-in Cognito authentication</h4>
-    <p>ALB can authenticate users against a Cognito User Pool natively (it sets <code>AWSELBAuthSessionCookie</code>). The cookie is HTTPOnly and Secure — sounds perfect. But it is <strong>opaque</strong>: the app cannot read the underlying Cognito <code>access_token</code> or <code>refresh_token</code> from it. The user's requirement is "store the <em>real</em> Cognito tokens server-side in HTTPOnly cookies so they are readable on the server" → ALB auth is incompatible with that requirement. The Lambda BFF pattern is the only way.</p>
-  </article>
-
-  <!-- Cache & rate limit -->
-  <article class="decision" id="decision-cache-ratelimit">
-    <header>
-      <h3>3.5 Cache &amp; rate-limit decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">$0 (reuses Aurora)</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Chose Postgres tables in the same Aurora cluster over DynamoDB and Redis because at portfolio LLM-streaming scale, sub-ms vs single-digit-ms cache hits are invisible against multi-second model calls — and Postgres is already in docker-compose for dev parity.</div>
-
-    <p><strong>Chose:</strong> Three Postgres tables in the same Aurora cluster — <code>rate_limit</code>, <code>output_cache</code>, <code>idempotency_keys</code> — accessed via hexagonal ports <code>CachePort</code> and <code>RateLimitPort</code> so a future swap to DynamoDB or Redis is a single-adapter change.</p>
-
-    <h4>Patterns</h4>
-    <ul>
-      <li><strong>Rate-limit</strong> — atomic increment via UPSERT:<br/>
-        <code>INSERT INTO rate_limit (user_id, window_start, count) VALUES ($1, $2, 1) ON CONFLICT (user_id, window_start) DO UPDATE SET count = rate_limit.count + 1 RETURNING count;</code><br/>
-        ~1 ms on indexed table at portfolio scale.</li>
-      <li><strong>Output cache</strong> — <code>(prompt_hash, model, response, expires_at)</code> with a partial index on non-expired rows. Query-time <code>WHERE expires_at &gt; now()</code> filter.</li>
-      <li><strong>Idempotency keys</strong> — same pattern; expiry typically 24h.</li>
-      <li><strong>Aggressive prompt caching</strong> against Bedrock is a <em>request-side</em> feature (LiteLLM passes <code>cache_control</code> markers through to Bedrock). It needs <strong>zero infrastructure</strong>.</li>
-    </ul>
-
-    <h4>Why not DynamoDB or Redis</h4>
-    <ul>
-      <li>Latency win invisible against multi-second LLM calls.</li>
-      <li>ElastiCache cheapest tier is ~$11/mo; ElastiCache Serverless ~$70/mo floor.</li>
-      <li>DynamoDB requires a second service in docker-compose (DynamoDB Local). LocalStack archived its public repo on 2026-03-23 — alternatives exist (MiniStack, Floci, Moto) but they're added complexity.</li>
-      <li>Same Aurora cluster + same alembic = one DB to back up, one to restore, one to migrate.</li>
-    </ul>
-  </article>
-
-  <!-- Secrets -->
-  <article class="decision" id="decision-secrets">
-    <header>
-      <h3>3.6 Secrets decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">Free</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Chose SSM Parameter Store SecureString over Secrets Manager because rotation isn't a portfolio requirement and Secrets Manager's $0.40/secret/mo is avoidable.</div>
-
-    <p><strong>Chose:</strong> SSM Parameter Store, <code>SecureString</code> type, AWS-managed KMS key. Standard tier (4 KB max per parameter) is free.</p>
-
-    <h4>Parameter path layout</h4>
-    <pre><code>/convfinqa/&lt;env&gt;/database_url
-/convfinqa/&lt;env&gt;/bedrock_region
-/convfinqa/&lt;env&gt;/cognito_user_pool_id
-/convfinqa/&lt;env&gt;/cognito_client_id
-/convfinqa/&lt;env&gt;/cognito_client_secret
-/convfinqa/&lt;env&gt;/system_prompt_override   (optional)</code></pre>
-
-    <p>ECS task role + Lambda execution role get scoped <code>ssm:GetParameters</code> on <code>arn:aws:ssm:&lt;region&gt;:&lt;account&gt;:parameter/convfinqa/&lt;env&gt;/*</code> and <code>kms:Decrypt</code> on the AWS-managed key for SSM.</p>
-
-    <p>Upgrade path: move to Secrets Manager when DB credential rotation becomes a real requirement (post-portfolio).</p>
-  </article>
-
-  <!-- DNS / TLS -->
-  <article class="decision" id="decision-dns-tls">
-    <header>
-      <h3>3.7 DNS / TLS decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">~$0</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Chose Pattern Y — convfinqa terraform writes records into the parent zone via cross-account provider — because it keeps each repo's apply independent and avoids the two-step "convfinqa creates pending cert / dev-infra writes validation / convfinqa finalises" dance.</div>
-
-    <p><strong>Chose:</strong></p>
-    <ul>
-      <li>Parent zone <code>francescoalbanese.dev</code> stays in the shared-services account, as a <em>data source</em> in the dev-infra repo (it was originally created by a prior mTLS project).</li>
-      <li><strong>No new hosted zone in the convfinqa account.</strong> All records live in the parent zone.</li>
-      <li>ACM cert in <code>us-east-1</code>: single SAN over <code>app.convfinqa.francescoalbanese.dev</code> + <code>convfinqa.francescoalbanese.dev</code>. DNS-validated.</li>
-      <li>convfinqa terraform declares an <code>aws.shared_services</code> provider alias that assumes a scoped IAM role with <code>route53:ChangeResourceRecordSets</code> on records matching <code>*.convfinqa.francescoalbanese.dev</code> only.</li>
-      <li>convfinqa terraform creates: ACM validation CNAMEs, alias <code>A</code> + <code>AAAA</code> records for <code>app.convfinqa.francescoalbanese.dev</code> → CloudFront.</li>
-      <li>dev-infra is untouched after the one-time IAM role creation.</li>
-    </ul>
-
-    <h4>Cognito redirect URI</h4>
-    <p><code>https://app.convfinqa.francescoalbanese.dev/api/auth/callback</code> — handled by the BFF Lambda. Must be configured in both the Cognito User Pool and the Google OAuth client.</p>
-  </article>
-
-  <!-- Tear-down -->
-  <article class="decision" id="decision-teardown">
-    <header>
-      <h3>3.8 Tear-down ergonomics decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Single Terraform stack split into modules so <code>terraform destroy -target=module.compute</code> drops the cost to ~$1-2/mo without losing data, certs, or DNS.</div>
-
-    <p><strong>Chose:</strong> One stack <code>terraform/environmental/</code>, internally modularised. Module-level destroy targets map to lifecycle classes.</p>
-
-    <table>
-      <thead><tr><th>Module</th><th>Lifecycle</th><th>What's inside</th><th>Idle cost</th></tr></thead>
-      <tbody>
-        <tr><td><code>modules/network/</code></td><td>Long-lived</td><td>VPC, subnets, SGs</td><td>$0</td></tr>
-        <tr><td><code>modules/data/</code></td><td>Long-lived</td><td>Aurora Serverless v2 cluster</td><td>~$0.05/GB storage</td></tr>
-        <tr><td><code>modules/edge/</code></td><td>Long-lived</td><td>CloudFront, S3 site bucket, ACM cert, Route53 records</td><td>~$0.50</td></tr>
-        <tr><td><code>modules/compute/</code></td><td><strong>Ephemeral</strong></td><td>ECS Express service, ALB, Lambda BFF + zip, SSM params, Cognito User Pool</td><td>~$26-30</td></tr>
-        <tr><td><code>modules/keepalive/</code></td><td>Ephemeral</td><td>EventBridge cron + Lambda that pings Aurora</td><td>~$0.04</td></tr>
-      </tbody>
-    </table>
-
-    <h4>The three tear-down levers</h4>
-    <ul>
-      <li><strong>Going on holiday</strong>: <code>terraform destroy -target=module.compute -target=module.keepalive</code>. Cost ≈ $1-2/mo.</li>
-      <li><strong>Coming back</strong>: <code>terraform apply</code>. ECS Express auto-wires ALB+task; live in ~5 min.</li>
-      <li><strong>Project dead</strong>: full <code>terraform destroy</code>. Take an Aurora snapshot first if data matters.</li>
-    </ul>
-  </article>
-
-  <!-- Observability -->
-  <article class="decision" id="decision-observability">
-    <header>
-      <h3>3.9 Observability decision</h3>
-      <span class="badge decided">Decided</span>
-      <span class="badge cost">~$0 (within free tier)</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> CloudWatch with cheap defaults handles infrastructure; Langfuse SaaS handles the LLM-specific signal. Skip Container Insights, X-Ray, and CloudFront response logs — all paid features that don't earn their cost at portfolio scale.</div>
-
-    <p><strong>Chose:</strong></p>
-    <ul>
-      <li><strong>CloudWatch Logs</strong>: 7-day retention; JSON-structured (the FastAPI app already uses <code>python-json-logger</code>). Free tier covers our volume.</li>
-      <li><strong>Container Insights OFF</strong> (saves ~$0.50/mo per container).</li>
-      <li><strong>ALB access logs</strong> to a small S3 bucket with a 30-day lifecycle policy. Recommended over CloudFront response logs (cheaper, contains the same data plus client IP after CloudFront forwards).</li>
-      <li><strong>No CloudWatch dashboards.</strong></li>
-      <li><strong>No X-Ray.</strong></li>
-      <li><strong>Langfuse SaaS</strong> for LLM tracing — already wired via the project's <code>langfuse-trace</code> skill. Free tier sufficient.</li>
-    </ul>
-  </article>
-
-  <!-- CI/CD -->
-  <article class="decision" id="decision-cicd">
-    <header>
-      <h3>3.10 CI/CD decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> One GitHub Actions workflow with path-filtered jobs. Migrations run as a one-shot Fargate task <em>before</em> the service update so a bad migration blocks the deploy instead of half-applying.</div>
-
-    <p><strong>Chose:</strong> Single workflow <code>.github/workflows/deploy.yml</code>, GitHub OIDC into the existing IAM deploy role, jobs gated by path-filter.</p>
-
-    <h4>Job topology</h4>
-    <table>
-      <thead><tr><th>Job</th><th>Trigger</th><th>What it does</th></tr></thead>
-      <tbody>
-        <tr><td><code>terraform-plan</code></td><td>PR touching <code>terraform/**</code></td><td>Validates + plans; comments the plan on the PR.</td></tr>
-        <tr><td><code>terraform-apply</code></td><td>Push to main, if <code>terraform/**</code> changed</td><td>Applies. Cross-account state assume via existing OIDC role.</td></tr>
-        <tr><td><code>migrations</code></td><td>After <code>terraform-apply</code>, if <code>backend/alembic/**</code> or persistence code changed</td><td><code>aws ecs run-task</code> launches a one-shot Fargate task running <code>alembic upgrade head</code>. Failure blocks downstream.</td></tr>
-        <tr><td><code>backend-deploy</code></td><td>After <code>migrations</code>, if <code>backend/**</code> changed</td><td>Docker build → ECR push (tag = git SHA) → <code>aws ecs update-service</code>. Rolling deploy: 200% max, 50% min.</td></tr>
-        <tr><td><code>frontend-deploy</code></td><td>Parallel; <code>frontend/**</code> changed</td><td><code>pnpm install</code> + <code>pnpm build</code> → <code>aws s3 sync</code> → CloudFront invalidate <code>/index.html</code> and <code>/</code>.</td></tr>
-        <tr><td><code>auth-lambda-deploy</code></td><td><code>auth-lambda/**</code> changed</td><td><code>pnpm install</code> + esbuild → <code>aws lambda update-function-code</code> for all five functions.</td></tr>
-        <tr><td><code>compute-destroy</code></td><td><code>workflow_dispatch</code> only</td><td>Runs <code>terraform destroy -target=module.compute -target=module.keepalive</code>. The "go on holiday" button.</td></tr>
-      </tbody>
-    </table>
-  </article>
-
-  <!-- API URL convention -->
-  <article class="decision" id="decision-api-url">
-    <header>
-      <h3>3.11 API URL convention decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Rename FastAPI router prefix from <code>/v1/*</code> to <code>/api/v1/*</code>. Same-domain SPA + API needs an unambiguous prefix so client-side SPA routes (<code>/login</code>, <code>/chat/abc</code>) can never collide with backend paths.</div>
-
-    <p><strong>Chose:</strong> All backend endpoints under <code>/api/v1/*</code>; all auth-BFF endpoints under <code>/api/auth/*</code>; everything else is SPA. Standard 2026 pattern for same-domain SPA+API apps.</p>
-
-    <h4>Mechanical changes required</h4>
-    <ul>
-      <li>FastAPI router prefix: <code>app.include_router(router, prefix="/api/v1")</code>.</li>
-      <li>Frontend API client base URL: <code>/api/v1</code> instead of <code>/v1</code>.</li>
-      <li>Integration tests + fixtures.</li>
-      <li>Vite dev proxy in <code>frontend/vite.config.ts</code>: proxy <code>/api/v1</code>, <code>/api/auth</code>, plus health endpoints <code>/api/v1/healthz</code> / <code>/api/v1/readyz</code>.</li>
-    </ul>
-  </article>
-
-  <!-- Auth Lambda BFF -->
-  <article class="decision" id="decision-auth-bff">
-    <header>
-      <h3>3.12 Auth Lambda BFF decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> TypeScript on Node 22 — modern, well-typed Cognito SDK, fast cold starts, esbuild produces tiny zips. Lambda is the right shape because auth flow is bursty and HTTPOnly cookies require server-side Set-Cookie headers (cannot be done in browser JS).</div>
-
-    <p><strong>Chose:</strong> Five TypeScript Lambdas on Node 22, packaged together via esbuild, deployed individually via Terraform.</p>
-
-    <h4>Function inventory</h4>
-    <table>
-      <thead><tr><th>Function</th><th>Trigger</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td><code>login</code></td><td>Function URL <code>/api/auth/login</code></td><td>Builds Cognito hosted-UI URL with state + PKCE, returns 302 redirect.</td></tr>
-        <tr><td><code>callback</code></td><td>Function URL <code>/api/auth/callback</code></td><td>Exchanges OAuth code for tokens, sets HTTPOnly cookies, defensive UPSERT into <code>users</code>, redirects to <code>/app</code>.</td></tr>
-        <tr><td><code>refresh</code></td><td>Function URL <code>/api/auth/refresh</code></td><td>Uses <code>refresh_token</code> cookie to mint a new <code>access_token</code>; rotates the cookie.</td></tr>
-        <tr><td><code>logout</code></td><td>Function URL <code>/api/auth/logout</code></td><td>Clears both cookies (Max-Age=0), revokes refresh token, redirects to <code>/</code>.</td></tr>
-        <tr><td><code>post-confirmation</code></td><td>Cognito User Pool trigger</td><td>Fires once when Cognito confirms a new identity. <code>INSERT INTO users (cognito_sub, email)</code>.</td></tr>
-      </tbody>
-    </table>
-
-    <h4>Stack</h4>
-    <ul>
-      <li>Runtime: Node 22 (LTS).</li>
-      <li>Router: Hono (for the multi-endpoint functions).</li>
-      <li>Bundler: esbuild → single zip per function or a shared layer.</li>
-      <li>Secrets: SSM Parameter Store, fetched on cold start, cached in module scope.</li>
-      <li>Cookies: <code>HttpOnly; Secure; SameSite=Lax; Path=/</code>. Access-token TTL 1h, refresh-token TTL up to 30 days.</li>
-    </ul>
-  </article>
-
-  <!-- User identity -->
-  <article class="decision" id="decision-user-identity">
-    <header>
-      <h3>3.13 User identity decision (Cognito ↔ Postgres)</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Cognito <code>sub</code> is stable across logout/login cycles → use a Postgres <code>users.cognito_sub UNIQUE</code> column as the link. Row created by AWS-canonical Post-Confirmation Lambda Trigger, with defensive UPSERT in the BFF callback for resilience.</div>
-
-    <p><strong>Chose:</strong> AWS-canonical sync pattern with belt-and-braces fallback.</p>
-
-    <h4>Schema</h4>
-    <pre><code>CREATE TABLE users (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cognito_sub  TEXT NOT NULL UNIQUE,
-  email        TEXT NOT NULL,
-  created_at   TIMESTAMPTZ DEFAULT now(),
-  updated_at   TIMESTAMPTZ DEFAULT now()
-);
-
-ALTER TABLE conversations ADD COLUMN user_id UUID REFERENCES users(id);</code></pre>
-
-    <h4>Linkage</h4>
-    <p>Cognito assigns each identity a stable <code>sub</code> UUID. It does not change across logout / login / device. <code>users.cognito_sub UNIQUE</code> enforces a 1:1 mapping. Same Google account → same Cognito sub → same Postgres row.</p>
-
-    <h4>Row creation: Post-Confirmation Lambda Trigger (primary) + BFF UPSERT (defensive)</h4>
-    <ul>
-      <li><strong>Primary path</strong>: the <code>post-confirmation</code> Lambda fires once when Cognito confirms a new user after Google federation. Runs <code>INSERT INTO users (cognito_sub, email) VALUES ($1, $2) RETURNING id</code>. Clean semantic boundary — signup = row creation; login = row read.</li>
-      <li><strong>Defensive fallback</strong>: the BFF <code>callback</code> Lambda always runs <code>INSERT INTO users (cognito_sub, email) VALUES ($1, $2) ON CONFLICT (cognito_sub) DO NOTHING</code>. If the trigger ever failed (transient DB blip, Aurora cold-start timeout), the user is never locked out.</li>
-    </ul>
-
-    <h4>Per-request validation (FastAPI <code>SessionPort</code>)</h4>
-    <ol class="steps">
-      <li>FastAPI middleware reads the <code>access_token</code> cookie from the request.</li>
-      <li>Validates the JWT signature against the Cognito JWKS (<code>https://cognito-idp.&lt;region&gt;.amazonaws.com/&lt;pool&gt;/.well-known/jwks.json</code>), cached in memory.</li>
-      <li>Verifies expiry, issuer, audience.</li>
-      <li>Extracts the <code>sub</code> claim.</li>
-      <li>Looks up <code>users.id</code> via <code>cognito_sub</code> (request-scoped memo + in-process LRU of 10K entries × 5 min TTL).</li>
-      <li>Attaches <code>current_user_id</code> to request context.</li>
-      <li>All <code>/api/v1/*</code> queries scope by <code>WHERE conversations.user_id = $current_user_id</code>.</li>
-    </ol>
-
-    <h4>Rejected alternatives</h4>
-    <ul>
-      <li><strong>Pushing <code>users.id</code> back into Cognito as a <code>custom:</code> attribute</strong>: requires Cognito Advanced Security tier ($0.05/MAU), creates a two-phase-commit failure mode, bloats the JWT, opens an attack surface (Cognito attrs are mutable from admin API), and still requires a DB fallback. No.</li>
-      <li><strong>Pre-Token-Generation Lambda trigger</strong>: paid tier, Lambda invocation on every token refresh, only valuable if you offload authorization at ALB/API-Gateway (we don't) or need offline JWT validation (we don't).</li>
-    </ul>
-
-    <div class="callout info"><strong>Multi-IdP gotcha (future):</strong> If email/password sign-in is ever added alongside Google, account-linking risk appears (same email → two Cognito sub values). Mitigation: a Pre-Sign-Up Lambda Trigger calling <code>AdminLinkProviderForUser</code>. Out of scope today.</div>
-  </article>
-
-  <!-- pg_cron -->
-  <article class="decision" id="decision-pg-cron">
-    <header>
-      <h3>3.14 Postgres TTL decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> Aurora supports <code>pg_cron</code> natively → one-line cron statements purge expired rate-limit / cache rows. No external Lambda, no EventBridge, no extra IAM.</div>
-
-    <p><strong>Chose:</strong> <code>pg_cron</code> extension on Aurora Postgres with daily DELETE jobs.</p>
-
-    <pre><code>CREATE EXTENSION IF NOT EXISTS pg_cron;
-
-SELECT cron.schedule(
-  'rate-limit-sweep',
-  '0 3 * * *',
-  $$DELETE FROM rate_limit WHERE expires_at &lt; now()$$
-);
-
-SELECT cron.schedule(
-  'output-cache-sweep',
-  '0 4 * * *',
-  $$DELETE FROM output_cache WHERE expires_at &lt; now()$$
-);</code></pre>
-
-    <p>Read-side queries also filter by <code>WHERE expires_at &gt; now()</code> so the table is never the source of stale data even if the sweep is skipped.</p>
-  </article>
-
-  <!-- Terraform modules -->
-  <article class="decision" id="decision-tf-modules">
-    <header>
-      <h3>3.15 Terraform stack split decision</h3>
-      <span class="badge decided">Decided</span>
-    </header>
-    <div class="lineage"><strong>Lineage:</strong> One stack (mirror dev-infra's single-stack pattern) split into modules whose boundaries map to tear-down lifecycle classes. Module-level <code>terraform destroy -target=module.X</code> is the "go on holiday" lever; full <code>terraform destroy</code> kills the project.</div>
-
-    <p>See <a href="#decision-teardown">Tear-down ergonomics</a> for the full module table.</p>
-
-    <p><strong>State backend</strong>: same pattern as today — S3 in shared-services, key <code>convfinqa/environmental/&lt;account&gt;/terraform.tfstate</code>. Already provisioned by the bootstrap stack.</p>
-  </article>
-
-</section>
-
-<!-- =================================================================== -->
-<section id="flows">
-  <h2>4. Runtime flows <span class="grep-anchor">#flows</span></h2>
-  <p class="section-lede">Each flow includes a sequence diagram and a numbered text equivalent. Every interaction with HTTPOnly cookies, Aurora wake-up, and the BFF UPSERT fallback is shown explicitly.</p>
-
-  <!-- Sign-up -->
-  <article id="flow-signup">
-    <h3>4.1 Sign-up flow (first-time user)</h3>
-
-    <div class="diagram">
+<h3 id="flow-signup">2.1 Sign-up flow (first-time user)</h3>
+<div class="diagram">
 <pre class="mermaid">
 sequenceDiagram
     autonumber
@@ -849,31 +178,11 @@ sequenceDiagram
     BFF-->>U: 302 to /app with Set-Cookie: access_token, refresh_token (HttpOnly, Secure, SameSite=Lax)
     U->>CF: GET /app (cookies attached automatically on next request)
 </pre>
-      <div class="diagram-caption">Sign-up flow. The Post-Confirmation trigger creates the row; the BFF defensive UPSERT is a fallback if the trigger ever fails.</div>
-    </div>
+  <div class="diagram-caption">Sign-up flow. The Post-Confirmation trigger creates the row; the BFF defensive UPSERT is a fallback if the trigger ever fails.</div>
+</div>
 
-    <h4>Steps in plain text</h4>
-    <ol class="steps">
-      <li>User browses to <code>app.convfinqa.francescoalbanese.dev</code>. SPA loads from S3 via CloudFront.</li>
-      <li>User clicks "Login with Google". SPA navigates to <code>/api/auth/login</code>.</li>
-      <li>BFF builds the Cognito hosted-UI URL with <code>state</code> and <code>PKCE</code> code challenge, returns 302 redirect.</li>
-      <li>Cognito hosted UI redirects the browser to Google's OAuth screen.</li>
-      <li>User signs into Google; Google redirects back to Cognito's IdP response endpoint with an auth code.</li>
-      <li>Cognito creates a new user in the User Pool (with a fresh stable <code>sub</code>). Cognito fires the <strong>Post-Confirmation Lambda Trigger</strong>.</li>
-      <li>Post-Confirmation Lambda runs <code>INSERT INTO users (cognito_sub, email) VALUES (...) RETURNING id</code>. Row created.</li>
-      <li>Cognito redirects the browser to <code>/api/auth/callback?code=...&amp;state=...</code>.</li>
-      <li>BFF callback exchanges the code for tokens (access, refresh, id) via Cognito's token endpoint.</li>
-      <li>BFF runs the <strong>defensive UPSERT</strong>: <code>INSERT INTO users (cognito_sub, email) ... ON CONFLICT (cognito_sub) DO NOTHING</code>. In the happy path, this no-ops (the trigger already created the row); if the trigger failed, this saves the user from being locked out.</li>
-      <li>BFF returns 302 to <code>/app</code> with two <code>Set-Cookie</code> headers: <code>access_token</code> (1h TTL) and <code>refresh_token</code> (30d TTL), both <code>HttpOnly; Secure; SameSite=Lax; Path=/</code>.</li>
-      <li>Browser stores cookies. Every subsequent request to <code>app.convfinqa.francescoalbanese.dev</code> automatically includes them.</li>
-    </ol>
-  </article>
-
-  <!-- Sign-in -->
-  <article id="flow-signin">
-    <h3>4.2 Sign-in flow (returning user)</h3>
-
-    <div class="diagram">
+<h3 id="flow-signin">2.2 Sign-in flow (returning user)</h3>
+<div class="diagram">
 <pre class="mermaid">
 sequenceDiagram
     autonumber
@@ -901,25 +210,11 @@ sequenceDiagram
     BFF->>DB: INSERT ... ON CONFLICT DO NOTHING (defensive UPSERT no-ops)
     BFF-->>U: 302 to /app with fresh Set-Cookie pair
 </pre>
-      <div class="diagram-caption">Sign-in flow for a returning user. Cognito recognises the existing identity by Google sub, returns the same Cognito sub, no trigger fires. The BFF defensive UPSERT is a safe no-op.</div>
-    </div>
+  <div class="diagram-caption">Sign-in flow for a returning user. Cognito recognises the existing identity by Google sub, returns the same Cognito sub, no trigger fires. The BFF defensive UPSERT is a safe no-op.</div>
+</div>
 
-    <h4>Steps in plain text</h4>
-    <ol class="steps">
-      <li>User clicks "Login with Google" (or is silently redirected because Google still has a session).</li>
-      <li>Cognito recognises the existing user by Google sub → returns the <strong>same Cognito sub</strong> as their first sign-up.</li>
-      <li><strong>Post-Confirmation trigger does NOT fire</strong> — Cognito only fires it on first confirmation.</li>
-      <li>BFF exchanges code for tokens.</li>
-      <li>BFF runs the defensive UPSERT — no-op (row exists).</li>
-      <li>BFF sets fresh cookies and redirects to <code>/app</code>.</li>
-    </ol>
-  </article>
-
-  <!-- Streaming chat -->
-  <article id="flow-chat">
-    <h3>4.3 Streaming chat request flow</h3>
-
-    <div class="diagram">
+<h3 id="flow-chat">2.3 Streaming chat request</h3>
+<div class="diagram">
 <pre class="mermaid">
 sequenceDiagram
     autonumber
@@ -949,26 +244,11 @@ sequenceDiagram
     API->>DB: persist assistant message + usage
     API-->>U: finish event
 </pre>
-      <div class="diagram-caption">Streaming chat with HTTPOnly cookie auth, JWKS-cached JWT validation, Postgres advisory lock for per-conversation serialisation, and SSE passthrough via CloudFront.</div>
-    </div>
+  <div class="diagram-caption">Streaming chat with HTTPOnly cookie auth, JWKS-cached JWT validation, Postgres advisory lock for per-conversation serialisation, and SSE passthrough via CloudFront.</div>
+</div>
 
-    <h4>Steps in plain text</h4>
-    <ol class="steps">
-      <li>SPA posts a chat message to <code>/api/v1/chat/stream</code>. Browser attaches the <code>access_token</code> cookie automatically (same-origin).</li>
-      <li>CloudFront forwards the request (and the <code>Cookie</code> header, thanks to the <code>Managed-AllViewer</code> origin request policy) to the ALB.</li>
-      <li>ALB forwards to the Fargate task. FastAPI middleware (<code>SessionPort</code>) validates the JWT against Cognito JWKS (cached) and looks up <code>users.id</code>.</li>
-      <li>The use case acquires a Postgres advisory lock keyed on the conversation id to serialise concurrent requests for the same conversation.</li>
-      <li>FastAPI calls Bedrock via LiteLLM with prompt-cache markers. Bedrock streams text deltas.</li>
-      <li>Each delta is yielded as an SSE frame back through ALB → CloudFront → browser. CloudFront does not cache (CachingDisabled policy).</li>
-      <li>On stream finish, FastAPI persists the assistant message + token usage and emits the finish event.</li>
-    </ol>
-  </article>
-
-  <!-- Cold start -->
-  <article id="flow-cold-start">
-    <h3>4.4 Aurora cold-start scenario</h3>
-
-    <div class="diagram">
+<h3 id="flow-cold-start">2.4 Aurora cold-start scenario</h3>
+<div class="diagram">
 <pre class="mermaid">
 sequenceDiagram
     autonumber
@@ -993,27 +273,11 @@ sequenceDiagram
     DB-->>API: ms-level
     API-->>U: streaming response
 </pre>
-      <div class="diagram-caption">Aurora wake-up flow. The SPA fires a warm-up fetch on mount so the cold-start hits the loader, not the user's first interaction.</div>
-    </div>
+  <div class="diagram-caption">Aurora wake-up flow. The SPA fires a warm-up fetch on mount so the cold-start hits the loader, not the user's first interaction.</div>
+</div>
 
-    <h4>Steps in plain text</h4>
-    <ol class="steps">
-      <li>User opens the app. SPA mounts and fires a fetch to <code>/api/v1/healthz</code> immediately.</li>
-      <li>SPA shows a "Waking up infrastructure..." loader.</li>
-      <li>FastAPI tries to query Aurora. Aurora is paused.</li>
-      <li>Aurora resumes — ~15 seconds (kept under 30s by the keep-alive Lambda pinging every ~20h).</li>
-      <li>Health check returns. SPA hides the loader.</li>
-      <li>By the time the user types and clicks Send, the connection pool is warm and the actual request is fast.</li>
-    </ol>
-
-    <div class="callout warn"><strong>If the keep-alive Lambda has been broken for &gt;24h</strong> the first wake-up will be 30s+. Verify the keep-alive cron via CloudWatch metric <code>ServerlessDatabaseCapacity</code> being non-zero at ~20h intervals.</div>
-  </article>
-
-  <!-- Tear-down -->
-  <article id="flow-teardown">
-    <h3>4.5 Tear-down / restore flow</h3>
-
-    <div class="diagram">
+<h3 id="flow-teardown">2.5 Tear-down / restore lifecycle</h3>
+<div class="diagram">
 <pre class="mermaid">
 stateDiagram-v2
     [*] --> Running
@@ -1026,22 +290,11 @@ stateDiagram-v2
     Dead: Dead<br/>~$0/mo<br/>(take Aurora snapshot first if data matters)
     Dead --> [*]
 </pre>
-      <div class="diagram-caption">Three lifecycle states for the convfinqa stack.</div>
-    </div>
+  <div class="diagram-caption">Three lifecycle states for the convfinqa stack.</div>
+</div>
 
-    <h4>Steps in plain text</h4>
-    <ol class="steps">
-      <li><strong>Running → Holiday</strong>: trigger the <code>compute-destroy</code> GitHub Actions job (workflow_dispatch). Runs <code>terraform destroy -target=module.compute -target=module.keepalive</code>. ECS service, ALB, Lambda BFF zip, SSM params for the compute layer disappear. Aurora pauses naturally because no client is connected. Edge + DNS + data remain.</li>
-      <li><strong>Holiday → Running</strong>: <code>git push</code> to trigger normal CI, or run <code>terraform apply</code> manually. ECS Express auto-wires ALB+task again. App is live in ~5 minutes.</li>
-      <li><strong>Anything → Dead</strong>: full <code>terraform destroy</code>. Take an Aurora snapshot first if data matters. DNS records and ACM cert are removed; if you reapply later, the cert revalidation costs only the DNS-validation wait (~1-2 min).</li>
-    </ol>
-  </article>
-
-  <!-- CI/CD -->
-  <article id="flow-cicd">
-    <h3>4.6 CI/CD pipeline flow</h3>
-
-    <div class="diagram">
+<h3 id="flow-cicd">2.6 CI/CD pipeline</h3>
+<div class="diagram">
 <pre class="mermaid">
 flowchart LR
     PR["PR opened or updated"]
@@ -1063,199 +316,10 @@ flowchart LR
     push --> auth
     dispatch --> destroy
 </pre>
-      <div class="diagram-caption">Job dependency graph. Migrations gate backend-deploy; frontend and auth-lambda deploy in parallel.</div>
-    </div>
-
-    <h4>Why migrations gate backend-deploy</h4>
-    <p>Running <code>alembic upgrade head</code> as a one-shot Fargate task <em>before</em> the service update means a failed migration fails the workflow without rolling out the new image. The old image keeps running on the existing schema until you fix the migration. This is the safest sequencing for a single-task service that cannot orchestrate its own multi-step deploy.</p>
-  </article>
-</section>
-
-<!-- =================================================================== -->
-<section id="alternatives">
-  <h2>5. Disqualified alternatives <span class="grep-anchor">#alternatives</span></h2>
-  <p class="section-lede">Every alternative considered and the specific reason it was rejected. If you find yourself reconsidering one of these, read why it was killed first.</p>
-
-  <h3>Backend compute alternatives</h3>
-  <table>
-    <thead><tr><th>Option</th><th>Idle cost</th><th>Why rejected</th></tr></thead>
-    <tbody>
-      <tr><td>EKS</td><td>~$72/mo control plane + nodes</td><td>$72/mo flat fee disqualifies for portfolio. K8s cost wins only kick in at 15+ continuously-running containers; we run 1-2.</td></tr>
-      <tr><td>App Runner</td><td>~$5-7/mo floor</td><td><span class="badge rejected">Sunset</span> AWS stopped accepting new App Runner customers on 2026-04-30. Official replacement: ECS Express Mode.</td></tr>
-      <tr><td>API Gateway HTTP API → ECS</td><td>—</td><td>HTTP API does not support response streaming. Hard dealbreaker for SSE.</td></tr>
-      <tr><td>API Gateway REST API → ECS</td><td>$3.50/M requests</td><td>Streams (Nov 2025 GA), but no built-in Cognito JWT authorizer (HTTP API has it, REST API doesn't). To get streaming + Cognito on the same endpoint you need REST API + custom Lambda authorizer — more moving parts than CloudFront → ALB direct.</td></tr>
-      <tr><td>Lambda Web Adapter + Function URL + SnapStart</td><td>~$0</td><td>Real option, AWS-published reference. User rejected on production-realism grounds for streaming AI agents. Kept on the table as a future cost optimisation if portfolio is ever literally untouched for months.</td></tr>
-      <tr><td>Fargate Spot baseline</td><td>~70% discount</td><td>AWS guidance: Spot is not recommended for user-facing services (2-min reclamation warning). Used for autoscaling extras only.</td></tr>
-      <tr><td>Fargate, public subnet, no ALB, CloudFront → public task IP</td><td>~$10-12/mo</td><td>Operationally fragile. CloudFront cannot round-robin across multiple origin IPs; Route53 multi-value answers don't fail over fast enough; task ENI rotates on replacement, leaving CloudFront pointing at a dead IP for minutes.</td></tr>
-      <tr><td>Fargate behind private ALB + CloudFront VPC Origins + NAT</td><td>~$50+/mo</td><td>Higher security posture but ~$22-32/mo extra (NAT or VPC interface endpoints). The "private" benefit is invisible for a portfolio.</td></tr>
-      <tr><td>ECS Fargate hand-wired (without Express Mode)</td><td>~$26-30/mo</td><td>Same cost as Express Mode but many hundred more lines of Terraform — auto-wiring is free LOC saving.</td></tr>
-    </tbody>
-  </table>
-
-  <h3>Database alternatives</h3>
-  <table>
-    <thead><tr><th>Option</th><th>Idle cost</th><th>Why rejected</th></tr></thead>
-    <tbody>
-      <tr><td>RDS Postgres db.t4g.micro always-on</td><td>$12-14/mo</td><td>Cheap but never zero. Aurora min 0 ACU is strictly better for "I want to bring infra down" with proper mitigations.</td></tr>
-      <tr><td>RDS Postgres db.t4g.micro with scheduled stop</td><td>~$2/mo stopped</td><td>1-2 min RDS restart on first traffic. Worse UX than Aurora's 15s resume; same scheduling complexity.</td></tr>
-      <tr><td>Aurora Serverless v2 min 0.5 ACU (always warm)</td><td>~$43/mo</td><td>Three times more expensive than full ECS+ALB. No.</td></tr>
-      <tr><td>Aurora Serverless v1</td><td>—</td><td>Superseded. Not a 2026 option.</td></tr>
-      <tr><td>Neon serverless Postgres</td><td>$0 free tier</td><td>Off-AWS. Breaks the all-AWS narrative. 0.5 GB storage limit on free tier could bite if many ConvFinQA docs are loaded.</td></tr>
-      <tr><td>Supabase Postgres</td><td>$0 free tier</td><td>Same off-AWS issue as Neon. Pauses after 7d inactivity by default.</td></tr>
-      <tr><td>EC2 self-managed Postgres</td><td>~$3/mo</td><td>No backups, no HA, no failover, no patching. Don't.</td></tr>
-    </tbody>
-  </table>
-
-  <h3>Cache / rate-limit alternatives</h3>
-  <table>
-    <thead><tr><th>Option</th><th>Idle cost</th><th>Why rejected</th></tr></thead>
-    <tbody>
-      <tr><td>ElastiCache Redis on t4g.micro</td><td>~$11/mo always-on</td><td>Sub-ms latency is invisible against multi-second LLM calls. Cost not justified.</td></tr>
-      <tr><td>ElastiCache Serverless Redis</td><td>~$70/mo floor</td><td>Way above portfolio budget.</td></tr>
-      <tr><td>DynamoDB on-demand</td><td>$0 within free tier</td><td>Adds a second service in docker-compose (DynamoDB Local or alternative). LocalStack archived its public repo on 2026-03-23 — alternatives exist (MiniStack, Floci, Moto) but they're added complexity. Single-DB Postgres simpler.</td></tr>
-      <tr><td>In-process LRU only</td><td>$0</td><td>Per-task; lost on deploy; doesn't help rate-limit semantics (needs to be cross-task).</td></tr>
-    </tbody>
-  </table>
-
-  <h3>User identity alternatives</h3>
-  <table>
-    <thead><tr><th>Option</th><th>Why rejected</th></tr></thead>
-    <tbody>
-      <tr><td><code>custom:postgres_user_id</code> attribute in Cognito</td><td>Requires Cognito Advanced Security tier ($0.05/MAU). Two-phase-commit failure mode at signup. JWT bloat. Mutable from Cognito admin API → attack surface. Still requires DB lookup fallback — so why have it.</td></tr>
-      <tr><td>Pre-Token-Generation Lambda Trigger</td><td>Same Advanced Security paid tier. Lambda runs on every token refresh. Only worth it if you offload authorization at ALB/API-Gateway (we don't) or need offline JWT validation (we don't).</td></tr>
-      <tr><td>UPSERT-in-BFF-only (no Post-Confirmation trigger)</td><td>User-rejected. The AWS-canonical pattern is Post-Confirmation trigger; we use it as primary with BFF UPSERT as resilience fallback.</td></tr>
-      <tr><td>ALB built-in Cognito auth (drop the BFF Lambdas)</td><td>ALB session cookie is opaque — the app cannot read the underlying Cognito tokens. User explicitly wants the raw tokens in HTTPOnly cookies. Incompatible.</td></tr>
-    </tbody>
-  </table>
-
-  <h3>DNS pattern alternatives</h3>
-  <table>
-    <thead><tr><th>Option</th><th>Why rejected</th></tr></thead>
-    <tbody>
-      <tr><td>Pattern X — dev-infra writes records, convfinqa exports values via <code>terraform_remote_state</code></td><td>Two-step apply dance per release (convfinqa pending cert → dev-infra writes validation → convfinqa finalises). More coupling, more brittle.</td></tr>
-      <tr><td>New hosted zone in convfinqa account, NS delegation from parent</td><td>User preference was "keep only one zone, in dev-infra". Pattern Y satisfies that with single-apply ergonomics.</td></tr>
-    </tbody>
-  </table>
-
-  <h3>API URL alternatives</h3>
-  <table>
-    <thead><tr><th>Option</th><th>Why rejected</th></tr></thead>
-    <tbody>
-      <tr><td>Keep <code>/v1/*</code> (no <code>/api/</code> prefix)</td><td>Same-domain SPA + API. A future SPA client-side route called <code>/v1/something</code> would collide with the backend. <code>/api/v1/*</code> is the standard 2026 pattern for SPA-colocated APIs.</td></tr>
-      <tr><td>Backend on a separate subdomain <code>api.convfinqa...</code></td><td>Cross-subdomain cookies → SameSite=None required → CORS preflight. Adds complexity for zero functional gain.</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<!-- =================================================================== -->
-<section id="research">
-  <h2>6. 2026 research findings <span class="grep-anchor">#research</span></h2>
-  <p class="section-lede">Facts gathered from AWS docs, AWS blog posts, and engineering write-ups during the decision process. Citation-ready; cite the source URL on demand.</p>
-
-  <table>
-    <thead><tr><th>Finding</th><th>Date / source</th><th>Impact on this stack</th></tr></thead>
-    <tbody>
-      <tr><td>CloudFront VPC Origins GA</td><td>Nov 2024</td><td>Considered for keeping ALB private. Did NOT remove ALB cost, only changed access posture. Skipped.</td></tr>
-      <tr><td>CloudFront VPC Origins WebSocket support GA</td><td>May 2026</td><td>Not applicable; SSE is the streaming model.</td></tr>
-      <tr><td>CloudFront VPC Origins cross-account GA</td><td>Nov 2025</td><td>Not used; convfinqa runs in its own account.</td></tr>
-      <tr><td>Aurora Serverless v2 min 0 ACU GA</td><td>Nov 2024</td><td><strong>Chosen.</strong> Verified resume timing: 15s short pause, 30s+ deep sleep after &gt;24h idle.</td></tr>
-      <tr><td>ECS Express Mode launch</td><td>re:Invent 2025</td><td><strong>Chosen as backend compute model.</strong> Auto-wires Fargate + ALB + scaling + networking.</td></tr>
-      <tr><td>AWS App Runner closed to new customers</td><td>2026-04-30</td><td>Disqualified. AWS-recommended replacement is ECS Express Mode.</td></tr>
-      <tr><td>HTTP API does NOT support response streaming</td><td>verified Dec 2024 community + AWS docs</td><td>API Gateway HTTP API ruled out.</td></tr>
-      <tr><td>REST API response streaming GA</td><td>Nov 2025</td><td>Streams, but no built-in Cognito authorizer → CloudFront → ALB direct is simpler.</td></tr>
-      <tr><td>SnapStart for Python GA</td><td>2024</td><td>Considered for Lambda compute path. Incompatible with container-image Lambdas (zip only, 250 MB unzipped) — works for our deps if we ever pivot.</td></tr>
-      <tr><td>Fargate Spot guidance: not for user-facing services</td><td>AWS docs</td><td>Used only for autoscaling extras, not the baseline task.</td></tr>
-      <tr><td>LocalStack public repo archived</td><td>2026-03-23</td><td>Reinforces choice to avoid DynamoDB in dev (since DynamoDB Local + LocalStack-style alternatives are now in flux). Postgres-for-everything wins on dev-loop simplicity.</td></tr>
-      <tr><td>Cognito + Postgres canonical sync pattern</td><td>AWS samples (Cognito2RDS), pg-cognition library</td><td>Post-Confirmation trigger is the canonical pattern. We use it as primary with BFF UPSERT as fallback.</td></tr>
-      <tr><td>Pre-Token-Generation requires Cognito Advanced Security tier</td><td>AWS docs</td><td>$0.05/MAU after free tier. Justifies our rejection.</td></tr>
-      <tr><td>HTTPOnly cookies for token storage</td><td>AWS security guidance 2026</td><td>"Apps should store tokens securely using httpOnly cookies or secure storage." Direct alignment with the chosen pattern.</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<!-- =================================================================== -->
-<section id="runbook">
-  <h2>7. Operational runbook <span class="grep-anchor">#runbook</span></h2>
-  <p class="section-lede">Verification checks once the stack is applied, plus the three lifecycle levers.</p>
-
-  <h3>End-to-end verification checks</h3>
-  <ol class="steps">
-    <li><code>dig app.convfinqa.francescoalbanese.dev +short</code> returns CloudFront IPs.</li>
-    <li><code>curl -I https://app.convfinqa.francescoalbanese.dev/</code> returns 200 with HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy.</li>
-    <li>Visiting the URL in a browser loads the SPA bundle.</li>
-    <li><code>curl -i https://app.convfinqa.francescoalbanese.dev/api/v1/healthz</code> returns 200.</li>
-    <li>A streamed chat round-trip works: open the app, send a message, observe <code>text/event-stream</code> frames in browser DevTools Network tab, response renders incrementally.</li>
-    <li>Aurora cold-start: leave the app idle 25h, click Send, verify the SPA "waking up" loader appears and the response completes within 30s.</li>
-    <li>Keep-alive working: CloudWatch metric <code>ServerlessDatabaseCapacity</code> shows non-zero values at ~20h intervals.</li>
-    <li>Cost target hit: under <strong>$5/mo idle</strong> when compute module is destroyed; under <strong>$35/mo idle</strong> when compute is up. Verify in AWS Cost Explorer after the first full month.</li>
-  </ol>
-
-  <h3>Lifecycle levers</h3>
-  <table>
-    <thead><tr><th>Goal</th><th>Command</th><th>Result</th></tr></thead>
-    <tbody>
-      <tr><td>Stand up the stack</td><td><code>terraform apply</code> (or merge to main triggers CI)</td><td>All modules applied. Live in ~5 minutes.</td></tr>
-      <tr><td>Going on holiday</td><td>Trigger <code>compute-destroy</code> workflow (workflow_dispatch)</td><td>ECS+ALB+Lambda BFF removed. Static site still loads. Aurora pauses naturally. Cost ≈ $1-2/mo.</td></tr>
-      <tr><td>Coming back</td><td><code>terraform apply</code></td><td>Compute layer re-created. ECS Express auto-wires ALB+task. Live in ~5 min.</td></tr>
-      <tr><td>Project dead</td><td><code>terraform destroy</code> (full)</td><td>Everything gone. Take an Aurora snapshot first if data matters.</td></tr>
-    </tbody>
-  </table>
-
-  <h3>Unresolved questions (carry-overs from the design phase)</h3>
-  <ol>
-    <li><strong>Cognito User Pool location</strong> — convfinqa account or shared-services? Recommended: convfinqa account (project-specific). $0 idle either way.</li>
-    <li><strong>Bedrock cross-region inference profile</strong> — current model is <code>bedrock/eu.anthropic.claude-haiku-4-5-...</code>. Verify the convfinqa AWS account is enrolled in the EU inference profile and the ECS task role's IAM policy scopes the right region.</li>
-    <li><strong>Cognito Google IdP setup</strong> — requires a Google Cloud OAuth client ID/secret. One-time manual step, not Terraform-able cleanly. Document in the deploy README.</li>
-    <li><strong>Documents seeder strategy</strong> — if <code>module.data</code> is ever destroyed, alembic re-runs but seeded ConvFinQA documents are lost. Recommend the seeder runs as a one-shot CI step (<code>aws ecs run-task</code>) after data module recreation, NOT on every ECS task startup.</li>
-    <li><strong>Log strategy</strong> — pick ALB access logs (recommended) over CloudFront response logs, or accept both for diagnostic value.</li>
-  </ol>
-</section>
-
-<!-- =================================================================== -->
-<section id="glossary">
-  <h2>8. Glossary &amp; critical files <span class="grep-anchor">#glossary</span></h2>
-
-  <h3>Glossary</h3>
-  <table>
-    <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
-    <tbody>
-      <tr><td><strong>ACU</strong></td><td>Aurora Capacity Unit. The compute unit for Aurora Serverless v2. 0 ACU means paused. 0.5 ACU ≈ 1 GiB RAM + corresponding CPU.</td></tr>
-      <tr><td><strong>ALB</strong></td><td>Application Load Balancer. L7 load balancer used as the ingress for the ECS service. Auto-wired by ECS Express Mode.</td></tr>
-      <tr><td><strong>BFF</strong></td><td>Backend for Frontend. A small backend (here, our Lambda functions) that exists specifically to serve the frontend — handles auth state, cookies, redirects, and shields the SPA from talking directly to Cognito.</td></tr>
-      <tr><td><strong>ECS Express Mode</strong></td><td>ECS deployment mode (re:Invent 2025) that auto-wires Fargate + ALB + cert + scaling + networking with sensible defaults.</td></tr>
-      <tr><td><strong>JWKS</strong></td><td>JSON Web Key Set. The public key set published by Cognito at <code>/.well-known/jwks.json</code> that lets you validate JWT signatures offline.</td></tr>
-      <tr><td><strong>OAC</strong></td><td>Origin Access Control. The modern way (2022+) for CloudFront to access a private S3 bucket. Replaces OAI.</td></tr>
-      <tr><td><strong>OIDC</strong></td><td>OpenID Connect. (1) The protocol Cognito uses for the Google federation; (2) the trust mechanism GitHub Actions uses to assume the AWS deploy role without long-lived keys.</td></tr>
-      <tr><td><strong>pg_cron</strong></td><td>Postgres extension that schedules SQL as cron jobs inside the database itself. Aurora supports it natively. We use it for nightly TTL sweeps on cache/rate-limit tables.</td></tr>
-      <tr><td><strong>PKCE</strong></td><td>Proof Key for Code Exchange. The OAuth code flow extension used by public clients (our SPA → Cognito) to prevent code interception.</td></tr>
-      <tr><td><strong>Post-Confirmation Lambda Trigger</strong></td><td>Cognito User Pool trigger that fires once when a user is confirmed (after Google federation completes). Used to create the matching <code>users</code> row in Postgres.</td></tr>
-      <tr><td><strong>SAN cert</strong></td><td>Subject Alternative Name certificate. A single ACM cert covering multiple DNS names (here: <code>app.convfinqa.francescoalbanese.dev</code> + <code>convfinqa.francescoalbanese.dev</code>).</td></tr>
-      <tr><td><strong>SnapStart</strong></td><td>Lambda feature that snapshots the JVM/Python init state for faster cold starts. GA for Python in 2024.</td></tr>
-      <tr><td><strong>SSE</strong></td><td>Server-Sent Events. The HTTP response streaming model used for chat tokens: <code>Content-Type: text/event-stream</code>, one frame per token.</td></tr>
-      <tr><td><strong>SSM Parameter Store</strong></td><td>AWS Systems Manager Parameter Store. KMS-encrypted key-value store; free tier sufficient for our secrets.</td></tr>
-      <tr><td><strong>VPC Origins (CloudFront)</strong></td><td>CloudFront feature (GA Nov 2024) that lets a CloudFront distribution use a private ALB/NLB/EC2 in a VPC as an origin. Not used here (we keep ALB public, locked to CloudFront prefix list).</td></tr>
-    </tbody>
-  </table>
-
-  <h3>Critical files referenced</h3>
-  <table>
-    <thead><tr><th>Path</th><th>What it is</th></tr></thead>
-    <tbody>
-      <tr><td><code>backend/src/convfinqa/adapters/persistence/sqlalchemy/engine.py</code></td><td>Where the <code>create_async_engine</code> pool settings must be tuned (<code>pool_recycle=300</code>, etc.) for Aurora auto-pause to work. <strong>Verified gap as of plan date.</strong></td></tr>
-      <tr><td><code>backend/src/convfinqa/entrypoints/api/sse.py</code></td><td>SSE streaming surface. Must remain compatible with ALB long-lived response forwarding (idle timeout, no buffering).</td></tr>
-      <tr><td><code>backend/src/convfinqa/application/use_cases/send_message.py</code></td><td>Per-conversation lock semantics. Implements the advisory-lock-based serialisation referenced in flow 4.3.</td></tr>
-      <tr><td><code>backend/src/convfinqa/domain/ports/</code></td><td>The hexagonal ports list. Adding <code>SessionPort</code>, <code>CachePort</code>, <code>RateLimitPort</code> means new files here.</td></tr>
-      <tr><td><code>terraform/environmental/</code></td><td>Existing bootstrap stack (OIDC + IAM only). The module split lives here.</td></tr>
-      <tr><td><code>terraform/environmental/iam-github-actions.tf</code></td><td>GitHub OIDC role + cross-account assume. New permissions added here as we discover them.</td></tr>
-      <tr><td><code>frontend/vite.config.ts</code></td><td>Dev-time proxy config. Must mirror prod path layout (<code>/api/v1</code>, <code>/api/auth</code>).</td></tr>
-      <tr><td><code>../francescoalbanese-dev-infra/terraform/environmental/cloudfront.tf</code></td><td>Reference SPA + CloudFront pattern.</td></tr>
-      <tr><td><code>../francescoalbanese-dev-infra/terraform/environmental/main.tf</code></td><td>How the parent zone is referenced as a data source via <code>aws.shared_services</code> provider — the pattern convfinqa mirrors.</td></tr>
-    </tbody>
-  </table>
-</section>
+  <div class="diagram-caption">Job dependency graph. Migrations gate backend-deploy; frontend and auth-lambda deploy in parallel.</div>
+</div>
 
 </main>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 <script>
@@ -1264,46 +328,25 @@ flowchart LR
     var FONT_STACK = '-apple-system, BlinkMacSystemFont, Inter, Segoe UI, Roboto, sans-serif';
 
     var lightVars = {
-      primaryColor: '#e8f1ed',
-      primaryTextColor: '#1c1c1a',
-      primaryBorderColor: '#0a5d4a',
-      lineColor: '#5a5a55',
-      secondaryColor: '#f7f7f5',
-      tertiaryColor: '#ffffff',
-      background: '#ffffff',
-      mainBkg: '#e8f1ed',
-      actorBkg: '#e8f1ed',
-      actorBorder: '#0a5d4a',
-      actorTextColor: '#1c1c1a',
-      noteBkgColor: '#fbeee5',
-      noteBorderColor: '#8b3a14',
-      noteTextColor: '#1c1c1a',
+      primaryColor: '#e8f1ed', primaryTextColor: '#1c1c1a', primaryBorderColor: '#0a5d4a',
+      lineColor: '#5a5a55', secondaryColor: '#f7f7f5', tertiaryColor: '#ffffff',
+      background: '#ffffff', mainBkg: '#e8f1ed', actorBkg: '#e8f1ed',
+      actorBorder: '#0a5d4a', actorTextColor: '#1c1c1a',
+      noteBkgColor: '#fbeee5', noteBorderColor: '#8b3a14', noteTextColor: '#1c1c1a',
       fontFamily: FONT_STACK
     };
-
     var darkVars = {
-      primaryColor: '#15302a',
-      primaryTextColor: '#e8e8e3',
-      primaryBorderColor: '#4fb593',
-      lineColor: '#a8a8a3',
-      secondaryColor: '#18181a',
-      tertiaryColor: '#0f0f0e',
-      background: '#0f0f0e',
-      mainBkg: '#15302a',
-      actorBkg: '#15302a',
-      actorBorder: '#4fb593',
-      actorTextColor: '#e8e8e3',
-      noteBkgColor: '#2b1d12',
-      noteBorderColor: '#e8a87b',
-      noteTextColor: '#e8e8e3',
+      primaryColor: '#15302a', primaryTextColor: '#e8e8e3', primaryBorderColor: '#4fb593',
+      lineColor: '#a8a8a3', secondaryColor: '#18181a', tertiaryColor: '#0f0f0e',
+      background: '#0f0f0e', mainBkg: '#15302a', actorBkg: '#15302a',
+      actorBorder: '#4fb593', actorTextColor: '#e8e8e3',
+      noteBkgColor: '#2b1d12', noteBorderColor: '#e8a87b', noteTextColor: '#e8e8e3',
       fontFamily: FONT_STACK
     };
 
     function snapshotSources() {
       document.querySelectorAll('.mermaid').forEach(function (el) {
-        if (!el.hasAttribute('data-source')) {
-          el.setAttribute('data-source', el.textContent);
-        }
+        if (!el.hasAttribute('data-source')) el.setAttribute('data-source', el.textContent);
       });
     }
 
@@ -1319,12 +362,9 @@ flowchart LR
       });
       document.querySelectorAll('.mermaid').forEach(function (el) {
         var source = el.getAttribute('data-source');
-        if (source) {
-          el.textContent = source;
-          el.removeAttribute('data-processed');
-        }
+        if (source) { el.textContent = source; el.removeAttribute('data-processed'); }
       });
-      window.mermaid.run({ querySelector: '.mermaid' }).catch(function () { /* swallow render errors */ });
+      window.mermaid.run({ querySelector: '.mermaid' }).catch(function () { });
     }
 
     function updateToggleLabel(theme) {
@@ -1337,7 +377,7 @@ flowchart LR
     function applyTheme(theme, persist) {
       document.documentElement.setAttribute('data-theme', theme);
       if (persist) {
-        try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) { /* ignore */ }
+        try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) { }
       }
       updateToggleLabel(theme);
       renderMermaid(theme);
@@ -1351,18 +391,14 @@ flowchart LR
     applyTheme(currentTheme(), false);
 
     var btn = document.getElementById('theme-toggle');
-    if (btn) {
-      btn.addEventListener('click', function () {
-        applyTheme(currentTheme() === 'dark' ? 'light' : 'dark', true);
-      });
-    }
+    if (btn) btn.addEventListener('click', function () {
+      applyTheme(currentTheme() === 'dark' ? 'light' : 'dark', true);
+    });
 
     var mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
     if (mql && typeof mql.addEventListener === 'function') {
       mql.addEventListener('change', function (e) {
-        try {
-          if (localStorage.getItem(STORAGE_KEY)) return;
-        } catch (err) { /* ignore */ }
+        try { if (localStorage.getItem(STORAGE_KEY)) return; } catch (err) { }
         applyTheme(e.matches ? 'dark' : 'light', false);
       });
     }

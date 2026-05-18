@@ -19,7 +19,7 @@ from testcontainers.postgres import PostgresContainer
 
 from convfinqa.adapters.persistence.sqlalchemy.models import Base
 from convfinqa.config import Settings
-from convfinqa.container import Container
+from convfinqa.container import for_testing
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.entrypoints.api.errors import install_exception_handlers
 from convfinqa.entrypoints.api.middleware.auth import AuthMiddleware
@@ -141,7 +141,7 @@ async def app(
     fake_llm: FakeLLMPort,
 ) -> FastAPI:
     settings = Settings()
-    container = Container.for_testing(
+    container = for_testing(
         settings=settings,
         engine=engine,
         session_factory=session_factory,

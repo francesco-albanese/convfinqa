@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { UIMessage } from "ai";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
@@ -116,16 +117,33 @@ function AppChatPage() {
 		chatId: chatId ?? null,
 	});
 
+	const handleUnpin = useCallback(() => {
+		navigate({ search: () => ({}), replace: true });
+	}, [navigate]);
+
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
 			<header className="flex items-center justify-between gap-3 border-border border-b py-3 pr-6 pl-16 lg:pl-6">
-				<div className="min-w-0">
-					<h1 className="font-semibold text-base">ConvFinQA</h1>
-					<p className="truncate text-muted-foreground text-xs">
-						{documentId
-							? `Pinned: ${documentId}`
-							: "Pin a document to start asking questions."}
-					</p>
+				<div className="flex min-w-0 items-center gap-2">
+					<div className="min-w-0">
+						<h1 className="font-semibold text-base">ConvFinQA</h1>
+						<p className="truncate text-muted-foreground text-xs">
+							{documentId
+								? `Pinned: ${documentId}`
+								: "Pin a document to start asking questions."}
+						</p>
+					</div>
+					{documentId ? (
+						<button
+							type="button"
+							onClick={handleUnpin}
+							aria-label="Unpin document and start over"
+							data-testid="unpin-button"
+							className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+						>
+							<X aria-hidden="true" className="size-4" />
+						</button>
+					) : null}
 				</div>
 				{documentId ? (
 					<button

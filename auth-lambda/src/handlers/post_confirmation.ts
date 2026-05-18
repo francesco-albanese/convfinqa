@@ -1,8 +1,8 @@
 import type { PostConfirmationTriggerEvent } from "aws-lambda"
-import type { Pool } from "pg"
-import { getPool } from "../lib/db.ts"
+import type { Sql } from "postgres"
+import { getSql } from "../lib/db.ts"
 
-type Deps = { pool?: Pool }
+type Deps = { sql?: Sql }
 
 export function buildHandler(
 	deps: Deps = {},
@@ -11,14 +11,13 @@ export function buildHandler(
 ) => Promise<PostConfirmationTriggerEvent> {
 	return async (event) => {
 		const { sub, email } = event.request.userAttributes
-		const pool = deps.pool ?? getPool()
+		const sql = deps.sql ?? getSql()
 		try {
-			await pool.query(
-				`INSERT INTO users (cognito_sub, email)
-         VALUES ($1, $2)
-         ON CONFLICT (cognito_sub) DO NOTHING`,
-				[sub, email],
-			)
+			await sql`
+				INSERT INTO users (cognito_sub, email)
+				VALUES (${sub}, ${email})
+				ON CONFLICT (cognito_sub) DO NOTHING
+			`
 		} catch (err) {
 			console.error("post_confirmation: DB upsert failed", {
 				sub,

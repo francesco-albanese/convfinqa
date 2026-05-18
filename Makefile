@@ -4,11 +4,13 @@ SHELL := /bin/bash
 PROJECT_NAME ?= convfinqa
 ACCOUNT ?= sandbox
 AWS_PROFILE ?= sandbox-admin
+REGION ?= eu-west-2
 
 include makefiles/env.mk
 include makefiles/test.mk
 include makefiles/run.mk
 include makefiles/docker.mk
+include makefiles/db.mk
 include makefiles/frontend.mk
 include makefiles/terraform.mk
 include makefiles/lambdas.mk

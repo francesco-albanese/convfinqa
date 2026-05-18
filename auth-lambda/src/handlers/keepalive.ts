@@ -1,5 +1,5 @@
 import type { Handler } from "aws-lambda"
-import { Client } from "pg"
+import postgres from "postgres"
 
 type Result = { status: "ok"; latency_ms: number }
 
@@ -9,16 +9,12 @@ export const handler: Handler<unknown, Result> = async () => {
 		throw new Error("DATABASE_URL not set")
 	}
 
-	const client = new Client({
-		connectionString: databaseUrl,
-		connectionTimeoutMillis: 45_000,
-	})
+	const sql = postgres(databaseUrl, { max: 1, connect_timeout: 45 })
 	const start = performance.now()
 	try {
-		await client.connect()
-		await client.query("SELECT 1")
+		await sql`SELECT 1`
 	} finally {
-		await client.end()
+		await sql.end()
 	}
 	return { status: "ok", latency_ms: Math.round(performance.now() - start) }
 }

@@ -1,154 +1,12 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Sidebar } from "@/components/Sidebar";
-import { AuthProvider } from "@/lib/auth/AuthProvider";
-import type { ChatList } from "@/lib/queries/chats";
-
-const TEST_USER_ID = "dev-user-sidebar-test";
-
-type SidebarHandlers = {
-	onToggleCollapse: () => void;
-	onNewConversation: () => void;
-	onPickDocument: () => void;
-	onSelectChat: (chatId: string, documentId: string) => void;
-	onSignOut: () => void;
-};
-
-function jsonResponse(body: unknown): Response {
-	return new Response(JSON.stringify(body), {
-		status: 200,
-		headers: { "Content-Type": "application/json" },
-	});
-}
-
-function renderSidebar(
-	props: Partial<React.ComponentProps<typeof Sidebar>> = {},
-): SidebarHandlers {
-	const handlers: SidebarHandlers = {
-		onToggleCollapse: vi.fn(),
-		onNewConversation: vi.fn(),
-		onPickDocument: vi.fn(),
-		onSelectChat: vi.fn(),
-		onSignOut: vi.fn(),
-	};
-	const client = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
-	render(
-		<QueryClientProvider client={client}>
-			<AuthProvider>
-				<Sidebar
-					collapsed={props.collapsed ?? false}
-					userId={props.userId ?? TEST_USER_ID}
-					onToggleCollapse={props.onToggleCollapse ?? handlers.onToggleCollapse}
-					onNewConversation={
-						props.onNewConversation ?? handlers.onNewConversation
-					}
-					onPickDocument={props.onPickDocument ?? handlers.onPickDocument}
-					onSelectChat={props.onSelectChat ?? handlers.onSelectChat}
-					onSignOut={props.onSignOut ?? handlers.onSignOut}
-				/>
-			</AuthProvider>
-		</QueryClientProvider>,
-	);
-	return handlers;
-}
-
-function makeSummary(opts: {
-	id: string;
-	docId: string;
-	ticker: string;
-	year: number;
-	title: string;
-	preview: string;
-	at: string;
-}) {
-	return {
-		id: opts.id,
-		document: {
-			id: opts.docId,
-			ticker: opts.ticker,
-			year: opts.year,
-			title: opts.title,
-		},
-		last_message_preview: opts.preview,
-		last_message_at: opts.at,
-	};
-}
-
-const SAMPLE_LIST: ChatList = {
-	items: [
-		makeSummary({
-			id: "conv-a1",
-			docId: "doc-aaa",
-			ticker: "AAA",
-			year: 2024,
-			title: "AAA 2024",
-			preview: "Revenue trend for the year",
-			at: "2026-05-14T08:00:00+00:00",
-		}),
-		makeSummary({
-			id: "conv-a2",
-			docId: "doc-aaa",
-			ticker: "AAA",
-			year: 2024,
-			title: "AAA 2024",
-			preview: "Operating margin commentary",
-			at: "2026-05-13T08:00:00+00:00",
-		}),
-		makeSummary({
-			id: "conv-b1",
-			docId: "doc-bbb",
-			ticker: "BBB",
-			year: 2023,
-			title: "BBB 2023",
-			preview: "Debt covenants review",
-			at: "2026-05-12T08:00:00+00:00",
-		}),
-		makeSummary({
-			id: "conv-b2",
-			docId: "doc-bbb",
-			ticker: "BBB",
-			year: 2023,
-			title: "BBB 2023",
-			preview: "Cash flow analysis",
-			at: "2026-05-11T08:00:00+00:00",
-		}),
-		makeSummary({
-			id: "conv-c1",
-			docId: "doc-ccc",
-			ticker: "CCC",
-			year: 2025,
-			title: "CCC 2025",
-			preview: "Net income discussion",
-			at: "2026-05-10T08:00:00+00:00",
-		}),
-		makeSummary({
-			id: "conv-c2",
-			docId: "doc-ccc",
-			ticker: "CCC",
-			year: 2025,
-			title: "CCC 2025",
-			preview: "Capex projections summary",
-			at: "2026-05-09T08:00:00+00:00",
-		}),
-	],
-};
-
-const ME_RESPONSE = { user_id: TEST_USER_ID, email: null };
-
-function stubChatListFetch(payload: ChatList): ReturnType<typeof vi.fn> {
-	const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
-		const url = typeof input === "string" ? input : input.toString();
-		if (url.includes("/api/v1/me"))
-			return Promise.resolve(jsonResponse(ME_RESPONSE));
-		return Promise.resolve(jsonResponse(payload));
-	});
-	vi.stubGlobal("fetch", fetchMock);
-	return fetchMock;
-}
+import {
+	makeLargeList,
+	SAMPLE_LIST,
+	stubChatListFetch,
+} from "./__fixtures__/sidebar";
+import { renderSidebar } from "./renderSidebar";
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -369,45 +227,18 @@ describe("Sidebar — grouped chat list", () => {
 	});
 
 	it("remembers a collapsed group across a remount for the same user", async () => {
-		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
-			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/v1/me"))
-				return Promise.resolve(jsonResponse(ME_RESPONSE));
-			return Promise.resolve(jsonResponse(SAMPLE_LIST));
-		});
-		vi.stubGlobal("fetch", fetchMock);
+		stubChatListFetch(SAMPLE_LIST);
 		const user = userEvent.setup();
 
-		const renderOnce = () => {
-			const client = new QueryClient({
-				defaultOptions: { queries: { retry: false } },
-			});
-			return render(
-				<QueryClientProvider client={client}>
-					<AuthProvider>
-						<Sidebar
-							collapsed={false}
-							userId={TEST_USER_ID}
-							onToggleCollapse={vi.fn()}
-							onNewConversation={vi.fn()}
-							onPickDocument={vi.fn()}
-							onSelectChat={vi.fn()}
-							onSignOut={vi.fn()}
-						/>
-					</AuthProvider>
-				</QueryClientProvider>,
-			);
-		};
-
-		const first = renderOnce();
+		const { unmount } = renderSidebar();
 		const bbbHeader = await screen.findByRole("button", {
 			name: /bbb · 2023/i,
 		});
 		await user.click(bbbHeader);
 		expect(bbbHeader).toHaveAttribute("aria-expanded", "false");
-		first.unmount();
+		unmount();
 
-		renderOnce();
+		renderSidebar();
 
 		const remountedBbb = await screen.findByRole("button", {
 			name: /bbb · 2023/i,
@@ -419,18 +250,7 @@ describe("Sidebar — grouped chat list", () => {
 	});
 
 	it("switches to a virtualized list when the flattened row count exceeds 50", async () => {
-		const items = Array.from({ length: 60 }, (_, i) =>
-			makeSummary({
-				id: `conv-${i}`,
-				docId: `doc-${i}`,
-				ticker: `T${i}`,
-				year: 2024,
-				title: `Doc ${i}`,
-				preview: `Preview ${i}`,
-				at: `2026-05-${String((i % 28) + 1).padStart(2, "0")}T08:00:00+00:00`,
-			}),
-		);
-		stubChatListFetch({ items });
+		stubChatListFetch(makeLargeList(60));
 		renderSidebar();
 
 		expect(

@@ -9,7 +9,7 @@ on:
       - "backend/**"
       - "auth-lambda/**"
       - ".github/workflows/deploy.yml"
-      - ".github/actions/configure-aws-env/**"
+      - ".github/actions/**"
   pull_request:
     paths:
       - "terraform/**"
@@ -74,7 +74,7 @@ jobs:
             terraform:
               - 'terraform/**'
               - '.github/workflows/deploy.yml'
-              - '.github/actions/configure-aws-env/**'
+              - '.github/actions/**'
             frontend:
               - 'frontend/**'
             backend:
@@ -116,21 +116,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS & Terraform
-        uses: ./.github/actions/configure-aws-env
+      - name: Terraform Setup
+        uses: ./.github/actions/tf-setup
         with:
           environment: ${{ steps.set-env.outputs.environment }}
           aws_region: ${{ env.AWS_REGION }}
           role_arn: ${{ secrets.AWS_ROLE_ARN }}
-          setup_terraform: "true"
-
-      - name: Build lambdas
-        uses: ./.github/actions/build-lambdas
-
-      - name: Terraform Init
-        env:
-          ACCOUNT: ${{ steps.set-env.outputs.environment }}
-        run: make environmental-init ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE=""
 
       - name: Terraform Validate
         run: make environmental-validate AWS_PROFILE=""
@@ -180,6 +171,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      variables: write
 
     environment:
       name: ${{ needs.terraform-plan.outputs.environment }}
@@ -188,31 +180,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS & Terraform
-        uses: ./.github/actions/configure-aws-env
+      - name: Terraform Setup
+        uses: ./.github/actions/tf-setup
         with:
           environment: ${{ needs.terraform-plan.outputs.environment }}
           aws_region: ${{ env.AWS_REGION }}
           role_arn: ${{ secrets.AWS_ROLE_ARN }}
-          setup_terraform: "true"
-
-      - name: Build lambdas
-        uses: ./.github/actions/build-lambdas
-
-      - name: Terraform Init
-        env:
-          ACCOUNT: ${{ needs.terraform-plan.outputs.environment }}
-        run: make environmental-init ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE=""
 
       - name: Terraform Apply
         env:
           ACCOUNT: ${{ needs.terraform-plan.outputs.environment }}
         run: make environmental-apply ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE="" TF_FLAGS="-auto-approve -no-color"
 
+      - name: Populate GitHub environment variables
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENV: ${{ needs.terraform-plan.outputs.environment }}
+        run: |
+          gh variable set ECR_REGISTRY               --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecr_registry)"
+          gh variable set ECS_CLUSTER                --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_cluster)"
+          gh variable set ECS_SERVICE                --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_service)"
+          gh variable set ECS_TASK_FAMILY            --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_task_family)"
+          gh variable set ECS_SG_ID                  --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecs_sg_id)"
+          gh variable set PUBLIC_SUBNET_IDS          --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw public_subnet_ids)"
+          gh variable set BFF_FUNCTION_PREFIX        --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw bff_function_prefix)"
+          gh variable set S3_BUCKET                  --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw s3_bucket)"
+          gh variable set CLOUDFRONT_DISTRIBUTION_ID --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw cloudfront_distribution_id)"
+
   migrations:
     name: Run Alembic Migrations
     needs: [detect-changes, terraform-apply, backend-deploy]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.backend == 'true')) &&
@@ -228,49 +227,23 @@ jobs:
       name: sandbox
 
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/ecs-run-one-off
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Run migrations Fargate task
-        id: run-task
-        run: |
-          NET="awsvpcConfiguration={subnets=[${{ vars.PUBLIC_SUBNET_IDS }}],securityGroups=[${{ vars.ECS_SG_ID }}],assignPublicIp=ENABLED}"
-          TASK_ARN=$(aws ecs run-task \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --task-definition "${{ vars.ECS_TASK_FAMILY }}" \
-            --launch-type FARGATE \
-            --network-configuration "$NET" \
-            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}' \
-            --query 'tasks[0].taskArn' \
-            --output text)
-          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for task to stop
-        run: |
-          aws ecs wait tasks-stopped \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --tasks "${{ steps.run-task.outputs.task_arn }}"
-
-      - name: Check exit code
-        run: |
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --tasks "${{ steps.run-task.outputs.task_arn }}" \
-            --query 'tasks[0].containers[0].exitCode' \
-            --output text)
-          echo "Migration container exit code: $EXIT_CODE"
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "Migrations failed with exit code $EXIT_CODE"
-            exit 1
-          fi
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          task_definition: ${{ vars.ECS_TASK_FAMILY }}
+          subnets: ${{ vars.PUBLIC_SUBNET_IDS }}
+          security_group: ${{ vars.ECS_SG_ID }}
+          container_overrides: '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}'
+          step_label: Migration
 
   backend-deploy:
     name: Backend Deploy
     needs: [detect-changes, terraform-apply]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.backend_deploy == 'true')) &&
@@ -288,47 +261,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Build and deploy to ECS
+        uses: ./.github/actions/ecr-service-deploy
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: |
-            ${{ vars.ECR_REGISTRY }}:${{ github.sha }}
-            ${{ vars.ECR_REGISTRY }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Update ECS service
-        run: |
-          aws ecs update-service \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --service "${{ vars.ECS_SERVICE }}" \
-            --force-new-deployment
-
-      - name: Wait for service stability
-        run: |
-          aws ecs wait services-stable \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --services "${{ vars.ECS_SERVICE }}"
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          image_tag: ${{ vars.ECR_REGISTRY }}:${{ github.sha }}
+          ecs_cluster: ${{ vars.ECS_CLUSTER }}
+          ecs_service: ${{ vars.ECS_SERVICE }}
+          ecs_task_family: ${{ vars.ECS_TASK_FAMILY }}
 
   auth-lambda-deploy:
     name: Auth Lambda Deploy
     needs: [detect-changes, terraform-apply]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.auth_lambda == 'true')) &&
@@ -380,6 +326,7 @@ jobs:
     name: Frontend Deploy
     needs: [detect-changes, terraform-apply]
     if: |
+      !cancelled() && !failure() &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && needs.detect-changes.outputs.frontend == 'true')) &&
@@ -470,21 +417,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS & Terraform
-        uses: ./.github/actions/configure-aws-env
+      - name: Terraform Setup
+        uses: ./.github/actions/tf-setup
         with:
           environment: ${{ inputs.environment || 'sandbox' }}
           aws_region: ${{ env.AWS_REGION }}
           role_arn: ${{ secrets.AWS_ROLE_ARN }}
-          setup_terraform: "true"
-
-      - name: Build lambdas
-        uses: ./.github/actions/build-lambdas
-
-      - name: Terraform Init
-        env:
-          ACCOUNT: ${{ inputs.environment || 'sandbox' }}
-        run: make environmental-init ACCOUNT=${{ env.ACCOUNT }} AWS_PROFILE=""
 
       - name: Terraform Destroy compute + keepalive
         env:
@@ -497,6 +435,7 @@ jobs:
     name: Seed Documents
     needs: [terraform-apply, migrations, backend-deploy]
     if: |
+      !cancelled() && !failure() &&
       github.event_name == 'workflow_dispatch' &&
       inputs.run_seed == true &&
       (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
@@ -512,42 +451,14 @@ jobs:
       name: ${{ inputs.environment || 'sandbox' }}
 
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/ecs-run-one-off
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Run seeder Fargate task
-        id: run-task
-        run: |
-          NET="awsvpcConfiguration={subnets=[${{ vars.PUBLIC_SUBNET_IDS }}],securityGroups=[${{ vars.ECS_SG_ID }}],assignPublicIp=ENABLED}"
-          OVERRIDES='{"containerOverrides":[{"name":"api","command":["python","-m","convfinqa.adapters.persistence.documents_seeder"]}]}'
-          TASK_ARN=$(aws ecs run-task \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --task-definition "${{ vars.ECS_TASK_FAMILY }}" \
-            --launch-type FARGATE \
-            --network-configuration "$NET" \
-            --overrides "$OVERRIDES" \
-            --query 'tasks[0].taskArn' \
-            --output text)
-          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for task to stop
-        run: |
-          aws ecs wait tasks-stopped \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --tasks "${{ steps.run-task.outputs.task_arn }}"
-
-      - name: Check exit code
-        run: |
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --tasks "${{ steps.run-task.outputs.task_arn }}" \
-            --query 'tasks[0].containers[0].exitCode' \
-            --output text)
-          echo "Seeder container exit code: $EXIT_CODE"
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "Seeder failed with exit code $EXIT_CODE"
-            exit 1
-          fi
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          task_definition: ${{ vars.ECS_TASK_FAMILY }}
+          subnets: ${{ vars.PUBLIC_SUBNET_IDS }}
+          security_group: ${{ vars.ECS_SG_ID }}
+          container_overrides: '{"containerOverrides":[{"name":"api","command":["python","-m","convfinqa.adapters.persistence.documents_seeder"]}]}'
+          step_label: Seeder
