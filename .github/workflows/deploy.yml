@@ -193,7 +193,7 @@ jobs:
 
       - name: Populate GitHub environment variables
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_VARS_PAT }}
           ENV: ${{ needs.terraform-plan.outputs.environment }}
         run: |
           gh variable set ECR_REGISTRY               --env "$ENV" --body "$(terraform -chdir=terraform/environmental output -raw ecr_registry)"
