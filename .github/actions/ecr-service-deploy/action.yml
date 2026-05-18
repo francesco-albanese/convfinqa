@@ -10,7 +10,7 @@ inputs:
     required: false
     default: 'eu-west-2'
   image_tag:
-    description: 'Full image URI including tag (e.g. ${{ vars.ECR_REGISTRY }}:${{ github.sha }})'
+    description: 'Full image URI including tag (e.g. <ecr-registry>:<git-sha>)'
     required: true
   context:
     description: 'Docker build context'
