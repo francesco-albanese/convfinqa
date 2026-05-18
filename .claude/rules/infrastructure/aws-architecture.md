@@ -2,7 +2,7 @@
 
 The stack is **ECS Express Mode** (Fargate-backed, auto-wired ALB) + **Aurora Serverless v2 min 0 ACU** + **S3/CloudFront SPA** + **TypeScript Lambda BFF** for Cognito-with-Google auth that sets HTTPOnly cookies. Cache, rate-limit, and idempotency live in the same Aurora cluster as Postgres tables. Secrets in SSM Parameter Store. One Terraform stack split into modules; `terraform destroy -target=module.compute` drops cost from ~$28/mo to ~$2/mo.
 
-**Full architecture, rationale, runtime flows, disqualified alternatives, and decision lineage live in [`docs/aws-architecture.html`](../../../docs/aws-architecture.html). READ THAT FILE before touching `terraform/`, CloudFront behaviors, the Lambda BFF, the `users` schema, or anything that interacts with Cognito or Aurora.**
+**Full architecture, rationale, runtime flows, disqualified alternatives, and decision lineage live in [`docs/aws-architecture.md`](../../../docs/aws-architecture.md). READ THAT FILE before touching `terraform/`, CloudFront behaviors, the Lambda BFF, the `users` schema, or anything that interacts with Cognito or Aurora. The companion [`docs/aws-architecture.html`](../../../docs/aws-architecture.html) holds only the rendered Mermaid diagrams (visual reference for humans).**
 
 ## Invariants that must not be violated without re-opening the design
 
@@ -18,4 +18,4 @@ The stack is **ECS Express Mode** (Fargate-backed, auto-wired ALB) + **Aurora Se
 
 ## When in doubt
 
-Open `docs/aws-architecture.html`. Search for the section that matches what you're about to change. The "Decision lineage" line on each decision is the punchline; the "Disqualified alternatives" section is where rejected options live with the specific reason.
+Open `docs/aws-architecture.md`. Search for the section that matches what you're about to change. The "Lineage" line on each decision is the punchline; the "Disqualified alternatives" section is where rejected options live with the specific reason. The matching diagrams are rendered in `docs/aws-architecture.html`.
