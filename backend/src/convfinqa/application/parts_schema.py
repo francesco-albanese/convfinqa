@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 REASONING_MAX_BYTES = 16 * 1024
 TEXT_MAX_BYTES = 64 * 1024
+TOOL_CALL_ARGS_MAX_BYTES = 4 * 1024
+TOOL_RESULT_MAX_BYTES = 32 * 1024
 PARTS_MAX_COUNT = 256
 ENVELOPE_MAX_BYTES = 256 * 1024
 TRUNCATION_MARKER = "...[truncated]"
@@ -25,7 +27,36 @@ class ReasoningPart(BaseModel):
     content: str
 
 
-Part = Annotated[TextPart | ReasoningPart, Field(discriminator="kind")]
+class ToolCallPart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["tool_call"]
+    call_id: str
+    name: str
+    args: str
+
+
+class ToolResultPart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["tool_result"]
+    call_id: str
+    is_error: bool
+    result: str
+
+
+class CitationPart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["citation"]
+    row_label: str
+    col_label: str
+
+
+Part = Annotated[
+    TextPart | ReasoningPart | ToolCallPart | ToolResultPart | CitationPart,
+    Field(discriminator="kind"),
+]
 
 
 class MessagePartsEnvelope(BaseModel):
@@ -61,13 +92,22 @@ def _truncate_envelope_total(parts: list[dict[str, Any]]) -> list[dict[str, Any]
 def build_envelope(parts_in_order: list[dict[str, Any]]) -> dict[str, Any]:
     capped: list[dict[str, Any]] = []
     for part in parts_in_order:
-        if part["kind"] == "reasoning":
+        kind = part["kind"]
+        if kind == "reasoning":
             capped.append(
                 {**part, "content": _truncate(part["content"], REASONING_MAX_BYTES)}
             )
-        elif part["kind"] == "text":
+        elif kind == "text":
             capped.append(
                 {**part, "content": _truncate(part["content"], TEXT_MAX_BYTES)}
+            )
+        elif kind == "tool_call":
+            capped.append(
+                {**part, "args": _truncate(part["args"], TOOL_CALL_ARGS_MAX_BYTES)}
+            )
+        elif kind == "tool_result":
+            capped.append(
+                {**part, "result": _truncate(part["result"], TOOL_RESULT_MAX_BYTES)}
             )
         else:
             capped.append(part)

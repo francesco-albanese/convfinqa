@@ -34,9 +34,32 @@ const StoredReasoningPartSchema = z.object({
 	content: z.string(),
 });
 
+export const StoredToolCallPartSchema = z.object({
+	kind: z.literal("tool_call"),
+	call_id: z.string(),
+	name: z.string(),
+	args: z.string(),
+});
+
+export const StoredToolResultPartSchema = z.object({
+	kind: z.literal("tool_result"),
+	call_id: z.string(),
+	is_error: z.boolean(),
+	result: z.string(),
+});
+
+export const StoredCitationPartSchema = z.object({
+	kind: z.literal("citation"),
+	row_label: z.string(),
+	col_label: z.string(),
+});
+
 const StoredPartSchema = z.discriminatedUnion("kind", [
 	StoredTextPartSchema,
 	StoredReasoningPartSchema,
+	StoredToolCallPartSchema,
+	StoredToolResultPartSchema,
+	StoredCitationPartSchema,
 ]);
 
 const MessagePartsEnvelopeSchema = z.object({
@@ -63,6 +86,9 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatMessageList = z.infer<typeof ChatMessageListSchema>;
 export type StoredPart = z.infer<typeof StoredPartSchema>;
 export type MessagePartsEnvelope = z.infer<typeof MessagePartsEnvelopeSchema>;
+export type StoredToolCallPart = z.infer<typeof StoredToolCallPartSchema>;
+export type StoredToolResultPart = z.infer<typeof StoredToolResultPartSchema>;
+export type StoredCitationPart = z.infer<typeof StoredCitationPartSchema>;
 
 const CHATS_PATH = "/api/v1/chats";
 
