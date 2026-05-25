@@ -1,9 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
-from convfinqa.adapters.observability.instrumentation import (
-    register_auto_instrumentations,
-)
 from convfinqa.adapters.observability.langfuse_client import init_langfuse
 from convfinqa.adapters.observability.tracer_provider import init_tracer_provider
 from convfinqa.adapters.persistence.sqlalchemy.engine import (
@@ -31,7 +28,6 @@ _log = get_logger(__name__)
 def bootstrap_application(settings: Settings) -> Container:
     init_tracer_provider(settings)
     observability = init_langfuse(settings)
-    register_auto_instrumentations(settings)
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
     llm: LLMPort = LiteLLMAdapter(

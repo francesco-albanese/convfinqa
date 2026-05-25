@@ -48,9 +48,30 @@ resource "aws_iam_role_policy_attachment" "ecs_task_ssm" {
   policy_arn = aws_iam_policy.ssm_read.arn
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_task_cloudwatch_agent" {
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+resource "aws_iam_role_policy" "ecs_task_cloudwatch_agent" {
+  name = "cloudwatch-agent"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams",
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords",
+          "xray:GetSamplingRules",
+          "xray:GetSamplingTargets",
+          "xray:GetSamplingStatisticSummaries",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role_policy" "ecs_task_bedrock" {

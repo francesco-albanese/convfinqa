@@ -17,8 +17,8 @@ from convfinqa.logging import configure_logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    container = bootstrap_application(settings=SETTINGS)
     register_auto_instrumentations(SETTINGS, app=app)
+    container = bootstrap_application(settings=SETTINGS)
     app.state.container = container
     try:
         yield
