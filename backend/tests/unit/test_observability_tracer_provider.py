@@ -3,7 +3,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
 
-from convfinqa.adapters.observability.tracer_provider import init_tracer_provider
+from convfinqa.adapters.observability.tracer_provider import (
+    init_tracer_provider,
+    should_export_to_langfuse,
+)
 from convfinqa.config import Settings
 
 
@@ -52,3 +55,23 @@ def test_processor_count(
         provider = init_tracer_provider(settings)
 
     assert _processor_count(provider) == expected_count
+
+
+def test_langfuse_filter_exports_convfinqa_observation_spans() -> None:
+    span = MagicMock()
+    span.attributes = {"langfuse.observation.type": "agent"}
+
+    assert should_export_to_langfuse(span)
+
+
+def test_langfuse_filter_delegates_default_export_rules() -> None:
+    span = MagicMock()
+    span.attributes = {}
+
+    with patch(
+        "langfuse._client.span_filter.is_default_export_span",
+        return_value=True,
+    ) as is_default_export_span:
+        assert should_export_to_langfuse(span)
+
+    is_default_export_span.assert_called_once_with(span)

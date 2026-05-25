@@ -1,10 +1,23 @@
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_NAMESPACE, Resource
-from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from convfinqa.config import Settings
+
+LANGFUSE_OBSERVATION_TYPE_ATTR = "langfuse.observation.type"
+
+
+def should_export_to_langfuse(span: ReadableSpan) -> bool:
+    if span.attributes and LANGFUSE_OBSERVATION_TYPE_ATTR in span.attributes:
+        return True
+
+    from langfuse._client.span_filter import (  # type: ignore[import-untyped]
+        is_default_export_span,
+    )
+
+    return bool(is_default_export_span(span))
 
 
 def reset_tracer_provider_for_tests() -> None:
@@ -41,6 +54,7 @@ def init_tracer_provider(
                 public_key=settings.langfuse_public_key,
                 secret_key=settings.langfuse_secret_key,
                 base_url=settings.langfuse_host,
+                should_export_span=should_export_to_langfuse,
             )
         )
 
