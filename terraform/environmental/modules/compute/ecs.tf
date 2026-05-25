@@ -148,16 +148,13 @@ resource "aws_ecs_task_definition" "api" {
         { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.namespace=convfinqa,environment=${var.account_name},aws.log.group.names=${aws_cloudwatch_log_group.ecs.name}" },
       ]
 
-      secrets = concat([
+      secrets = [
         { name = "DATABASE_URL", valueFrom = "/convfinqa/${var.account_name}/database_url" },
         { name = "COGNITO_USER_POOL_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_user_pool_id" },
         { name = "COGNITO_CLIENT_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_client_id" },
-        ],
-        local.langfuse_configured ? [
-          { name = "LANGFUSE_PUBLIC_KEY", valueFrom = aws_ssm_parameter.langfuse_public_key[0].name },
-          { name = "LANGFUSE_SECRET_KEY", valueFrom = aws_ssm_parameter.langfuse_secret_key[0].name },
-        ] : []
-      )
+        { name = "LANGFUSE_PUBLIC_KEY", valueFrom = "/convfinqa/${var.account_name}/langfuse_public_key" },
+        { name = "LANGFUSE_SECRET_KEY", valueFrom = "/convfinqa/${var.account_name}/langfuse_secret_key" },
+      ]
 
       logConfiguration = {
         logDriver = "awslogs"

@@ -26,8 +26,6 @@ locals {
       }
     }
   }
-
-  langfuse_configured = var.langfuse_public_key != null && var.langfuse_secret_key != null
 }
 
 data "aws_ssm_parameter" "google_client_id" {

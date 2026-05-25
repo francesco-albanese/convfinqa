@@ -25,22 +25,6 @@ variable "system_prompt_override" {
   default     = ""
 }
 
-variable "langfuse_public_key" {
-  description = "Langfuse public key stored as an SSM SecureString."
-  type        = string
-  sensitive   = true
-  nullable    = true
-  default     = null
-}
-
-variable "langfuse_secret_key" {
-  description = "Langfuse secret key stored as an SSM SecureString."
-  type        = string
-  sensitive   = true
-  nullable    = true
-  default     = null
-}
-
 variable "cloudwatch_agent_image" {
   description = "Pinned CloudWatch agent image for application signals sidecar."
   type        = string
