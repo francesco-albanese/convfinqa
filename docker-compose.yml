@@ -35,6 +35,10 @@ services:
       LLM_MODEL: ${LLM_MODEL:-bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0}
       AWS_REGION: ${AWS_REGION:-eu-west-2}
       CONVFINQA_DATASET_PATH: /app/data/convfinqa_dataset.json
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}}
     volumes:
       - ./data:/app/data:ro
 
