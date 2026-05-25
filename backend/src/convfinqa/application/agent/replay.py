@@ -1,15 +1,17 @@
-import dataclasses
 import json
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
 from convfinqa.application.agent.sql.citation_extractor import extract_citations
-from convfinqa.application.agent.sql.sql_query import get_sql_query_callable
 from convfinqa.application.agent.stream_events import Citation, ToolResult
 from convfinqa.application.agent.tool_executor import execute_tool
-from convfinqa.application.agent.tools import TOOL_REGISTRY
+from convfinqa.application.agent.tools import TOOL_REGISTRY, build_sql_query_tool
 from convfinqa.application.agent.wire import safe_json_loads
 from convfinqa.domain.entities import Document
+from convfinqa.logging import get_logger
+
+logger = get_logger("convfinqa.replay")
 
 
 async def execute_and_replay_tools(
@@ -33,7 +35,7 @@ async def execute_and_replay_tools(
             is_error = True
         else:
             if tool.name == "sql_query":
-                tool = dataclasses.replace(tool, callable=get_sql_query_callable(document))
+                tool = build_sql_query_tool(document)
             result_str, is_error = await execute_tool(tool, raw_args)
 
         yield ToolResult(call_id=call_id, result=result_str, is_error=is_error)
@@ -49,7 +51,16 @@ async def execute_and_replay_tools(
             try:
                 result_data = json.loads(result_str)
                 rows = result_data.get("rows", [])
-            except (json.JSONDecodeError, AttributeError):
+            except (json.JSONDecodeError, AttributeError) as exc:
+                logger.log(
+                    logging.WARNING,
+                    "sql_query_result_parse_error",
+                    extra={
+                        "exc_type": exc.__class__.__name__,
+                        "exc_message": str(exc) or exc.__class__.__name__,
+                        "call_id": call_id,
+                    },
+                )
                 rows = []
 
             if rows:

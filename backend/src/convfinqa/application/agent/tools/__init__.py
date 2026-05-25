@@ -1,3 +1,4 @@
+import dataclasses
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -8,6 +9,7 @@ from convfinqa.application.agent.sql.sql_query import (
     SQL_QUERY_DOC,
     SqlQueryInput,
     SqlQueryOutput,
+    get_sql_query_callable,
 )
 from convfinqa.application.agent.tools.math import (
     ADD_DOC,
@@ -23,6 +25,7 @@ from convfinqa.application.agent.tools.math import (
     multiply,
     subtract,
 )
+from convfinqa.domain.entities import Document
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,3 +106,10 @@ TOOL_REGISTRY: dict[str, Tool] = {
 
 def get_tool(name: str) -> Tool | None:
     return TOOL_REGISTRY.get(name)
+
+
+def build_sql_query_tool(document: Document) -> Tool:
+    return dataclasses.replace(
+        TOOL_REGISTRY["sql_query"],
+        callable=get_sql_query_callable(document),
+    )
