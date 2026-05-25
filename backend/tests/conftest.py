@@ -140,7 +140,7 @@ async def app(
     session_factory: async_sessionmaker[AsyncSession],
     fake_llm: FakeLLMPort,
 ) -> FastAPI:
-    settings = Settings()
+    settings = Settings(langfuse_enabled=False, environment="test")
     container = for_testing(
         settings=settings,
         engine=engine,

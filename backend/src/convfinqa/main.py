@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     try:
         yield
     finally:
+        await container.observability.flush()
         await container.engine.dispose()
 
 

@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 
+from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.use_cases.send_message import (
     ConversationResolved,
     DocumentIdRequiredError,
@@ -126,6 +127,9 @@ def _build_use_case(
         documents=cast(DocumentRepository, docs),
         locks=cast(ConversationLockPort, _AlwaysAcquireLock()),
         system_prompt_framing="framing",
+        observability=NoOpLangfuseClient(),  # type: ignore[arg-type]
+        llm_model="test-model",
+        environment="test",
     )
 
 

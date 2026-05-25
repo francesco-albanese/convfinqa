@@ -22,6 +22,7 @@ from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
+from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
 from convfinqa.domain.ports.session import SessionPort, UserRecord
@@ -75,6 +76,7 @@ def build_use_cases(
     documents_port: DocumentsPort,
     locks: ConversationLockPort,
     settings: Settings,
+    observability: ObservabilityPort,
 ) -> tuple[
     SendMessageUseCase,
     ListDocumentsUseCase,
@@ -88,6 +90,9 @@ def build_use_cases(
         documents=documents,
         locks=locks,
         system_prompt_framing=settings.system_prompt,
+        observability=observability,
+        llm_model=settings.llm_model,
+        environment=settings.environment,
     )
     list_documents = ListDocumentsUseCase(documents=documents_port)
     get_document = GetDocumentUseCase(documents=documents_port)
