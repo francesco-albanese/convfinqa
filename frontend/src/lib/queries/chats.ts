@@ -23,11 +23,33 @@ export const ChatListSchema = z.object({
 	items: z.array(ChatSummarySchema),
 });
 
+const StoredTextPartSchema = z.object({
+	kind: z.literal("text"),
+	content: z.string(),
+});
+
+const StoredReasoningPartSchema = z.object({
+	kind: z.literal("reasoning"),
+	id: z.string(),
+	content: z.string(),
+});
+
+const StoredPartSchema = z.discriminatedUnion("kind", [
+	StoredTextPartSchema,
+	StoredReasoningPartSchema,
+]);
+
+const MessagePartsEnvelopeSchema = z.object({
+	schema_version: z.literal(1),
+	parts: z.array(StoredPartSchema),
+});
+
 export const ChatMessageSchema = z.object({
 	id: z.string().min(1),
 	role: z.string(),
 	content: z.string(),
 	created_at: IsoDatetime,
+	parts: MessagePartsEnvelopeSchema.nullable().optional(),
 });
 
 export const ChatMessageListSchema = z.object({
@@ -39,6 +61,8 @@ export type ChatSummary = z.infer<typeof ChatSummarySchema>;
 export type ChatList = z.infer<typeof ChatListSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatMessageList = z.infer<typeof ChatMessageListSchema>;
+export type StoredPart = z.infer<typeof StoredPartSchema>;
+export type MessagePartsEnvelope = z.infer<typeof MessagePartsEnvelopeSchema>;
 
 const CHATS_PATH = "/api/v1/chats";
 

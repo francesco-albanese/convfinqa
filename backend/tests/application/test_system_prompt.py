@@ -30,9 +30,7 @@ def test_prompt_embeds_framing_title_ticker_year_and_table_json() -> None:
 def test_prompt_embeds_full_pre_and_post_text_verbatim() -> None:
     huge_pre = "PRE-" + "A" * 50_000
     huge_post = "POST-" + "B" * 50_000
-    prompt = build_system_prompt(
-        "f", _document(pre_text=huge_pre, post_text=huge_post)
-    )
+    prompt = build_system_prompt("f", _document(pre_text=huge_pre, post_text=huge_post))
 
     assert huge_pre in prompt
     assert huge_post in prompt

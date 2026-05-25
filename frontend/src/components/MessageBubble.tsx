@@ -1,5 +1,7 @@
 import type { TextUIPart, UIMessage } from "ai";
+import { isReasoningUIPart } from "ai";
 import { Streamdown } from "streamdown";
+import { ThinkingDisclosure } from "@/components/ThinkingDisclosure";
 import { safeUrlTransform } from "@/lib/markdown/safeUrl";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +53,15 @@ export function MessageBubble({
 					"prose-headings:font-semibold",
 				)}
 			>
+				{message.parts.map((part) =>
+					isReasoningUIPart(part) ? (
+						<ThinkingDisclosure
+							key={`${message.id}-${message.parts.indexOf(part)}`}
+							text={part.text}
+							isStreaming={part.state === "streaming"}
+						/>
+					) : null,
+				)}
 				<Streamdown
 					controls={false}
 					disallowedElements={DISALLOWED_ELEMENTS}

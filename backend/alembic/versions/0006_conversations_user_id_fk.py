@@ -20,7 +20,9 @@ def upgrade() -> None:
         sa.Column(
             "user_id",
             postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("users.id", name="fk_conversations_user_id", ondelete="SET NULL"),
+            sa.ForeignKey(
+                "users.id", name="fk_conversations_user_id", ondelete="SET NULL"
+            ),
             nullable=True,
         ),
     )

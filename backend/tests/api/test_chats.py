@@ -186,9 +186,7 @@ async def test_list_chats_orders_by_last_message_at_desc_and_groups_by_document(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get(
-            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
-        )
+        response = await client.get("/api/v1/chats", headers={"X-User-Id": ALICE_UUID})
 
     assert response.status_code == 200
     items = response.json()["items"]
@@ -212,9 +210,7 @@ async def test_list_chats_document_shape_omits_page_and_includes_title(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get(
-            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
-        )
+        response = await client.get("/api/v1/chats", headers={"X-User-Id": ALICE_UUID})
 
     document = response.json()["items"][0]["document"]
     assert set(document.keys()) == {"id", "ticker", "year", "title"}

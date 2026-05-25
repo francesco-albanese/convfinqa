@@ -60,7 +60,9 @@ class SqlAlchemyDocumentsRepository:
             pre_text=row[5],
             post_text=row[6],
             table_data=row[7],
-            column_order=tuple(raw_column_order) if raw_column_order is not None else None,
+            column_order=tuple(raw_column_order)
+            if raw_column_order is not None
+            else None,
         )
 
     async def list(self, query: ListDocumentsQuery) -> DocumentListPage:
@@ -109,7 +111,9 @@ class SqlAlchemyDocumentsRepository:
             )
             for row in rows[:page_size]
         )
-        next_cursor = _encode_cursor({"id": items[-1].id}) if has_more and items else None
+        next_cursor = (
+            _encode_cursor({"id": items[-1].id}) if has_more and items else None
+        )
         return DocumentListPage(items=items, next_cursor=next_cursor)
 
     async def _run_ranked(
@@ -159,5 +163,7 @@ class SqlAlchemyDocumentsRepository:
         next_cursor: str | None = None
         if has_more and page_rows:
             last_row = page_rows[-1]
-            next_cursor = _encode_cursor({"rank": float(last_row[5]), "id": last_row[0]})
+            next_cursor = _encode_cursor(
+                {"rank": float(last_row[5]), "id": last_row[0]}
+            )
         return DocumentListPage(items=items, next_cursor=next_cursor)

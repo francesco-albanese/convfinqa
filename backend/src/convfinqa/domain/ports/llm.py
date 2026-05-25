@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 from convfinqa.domain.value_objects import Usage
 
@@ -14,6 +14,8 @@ class LLMMessage:
 @dataclass(frozen=True, slots=True)
 class LLMChunk:
     text: str = ""
+    reasoning_text: str = ""
+    reasoning_event: Literal["start", "delta", "end"] | None = None
     usage: Usage | None = None
 
 

@@ -60,6 +60,7 @@ def _to_message(orm: MessageOrm) -> Message:
         content=orm.content,
         created_at=orm.created_at,
         stop_reason=stop,
+        parts=orm.parts,
     )
 
 
@@ -139,11 +140,14 @@ class SqlAlchemyConversationRepository:
                 content=message.content,
                 stop_reason=message.stop_reason.value if message.stop_reason else None,
                 created_at=message.created_at,
+                parts=message.parts,
             )
             session.add(orm)
             await session.commit()
 
-    async def list_for_user(self, user_id: uuid.UUID) -> tuple[ConversationSummary, ...]:
+    async def list_for_user(
+        self, user_id: uuid.UUID
+    ) -> tuple[ConversationSummary, ...]:
         async with self._session_factory() as session:
             result = await session.execute(
                 LIST_CHATS_SQL,

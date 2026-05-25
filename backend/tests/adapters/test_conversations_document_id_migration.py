@@ -29,9 +29,7 @@ async def test_conversations_document_id_is_not_null(
 ) -> None:
     with pytest.raises(IntegrityError):
         async with engine.begin() as conn:
-            await conn.execute(
-                text("INSERT INTO conversations (id) VALUES ('conv_b')")
-            )
+            await conn.execute(text("INSERT INTO conversations (id) VALUES ('conv_b')"))
 
 
 @pytest.mark.usefixtures("schema")

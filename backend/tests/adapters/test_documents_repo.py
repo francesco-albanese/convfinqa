@@ -11,16 +11,46 @@ from convfinqa.domain.ports.documents_port import (
 )
 
 CORPUS = (
-    ("doc-jkhy-2009", "JKHY", 2009, 28, "JKHY 2009 annual report",
-     "credit union systems revenue grew"),
-    ("doc-jkhy-2010", "JKHY", 2010, 30, "JKHY 2010 annual report",
-     "credit union systems revenue grew"),
-    ("doc-aapl-2015", "AAPL", 2015, 1, "AAPL 2015 annual report",
-     "iphone revenue rose substantially"),
-    ("doc-msft-2020", "MSFT", 2020, 5, "MSFT 2020 annual report",
-     "azure cloud revenue surge"),
-    ("doc-tsla-2022", "TSLA", 2022, 8, "TSLA 2022 annual report",
-     "electric vehicle deliveries climbed"),
+    (
+        "doc-jkhy-2009",
+        "JKHY",
+        2009,
+        28,
+        "JKHY 2009 annual report",
+        "credit union systems revenue grew",
+    ),
+    (
+        "doc-jkhy-2010",
+        "JKHY",
+        2010,
+        30,
+        "JKHY 2010 annual report",
+        "credit union systems revenue grew",
+    ),
+    (
+        "doc-aapl-2015",
+        "AAPL",
+        2015,
+        1,
+        "AAPL 2015 annual report",
+        "iphone revenue rose substantially",
+    ),
+    (
+        "doc-msft-2020",
+        "MSFT",
+        2020,
+        5,
+        "MSFT 2020 annual report",
+        "azure cloud revenue surge",
+    ),
+    (
+        "doc-tsla-2022",
+        "TSLA",
+        2022,
+        8,
+        "TSLA 2022 annual report",
+        "electric vehicle deliveries climbed",
+    ),
 )
 
 
@@ -85,9 +115,7 @@ async def test_list_year_range_filter_applies(
     seeded: None, repo: SqlAlchemyDocumentsRepository
 ) -> None:
     del seeded
-    page = await repo.list(
-        ListDocumentsQuery(year_min=2015, year_max=2020, limit=10)
-    )
+    page = await repo.list(ListDocumentsQuery(year_min=2015, year_max=2020, limit=10))
 
     assert {item.id for item in page.items} == {"doc-aapl-2015", "doc-msft-2020"}
 
@@ -138,8 +166,7 @@ async def test_get_preserves_wire_column_order_for_integer_like_keys(
             {
                 "id": "doc-jkhy-wire-order",
                 "table_data": (
-                    '{"2007":{"r":1},"2008":{"r":2},'
-                    '"Year ended June 30, 2009":{"r":3}}'
+                    '{"2007":{"r":1},"2008":{"r":2},"Year ended June 30, 2009":{"r":3}}'
                 ),
                 "column_order": [
                     "Year ended June 30, 2009",

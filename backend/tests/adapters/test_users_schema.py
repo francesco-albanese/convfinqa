@@ -17,8 +17,7 @@ async def test_insert_and_select_user(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
         await conn.execute(
             text(
-                "INSERT INTO users (cognito_sub, email) "
-                "VALUES (:cognito_sub, :email)"
+                "INSERT INTO users (cognito_sub, email) VALUES (:cognito_sub, :email)"
             ),
             {"cognito_sub": sub, "email": "alice@example.com"},
         )
@@ -26,7 +25,9 @@ async def test_insert_and_select_user(engine: AsyncEngine) -> None:
     async with engine.connect() as conn:
         row = (
             await conn.execute(
-                text("SELECT id, cognito_sub, email FROM users WHERE cognito_sub = :sub"),
+                text(
+                    "SELECT id, cognito_sub, email FROM users WHERE cognito_sub = :sub"
+                ),
                 {"sub": sub},
             )
         ).one()

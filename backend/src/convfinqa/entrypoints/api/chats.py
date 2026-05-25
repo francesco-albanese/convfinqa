@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, status
 from pydantic import BaseModel
 
+from convfinqa.application.parts_schema import MessagePartsEnvelope
 from convfinqa.domain.entities import ConversationSummary, Message
 from convfinqa.entrypoints.api.dependencies import (
     CurrentUserDep,
@@ -40,6 +41,7 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     created_at: datetime
+    parts: MessagePartsEnvelope | None = None
 
 
 class ChatMessageListResponse(BaseModel):
@@ -66,6 +68,11 @@ def _to_message_response(message: Message) -> ChatMessageResponse:
         role=message.role.value,
         content=message.content,
         created_at=message.created_at,
+        parts=(
+            MessagePartsEnvelope.model_validate(message.parts)
+            if message.parts is not None
+            else None
+        ),
     )
 
 

@@ -13,6 +13,7 @@ PATH_MARKERS: Final[dict[str, str]] = {
     "domain": "unit",
     "application": "unit",
     "fakes": "unit",
+    "unit": "unit",
 }
 
 

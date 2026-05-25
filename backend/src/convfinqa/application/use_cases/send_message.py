@@ -3,8 +3,10 @@ import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
+from convfinqa.application.parts_schema import build_envelope
 from convfinqa.application.prompts.system_prompt import build_system_prompt
 from convfinqa.domain.entities import Conversation, Document, Message
 from convfinqa.domain.ports.llm import LLMMessage, LLMPort
@@ -37,6 +39,22 @@ class TextDelta:
 
 
 @dataclass(frozen=True, slots=True)
+class ReasoningStart:
+    id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReasoningDelta:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReasoningEnd:
+    id: str
+
+
+@dataclass(frozen=True, slots=True)
 class Finish:
     stop_reason: StopReason
     usage: Usage | None
@@ -57,6 +75,9 @@ StreamEvent = (
     ConversationResolved
     | MessageStarted
     | TextDelta
+    | ReasoningStart
+    | ReasoningDelta
+    | ReasoningEnd
     | Finish
     | ErrorEvent
     | ConcurrentRequest
@@ -136,6 +157,10 @@ class SendMessageUseCase:
             yield MessageStarted(message_id=assistant_id)
 
             buffered: list[str] = []
+            parts_in_order: list[dict[str, Any]] = []
+            current_text_buffer: list[str] = []
+            current_reasoning_id: str | None = None
+            reasoning_buffer: list[str] = []
             usage: Usage | None = None
             stop_reason = StopReason.END_TURN
             errored = False
@@ -144,15 +169,59 @@ class SendMessageUseCase:
 
             try:
                 async for chunk in self._llm.stream(llm_messages, system_prompt):
+                    if chunk.reasoning_event == "start":
+                        if current_text_buffer:
+                            parts_in_order.append(
+                                {
+                                    "kind": "text",
+                                    "content": "".join(current_text_buffer),
+                                }
+                            )
+                            current_text_buffer = []
+                        current_reasoning_id = f"rsn_{uuid4().hex}"
+                        yield ReasoningStart(id=current_reasoning_id)
+
+                    elif (
+                        chunk.reasoning_event == "delta"
+                        and current_reasoning_id is not None
+                    ):
+                        reasoning_buffer.append(chunk.reasoning_text)
+                        yield ReasoningDelta(
+                            id=current_reasoning_id, text=chunk.reasoning_text
+                        )
+
+                    elif (
+                        chunk.reasoning_event == "end"
+                        and current_reasoning_id is not None
+                    ):
+                        completed_id = current_reasoning_id
+                        parts_in_order.append(
+                            {
+                                "kind": "reasoning",
+                                "id": completed_id,
+                                "content": "".join(reasoning_buffer),
+                            }
+                        )
+                        reasoning_buffer = []
+                        current_reasoning_id = None
+                        yield ReasoningEnd(id=completed_id)
+
                     if chunk.text:
                         buffered.append(chunk.text)
+                        current_text_buffer.append(chunk.text)
                         yield TextDelta(text=chunk.text)
+
                     if chunk.usage is not None:
                         usage = chunk.usage
+
             except GeneratorExit:
                 stop_reason = StopReason.INTERRUPTED
                 await self._persist_assistant(
-                    conversation.id, assistant_id, "".join(buffered), stop_reason
+                    conversation.id,
+                    assistant_id,
+                    "".join(buffered),
+                    stop_reason,
+                    parts=None,
                 )
                 raise
             except Exception as exc:  # noqa: BLE001
@@ -168,8 +237,31 @@ class SendMessageUseCase:
                     },
                 )
 
+            if reasoning_buffer and current_reasoning_id is not None:
+                parts_in_order.append(
+                    {
+                        "kind": "reasoning",
+                        "id": current_reasoning_id,
+                        "content": "".join(reasoning_buffer),
+                    }
+                )
+
+            if current_text_buffer:
+                parts_in_order.append(
+                    {"kind": "text", "content": "".join(current_text_buffer)}
+                )
+
+            if not parts_in_order and buffered:
+                parts_in_order = [{"kind": "text", "content": "".join(buffered)}]
+
+            parts_dict = build_envelope(parts_in_order) if parts_in_order else None
+
             finished_at = await self._persist_assistant(
-                conversation.id, assistant_id, "".join(buffered), stop_reason
+                conversation.id,
+                assistant_id,
+                "".join(buffered),
+                stop_reason,
+                parts=parts_dict,
             )
 
             if errored:
@@ -210,6 +302,7 @@ class SendMessageUseCase:
         message_id: str,
         content: str,
         stop_reason: StopReason,
+        parts: dict[str, object] | None,
     ) -> datetime:
         created_at = datetime.now(UTC)
         message = Message(
@@ -219,6 +312,7 @@ class SendMessageUseCase:
             content=content,
             created_at=created_at,
             stop_reason=stop_reason,
+            parts=parts,
         )
         await self._conversations.append_message(conversation_id, message)
         return created_at

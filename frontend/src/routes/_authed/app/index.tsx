@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import type { UIMessage } from "ai";
+import type { ReasoningUIPart, TextUIPart, UIMessage } from "ai";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
@@ -31,11 +31,27 @@ export const Route = createFileRoute("/_authed/app/")({
 
 function toUIMessage(message: ChatMessage): UIMessage {
 	const role = message.role === "user" ? "user" : "assistant";
-	return {
-		id: message.id,
-		role,
-		parts: [{ type: "text", text: message.content }],
-	};
+
+	if (!message.parts) {
+		return {
+			id: message.id,
+			role,
+			parts: [{ type: "text", text: message.content } satisfies TextUIPart],
+		};
+	}
+
+	const uiParts = message.parts.parts.map((p) => {
+		if (p.kind === "text") {
+			return { type: "text", text: p.content } satisfies TextUIPart;
+		}
+		return {
+			type: "reasoning",
+			text: p.content,
+			state: "done",
+		} satisfies ReasoningUIPart;
+	});
+
+	return { id: message.id, role, parts: uiParts };
 }
 
 function AppChatPage() {

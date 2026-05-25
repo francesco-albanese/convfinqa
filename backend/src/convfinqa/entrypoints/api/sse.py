@@ -8,6 +8,9 @@ from convfinqa.application.use_cases.send_message import (
     ErrorEvent,
     Finish,
     MessageStarted,
+    ReasoningDelta,
+    ReasoningEnd,
+    ReasoningStart,
     StreamEvent,
     TextDelta,
 )
@@ -57,6 +60,12 @@ async def to_ui_message_stream(
                 yield _frame(
                     {"type": "text-delta", "id": cast(str, text_id), "delta": text}
                 )
+            case ReasoningStart(id=block_id):
+                yield _frame({"type": "reasoning-start", "id": block_id})
+            case ReasoningDelta(id=block_id, text=text):
+                yield _frame({"type": "reasoning-delta", "id": block_id, "delta": text})
+            case ReasoningEnd(id=block_id):
+                yield _frame({"type": "reasoning-end", "id": block_id})
             case Finish():
                 if text_id is not None:
                     yield _frame({"type": "text-end", "id": text_id})

@@ -11,6 +11,9 @@ from convfinqa.application.use_cases.send_message import (
     ErrorEvent,
     Finish,
     MessageStarted,
+    ReasoningDelta,
+    ReasoningEnd,
+    ReasoningStart,
     TextDelta,
 )
 from convfinqa.domain.value_objects import StopReason
@@ -107,6 +110,8 @@ async def sync_chat(
                         )
                 case ErrorEvent(detail=detail):
                     raise UpstreamLLMError(detail)
+                case ReasoningStart() | ReasoningDelta() | ReasoningEnd():
+                    pass
     finally:
         await events.aclose()
 

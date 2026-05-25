@@ -79,6 +79,10 @@ class MessageOrm(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    parts: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    reasoning_signatures: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, nullable=True
+    )  # populated by slice 2 (multi-turn Anthropic signature replay); NULL in slice 1
 
     conversation: Mapped[ConversationOrm] = relationship(back_populates="messages")
 
@@ -103,9 +107,7 @@ class DocumentOrm(Base):
     pre_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     post_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     table_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    column_order: Mapped[list[str] | None] = mapped_column(
-        ARRAY(Text), nullable=True
-    )
+    column_order: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     search_tsv: Mapped[str] = mapped_column(
         TSVECTOR,
         Computed(DOCUMENTS_TSVECTOR_EXPRESSION, persisted=True),
@@ -183,9 +185,7 @@ class IdempotencyKeyOrm(Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(
-            "users.id", name="fk_idempotency_keys_user_id", ondelete="CASCADE"
-        ),
+        ForeignKey("users.id", name="fk_idempotency_keys_user_id", ondelete="CASCADE"),
         nullable=False,
     )
     key: Mapped[str] = mapped_column(Text, nullable=False)

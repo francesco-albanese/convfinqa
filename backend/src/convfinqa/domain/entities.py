@@ -13,6 +13,7 @@ class Message:
     content: str
     created_at: datetime
     stop_reason: StopReason | None = None
+    parts: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
