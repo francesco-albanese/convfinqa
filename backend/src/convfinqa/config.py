@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -53,7 +53,10 @@ class Settings(BaseSettings):
     langfuse_enabled: bool = Field(default=True)
     langfuse_public_key: str | None = Field(default=None)
     langfuse_secret_key: str | None = Field(default=None)
-    langfuse_host: str = Field(default="https://cloud.langfuse.com")
+    langfuse_host: str = Field(
+        default="https://cloud.langfuse.com",
+        validation_alias=AliasChoices("LANGFUSE_HOST", "LANGFUSE_BASE_URL"),
+    )
     environment: str = Field(default="dev")
     otel_service_name: str = Field(default="convfinqa")
     otel_exporter_otlp_endpoint: str | None = Field(default=None)
