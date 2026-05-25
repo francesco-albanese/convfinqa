@@ -119,7 +119,7 @@ resource "aws_lambda_function" "bff_login" {
   function_name    = "convfinqa-${var.account_name}-bff-login"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "login.handler"
-  runtime          = "nodejs24.x"
+  runtime          = "nodejs22.x"
   filename         = data.archive_file.bff["login"].output_path
   source_code_hash = data.archive_file.bff["login"].output_base64sha256
   timeout          = 10
@@ -143,7 +143,7 @@ resource "aws_lambda_function" "bff_callback" {
   function_name    = "convfinqa-${var.account_name}-bff-callback"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "callback.handler"
-  runtime          = "nodejs24.x"
+  runtime          = "nodejs22.x"
   filename         = data.archive_file.bff["callback"].output_path
   source_code_hash = data.archive_file.bff["callback"].output_base64sha256
   timeout          = 15
@@ -169,7 +169,7 @@ resource "aws_lambda_function" "bff_refresh" {
   function_name    = "convfinqa-${var.account_name}-bff-refresh"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "refresh.handler"
-  runtime          = "nodejs24.x"
+  runtime          = "nodejs22.x"
   filename         = data.archive_file.bff["refresh"].output_path
   source_code_hash = data.archive_file.bff["refresh"].output_base64sha256
   timeout          = 10
@@ -193,7 +193,7 @@ resource "aws_lambda_function" "bff_logout" {
   function_name    = "convfinqa-${var.account_name}-bff-logout"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "logout.handler"
-  runtime          = "nodejs24.x"
+  runtime          = "nodejs22.x"
   filename         = data.archive_file.bff["logout"].output_path
   source_code_hash = data.archive_file.bff["logout"].output_base64sha256
   timeout          = 10
@@ -217,7 +217,7 @@ resource "aws_lambda_function" "bff_post_confirmation" {
   function_name    = "convfinqa-${var.account_name}-bff-post-confirmation"
   role             = aws_iam_role.bff_lambda.arn
   handler          = "post_confirmation.handler"
-  runtime          = "nodejs24.x"
+  runtime          = "nodejs22.x"
   filename         = data.archive_file.bff["post_confirmation"].output_path
   source_code_hash = data.archive_file.bff["post_confirmation"].output_base64sha256
   timeout          = 10
