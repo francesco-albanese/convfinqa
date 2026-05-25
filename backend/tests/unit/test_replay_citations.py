@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.agent.replay import execute_and_replay_tools
 from convfinqa.application.agent.stream_events import Citation, ToolResult
 from convfinqa.domain.entities import Document
@@ -53,7 +54,9 @@ async def test_sql_query_with_matching_rows_yields_citation() -> None:
     seen: set = set()
 
     events = []
-    async for event in execute_and_replay_tools(tool_calls, [], parts, wire, _doc_with_table(), seen):
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+    ):
         events.append(event)
 
     citations = [e for e in events if isinstance(e, Citation)]
@@ -73,7 +76,9 @@ async def test_sql_query_with_zero_rows_yields_no_citation() -> None:
     seen: set = set()
 
     events = []
-    async for event in execute_and_replay_tools(tool_calls, [], parts, wire, _doc_with_table(), seen):
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+    ):
         events.append(event)
 
     tool_results = [e for e in events if isinstance(e, ToolResult)]
@@ -99,7 +104,9 @@ async def test_duplicate_citations_within_turn_are_deduplicated() -> None:
     seen: set = set()
 
     events = []
-    async for event in execute_and_replay_tools(tool_calls, [], parts, wire, _doc_with_table(), seen):
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+    ):
         events.append(event)
 
     citations = [e for e in events if isinstance(e, Citation)]
@@ -116,7 +123,9 @@ async def test_citation_part_added_to_parts_in_order() -> None:
     wire: list = []
     seen: set = set()
 
-    async for _ in execute_and_replay_tools(tool_calls, [], parts, wire, _doc_with_table(), seen):
+    async for _ in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+    ):
         pass
 
     citation_parts = [p for p in parts if p.get("kind") == "citation"]

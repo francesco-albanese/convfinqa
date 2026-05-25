@@ -42,6 +42,16 @@ resource "aws_iam_role_policy_attachment" "bff_lambda_ssm" {
   policy_arn = aws_iam_policy.ssm_read.arn
 }
 
+resource "aws_iam_role_policy_attachment" "bff_lambda_xray" {
+  role       = aws_iam_role.bff_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "bff_lambda_application_signals" {
+  role       = aws_iam_role.bff_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLambdaApplicationSignalsExecutionRolePolicy"
+}
+
 resource "aws_cloudwatch_log_group" "bff_login" {
   name              = "/aws/lambda/convfinqa-${var.account_name}-bff-login"
   retention_in_days = 7
@@ -114,9 +124,10 @@ resource "aws_lambda_function" "bff_login" {
   source_code_hash = data.archive_file.bff["login"].output_base64sha256
   timeout          = 10
   memory_size      = 128
+  layers           = [local.adot_nodejs_layer_arn]
 
   environment {
-    variables = local.bff_common_env
+    variables = merge(local.bff_common_env, local.bff_adot_env)
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_login]
@@ -137,9 +148,10 @@ resource "aws_lambda_function" "bff_callback" {
   source_code_hash = data.archive_file.bff["callback"].output_base64sha256
   timeout          = 15
   memory_size      = 128
+  layers           = [local.adot_nodejs_layer_arn]
 
   environment {
-    variables = merge(local.bff_common_env, {
+    variables = merge(local.bff_common_env, local.bff_adot_env, {
       DATABASE_URL = var.database_url
     })
   }
@@ -162,9 +174,10 @@ resource "aws_lambda_function" "bff_refresh" {
   source_code_hash = data.archive_file.bff["refresh"].output_base64sha256
   timeout          = 10
   memory_size      = 128
+  layers           = [local.adot_nodejs_layer_arn]
 
   environment {
-    variables = local.bff_common_env
+    variables = merge(local.bff_common_env, local.bff_adot_env)
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_refresh]
@@ -185,9 +198,10 @@ resource "aws_lambda_function" "bff_logout" {
   source_code_hash = data.archive_file.bff["logout"].output_base64sha256
   timeout          = 10
   memory_size      = 128
+  layers           = [local.adot_nodejs_layer_arn]
 
   environment {
-    variables = local.bff_common_env
+    variables = merge(local.bff_common_env, local.bff_adot_env)
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_logout]
@@ -208,11 +222,12 @@ resource "aws_lambda_function" "bff_post_confirmation" {
   source_code_hash = data.archive_file.bff["post_confirmation"].output_base64sha256
   timeout          = 10
   memory_size      = 128
+  layers           = [local.adot_nodejs_layer_arn]
 
   environment {
-    variables = {
+    variables = merge(local.bff_adot_env, {
       DATABASE_URL = var.database_url
-    }
+    })
   }
 
   depends_on = [aws_cloudwatch_log_group.bff_post_confirmation]

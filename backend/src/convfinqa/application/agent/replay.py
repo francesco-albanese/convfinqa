@@ -9,6 +9,7 @@ from convfinqa.application.agent.tool_executor import execute_tool
 from convfinqa.application.agent.tools import TOOL_REGISTRY, build_sql_query_tool
 from convfinqa.application.agent.wire import safe_json_loads
 from convfinqa.domain.entities import Document
+from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.logging import get_logger
 
 logger = get_logger("convfinqa.replay")
@@ -21,6 +22,7 @@ async def execute_and_replay_tools(
     wire_messages: list[dict[str, Any]],
     document: Document,
     seen_citations: set[tuple[str, str]],
+    observability: ObservabilityPort,
 ) -> AsyncGenerator[ToolResult | Citation]:
     tool_use_blocks: list[dict[str, Any]] = []
     tool_results_for_wire: list[dict[str, Any]] = []
@@ -31,20 +33,35 @@ async def execute_and_replay_tools(
 
         tool = TOOL_REGISTRY.get(tool_name)
         if tool is None:
-            result_str = json.dumps({"error": f"unknown tool: {tool_name}"})
+            async with observability.start_as_current_observation(
+                as_type="tool", name=tool_name
+            ) as span:
+                result_str = json.dumps({"error": f"unknown tool: {tool_name}"})
+                span.set_output(result_str)
+                span.set_error()
             is_error = True
         else:
             if tool.name == "sql_query":
                 tool = build_sql_query_tool(document)
-            result_str, is_error = await execute_tool(tool, raw_args)
+            result_str, is_error = await execute_tool(tool, raw_args, observability)
 
         yield ToolResult(call_id=call_id, result=result_str, is_error=is_error)
 
         parts_in_order.append(
-            {"kind": "tool_call", "call_id": call_id, "name": tool_name, "args": raw_args}
+            {
+                "kind": "tool_call",
+                "call_id": call_id,
+                "name": tool_name,
+                "args": raw_args,
+            }
         )
         parts_in_order.append(
-            {"kind": "tool_result", "call_id": call_id, "is_error": is_error, "result": result_str}
+            {
+                "kind": "tool_result",
+                "call_id": call_id,
+                "is_error": is_error,
+                "result": result_str,
+            }
         )
 
         if tool_name == "sql_query" and not is_error:
@@ -74,12 +91,21 @@ async def execute_and_replay_tools(
                         continue
                     seen_citations.add(pair)
                     parts_in_order.append(
-                        {"kind": "citation", "row_label": row_label, "col_label": col_label}
+                        {
+                            "kind": "citation",
+                            "row_label": row_label,
+                            "col_label": col_label,
+                        }
                     )
                     yield Citation(row_label=row_label, col_label=col_label)
 
         tool_use_blocks.append(
-            {"type": "tool_use", "id": call_id, "name": tool_name, "input": safe_json_loads(raw_args)}
+            {
+                "type": "tool_use",
+                "id": call_id,
+                "name": tool_name,
+                "input": safe_json_loads(raw_args),
+            }
         )
         tool_results_for_wire.append(
             {"role": "tool", "tool_call_id": call_id, "content": result_str}
@@ -87,7 +113,10 @@ async def execute_and_replay_tools(
 
     if assistant_thinking_blocks:
         wire_messages.append(
-            {"role": "assistant", "content": assistant_thinking_blocks + tool_use_blocks}
+            {
+                "role": "assistant",
+                "content": assistant_thinking_blocks + tool_use_blocks,
+            }
         )
     else:
         wire_messages.append(
@@ -98,7 +127,10 @@ async def execute_and_replay_tools(
                     {
                         "id": tb["id"],
                         "type": "function",
-                        "function": {"name": tb["name"], "arguments": json.dumps(tb["input"])},
+                        "function": {
+                            "name": tb["name"],
+                            "arguments": json.dumps(tb["input"]),
+                        },
                     }
                     for tb in tool_use_blocks
                 ],

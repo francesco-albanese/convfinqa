@@ -50,5 +50,13 @@ class Settings(BaseSettings):
     cognito_user_pool_id: str | None = Field(default=None)
     cognito_client_id: str | None = Field(default=None)
 
+    langfuse_enabled: bool = Field(default=True)
+    langfuse_public_key: str | None = Field(default=None)
+    langfuse_secret_key: str | None = Field(default=None)
+    langfuse_host: str = Field(default="https://cloud.langfuse.com")
+    environment: str = Field(default="dev")
+    otel_service_name: str = Field(default="convfinqa")
+    otel_exporter_otlp_endpoint: str | None = Field(default=None)
+
 
 SETTINGS = Settings()

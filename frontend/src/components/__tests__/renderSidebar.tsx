@@ -32,6 +32,7 @@ export function renderSidebar(
 				<Sidebar
 					collapsed={props.collapsed ?? false}
 					userId={props.userId ?? TEST_USER_ID}
+					email={props.email ?? null}
 					onToggleCollapse={props.onToggleCollapse ?? handlers.onToggleCollapse}
 					onNewConversation={
 						props.onNewConversation ?? handlers.onNewConversation

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 type SidebarProps = {
 	collapsed: boolean;
 	userId: string;
+	email: string | null;
 	onToggleCollapse: () => void;
 	onNewConversation: () => void;
 	onPickDocument: () => void;
@@ -17,6 +18,7 @@ type SidebarProps = {
 export function Sidebar({
 	collapsed,
 	userId,
+	email,
 	onToggleCollapse,
 	onNewConversation,
 	onPickDocument,
@@ -115,7 +117,12 @@ export function Sidebar({
 			</div>
 
 			<div className="border-border border-t px-2 pt-2">
-				<UserMenu userId={userId} collapsed={collapsed} onSignOut={onSignOut} />
+				<UserMenu
+					userId={userId}
+					email={email}
+					collapsed={collapsed}
+					onSignOut={onSignOut}
+				/>
 			</div>
 		</nav>
 	);

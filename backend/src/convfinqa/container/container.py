@@ -12,6 +12,7 @@ from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
+from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
 from convfinqa.domain.ports.session import SessionPort
@@ -32,6 +33,7 @@ class Container:
     get_document: GetDocumentUseCase
     list_chats: ListChatsUseCase
     get_chat_messages: GetChatMessagesUseCase
+    observability: ObservabilityPort
     cache: CachePort
     rate_limit: RateLimitPort
     session: SessionPort | None = None

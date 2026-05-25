@@ -41,3 +41,15 @@ variable "parent_zone_name" {
   type        = string
   default     = "francescoalbanese.dev"
 }
+
+variable "langfuse_enabled" {
+  description = "Whether to inject manually managed Langfuse SSM parameters into the ECS API task."
+  type        = bool
+  default     = false
+}
+
+variable "ssm_kms_key_arn" {
+  description = "Optional KMS key ARN used for SecureString SSM parameters; defaults to alias/aws/ssm."
+  type        = string
+  default     = null
+}

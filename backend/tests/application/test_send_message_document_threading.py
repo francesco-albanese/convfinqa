@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 
+from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.use_cases.send_message import (
     ConversationResolved,
     DocumentIdRequiredError,
@@ -96,7 +97,14 @@ class _FakeLLM:
     seen_systems: list[str] = field(default_factory=list[str])
 
     async def stream(
-        self, messages: Sequence[LLMMessage], system: str, tools: Any = None
+        self,
+        messages: Sequence[LLMMessage],
+        system: str,
+        tools: Any = None,
+        generation_name: str | None = None,
+        trace_user_id: str | None = None,
+        session_id: str | None = None,
+        environment: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         self.seen_systems.append(system)
         del messages, tools
@@ -126,6 +134,9 @@ def _build_use_case(
         documents=cast(DocumentRepository, docs),
         locks=cast(ConversationLockPort, _AlwaysAcquireLock()),
         system_prompt_framing="framing",
+        observability=NoOpLangfuseClient(),  # type: ignore[arg-type]
+        llm_model="test-model",
+        environment="test",
     )
 
 

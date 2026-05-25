@@ -11,6 +11,7 @@ function renderUserMenu(
 	render(
 		<UserMenu
 			userId={props.userId ?? "dev-user"}
+			email={props.email ?? null}
 			collapsed={props.collapsed ?? false}
 			onSignOut={onSignOut}
 		/>,
@@ -50,6 +51,22 @@ describe("UserMenu", () => {
 		expect(screen.getByText("francesco")).toBeVisible();
 	});
 
+	it("displays the email address when available", async () => {
+		const user = userEvent.setup();
+		renderUserMenu({
+			userId: "user-123",
+			email: "francesco@example.com",
+		});
+
+		expect(screen.getByText("FR")).toBeVisible();
+		expect(screen.getByText("francesco@example.com")).toBeVisible();
+
+		await user.click(screen.getByRole("button", { name: /open user menu/i }));
+
+		expect(await screen.findAllByText("francesco@example.com")).toHaveLength(2);
+		expect(screen.getByText("user-123")).toBeVisible();
+	});
+
 	it("opens the menu and exposes Theme and Sign out entries", async () => {
 		const user = userEvent.setup();
 		renderUserMenu();
@@ -84,6 +101,17 @@ describe("UserMenu", () => {
 		expect(
 			screen.getByRole("button", { name: /open user menu/i }),
 		).toBeInTheDocument();
+	});
+
+	it("hides the email label when collapsed but keeps email initials visible", () => {
+		renderUserMenu({
+			collapsed: true,
+			userId: "user-123",
+			email: "francesco@example.com",
+		});
+
+		expect(screen.queryByText("francesco@example.com")).not.toBeInTheDocument();
+		expect(screen.getByText("FR")).toBeVisible();
 	});
 
 	it("marks the current mode as the checked radio in the Theme submenu", async () => {

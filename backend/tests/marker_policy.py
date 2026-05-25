@@ -8,6 +8,7 @@ PATH_MARKERS: Final[dict[str, str]] = {
     "api": "integration",
     "entrypoints/api": "integration",
     "adapters": "integration",
+    "integration": "integration",
     "cli": "unit",
     "entrypoints/cli": "unit",
     "domain": "unit",

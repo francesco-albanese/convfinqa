@@ -35,7 +35,11 @@ async def test_tool_exception_returns_sanitized_message() -> None:
     secret = "SECRET_FILE_PATH=/internal/secret"
     tool = _make_exploding_tool(secret)
 
-    result_json, is_error = await _execute_tool(tool, '{"a": "1", "b": "2"}')
+    from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
+
+    result_json, is_error = await _execute_tool(
+        tool, '{"a": "1", "b": "2"}', NoOpLangfuseClient()  # type: ignore[arg-type]
+    )
 
     assert is_error is True
     result = json.loads(result_json)
