@@ -35,16 +35,19 @@ def test_processor_count(
         otel_exporter_otlp_endpoint=otel_endpoint,
     )
 
-    with patch(
-        "convfinqa.adapters.observability.tracer_provider.LangfuseSpanProcessor",
-        return_value=MagicMock(),
-        create=True,
-    ), patch(
-        "convfinqa.adapters.observability.tracer_provider.OTLPSpanExporter",
-        return_value=MagicMock(),
-    ), patch(
-        "convfinqa.adapters.observability.tracer_provider.BatchSpanProcessor",
-        return_value=MagicMock(),
+    with (
+        patch(
+            "langfuse._client.span_processor.LangfuseSpanProcessor",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "convfinqa.adapters.observability.tracer_provider.OTLPSpanExporter",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "convfinqa.adapters.observability.tracer_provider.BatchSpanProcessor",
+            return_value=MagicMock(),
+        ),
     ):
         provider = init_tracer_provider(settings)
 

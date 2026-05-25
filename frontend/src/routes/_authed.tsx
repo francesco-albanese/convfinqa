@@ -44,7 +44,7 @@ function AuthedLayout() {
 	const sheetOpen = useRightPanelSheetOpen();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
-	const { userId, status, signOut } = useAuth();
+	const { userId, email, status, signOut } = useAuth();
 	const isBelowLg = useIsBelowLg();
 	const sidebarShellRef = useRef<HTMLElement>(null);
 	const rightPanelShellRef = useRef<HTMLElement>(null);
@@ -169,6 +169,7 @@ function AuthedLayout() {
 				<Sidebar
 					collapsed={collapsed}
 					userId={userId ?? ""}
+					email={email}
 					onToggleCollapse={toggleSidebar}
 					onNewConversation={handleNewConversation}
 					onPickDocument={handlePickDocument}

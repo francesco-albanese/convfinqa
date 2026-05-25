@@ -10,6 +10,10 @@ data "aws_ec2_managed_prefix_list" "cloudfront" {
 }
 
 locals {
+  langfuse_configured       = var.langfuse_enabled
+  secure_string_kms_key_arn = coalesce(var.ssm_kms_key_arn, data.aws_kms_key.ssm.arn)
+  ssm_decrypt_kms_key_arns  = tolist(toset([data.aws_kms_key.ssm.arn, local.secure_string_kms_key_arn]))
+
   cloudwatch_agent_config = {
     traces = {
       traces_collected = {

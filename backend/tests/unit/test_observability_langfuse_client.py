@@ -58,24 +58,27 @@ def test_init_langfuse_returns_noop_when_disabled() -> None:
 async def test_langfuse_client_redacts_observation_payloads() -> None:
     exporter = InMemorySpanExporter()
     reset_tracer_provider_for_tests()
-    init_tracer_provider(
-        Settings(langfuse_enabled=True, environment="test"),
-        extra_processors=[SimpleSpanProcessor(exporter)],
-    )
-    client = init_langfuse(Settings(langfuse_enabled=True, environment="test"))
+    try:
+        init_tracer_provider(
+            Settings(langfuse_enabled=True, environment="test"),
+            extra_processors=[SimpleSpanProcessor(exporter)],
+        )
+        client = init_langfuse(Settings(langfuse_enabled=True, environment="test"))
 
-    async with client.start_as_current_observation(
-        as_type="tool",
-        name="sql_query",
-        input={"user_text": "What is revenue?", "api_key": "sk-secret"},
-    ) as span:
-        span.set_output('{"token": "secret-token", "rows": 3}')
+        async with client.start_as_current_observation(
+            as_type="tool",
+            name="sql_query",
+            input={"user_text": "What is revenue?", "api_key": "sk-secret"},
+        ) as span:
+            span.set_output('{"token": "secret-token", "rows": 3}')
 
-    [finished_span] = exporter.get_finished_spans()
-    attrs = finished_span.attributes or {}
-    assert attrs[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == (
-        f'{{"user_text": "{REDACTED}", "api_key": "{REDACTED}"}}'
-    )
-    assert attrs[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
-        f'{{"token": "{REDACTED}", "rows": 3}}'
-    )
+        [finished_span] = exporter.get_finished_spans()
+        attrs = finished_span.attributes or {}
+        assert attrs[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == (
+            f'{{"user_text": "{REDACTED}", "api_key": "{REDACTED}"}}'
+        )
+        assert attrs[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
+            f'{{"token": "{REDACTED}", "rows": 3}}'
+        )
+    finally:
+        reset_tracer_provider_for_tests()

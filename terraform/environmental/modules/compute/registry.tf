@@ -47,15 +47,28 @@ resource "aws_ssm_parameter" "bedrock_region" {
 resource "aws_ssm_parameter" "system_prompt_override" {
   count = var.system_prompt_override != "" ? 1 : 0
 
-  name  = "/convfinqa/${var.account_name}/system_prompt_override"
-  type  = "SecureString"
-  value = var.system_prompt_override
+  name   = "/convfinqa/${var.account_name}/system_prompt_override"
+  type   = "SecureString"
+  value  = var.system_prompt_override
+  key_id = local.secure_string_kms_key_arn
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"
     "franco:environment"     = var.account_name
     "franco:managed_by"      = "terraform"
   }
+}
+
+data "aws_ssm_parameter" "langfuse_public_key" {
+  count = local.langfuse_configured ? 1 : 0
+
+  name = "/convfinqa/${var.account_name}/langfuse_public_key"
+}
+
+data "aws_ssm_parameter" "langfuse_secret_key" {
+  count = local.langfuse_configured ? 1 : 0
+
+  name = "/convfinqa/${var.account_name}/langfuse_secret_key"
 }
 
 resource "aws_iam_policy" "ssm_read" {
@@ -77,7 +90,7 @@ resource "aws_iam_policy" "ssm_read" {
       {
         Effect   = "Allow"
         Action   = "kms:Decrypt"
-        Resource = data.aws_kms_key.ssm.arn
+        Resource = local.ssm_decrypt_kms_key_arns
       },
     ]
   })

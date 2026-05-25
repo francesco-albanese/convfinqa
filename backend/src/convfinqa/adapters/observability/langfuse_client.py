@@ -16,7 +16,7 @@ from convfinqa.domain.ports.observability import ObservabilityPort, Observabilit
 
 def _serialize_redacted(value: Any) -> str:
     redacted = mask(value)
-    return redacted if isinstance(redacted, str) else json.dumps(redacted)
+    return redacted if isinstance(redacted, str) else json.dumps(redacted, default=str)
 
 
 class _OtelSpanWrapper:
@@ -71,8 +71,8 @@ class LangfuseClient:
                 redacted = mask(value)
                 serialized = (
                     redacted
-                    if isinstance(redacted, (str, int))
-                    else json.dumps(redacted)
+                    if isinstance(redacted, (str, int, float, bool))
+                    else json.dumps(redacted, default=str)
                 )
                 span.set_attribute(attr_key, serialized)
         if tags is not None:

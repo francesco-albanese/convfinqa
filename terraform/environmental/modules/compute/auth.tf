@@ -109,9 +109,10 @@ resource "aws_ssm_parameter" "cognito_client_id" {
 }
 
 resource "aws_ssm_parameter" "cognito_client_secret" {
-  name  = "/convfinqa/${var.account_name}/cognito_client_secret"
-  type  = "SecureString"
-  value = aws_cognito_user_pool_client.app.client_secret
+  name   = "/convfinqa/${var.account_name}/cognito_client_secret"
+  type   = "SecureString"
+  value  = aws_cognito_user_pool_client.app.client_secret
+  key_id = local.secure_string_kms_key_arn
 
   tags = {
     Name = "convfinqa-cognito-client-secret"

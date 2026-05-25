@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -157,9 +157,17 @@ class _RecordingObservability:
 
     @asynccontextmanager
     async def start_as_current_observation(
-        self, as_type: str, name: str, input: dict[str, Any] | None = None
-    ) -> AsyncIterator[_RecordedSpan]:
-        call = {"as_type": as_type, "name": name, "input": input}
+        self,
+        as_type: str,
+        name: str,
+        input_data: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[_RecordedSpan]:
+        if "input" in kwargs:
+            input_data = kwargs.pop("input")
+        if kwargs:
+            raise TypeError(f"unexpected observation kwargs: {sorted(kwargs)}")
+        call = {"as_type": as_type, "name": name, "input": input_data}
         self.calls.append(call)
         yield _RecordedSpan(call)
 

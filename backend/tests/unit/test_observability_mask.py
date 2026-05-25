@@ -52,7 +52,7 @@ from convfinqa.adapters.observability.mask import REDACTED, mask
             {"private_key": REDACTED},
         ),
         (
-            {"token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.abc"},
+            {"token": "FAKE_TOKEN_PLACEHOLDER"},
             {"token": REDACTED},
         ),
         (

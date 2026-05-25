@@ -121,21 +121,25 @@ class SendMessageUseCase:
             name="send_message",
             input={"user_text": user_text, "document_id": document_id},
         ) as span:
-            conversation, document = await self._resolve_conversation_and_document(
-                conversation_id, user_id, document_id
-            )
-            self._observability.propagate_attributes(
-                user_id=str(user_id),
-                session_id=conversation.id,
-                metadata={"document_id": document.id, "llm_model": self._llm_model},
-                tags=[f"environment:{self._environment}"],
-            )
-            system_prompt = (
-                build_system_prompt(self._framing, document)
-                + "\n\n"
-                + build_tool_docs()
-            )
-            tool_specs = build_tool_specs()
+            try:
+                conversation, document = await self._resolve_conversation_and_document(
+                    conversation_id, user_id, document_id
+                )
+                self._observability.propagate_attributes(
+                    user_id=str(user_id),
+                    session_id=conversation.id,
+                    metadata={"document_id": document.id, "llm_model": self._llm_model},
+                    tags=[f"environment:{self._environment}"],
+                )
+                system_prompt = (
+                    build_system_prompt(self._framing, document)
+                    + "\n\n"
+                    + build_tool_docs()
+                )
+                tool_specs = build_tool_specs()
+            except Exception:
+                span.set_error()
+                raise
 
             async with self._locks.try_acquire(conversation.id) as acquired:
                 if not acquired:
