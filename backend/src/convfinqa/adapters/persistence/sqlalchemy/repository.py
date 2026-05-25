@@ -53,6 +53,9 @@ def new_conversation_id() -> str:
 
 def _to_message(orm: MessageOrm) -> Message:
     stop = StopReason(orm.stop_reason) if orm.stop_reason else None
+    sigs: dict[str, str] | None = None
+    if orm.reasoning_signatures is not None:
+        sigs = {k: str(v) for k, v in orm.reasoning_signatures.items()}
     return Message(
         id=orm.id,
         conversation_id=orm.conversation_id,
@@ -61,6 +64,7 @@ def _to_message(orm: MessageOrm) -> Message:
         created_at=orm.created_at,
         stop_reason=stop,
         parts=orm.parts,
+        reasoning_signatures=sigs,
     )
 
 
@@ -141,6 +145,7 @@ class SqlAlchemyConversationRepository:
                 stop_reason=message.stop_reason.value if message.stop_reason else None,
                 created_at=message.created_at,
                 parts=message.parts,
+                reasoning_signatures=message.reasoning_signatures,
             )
             session.add(orm)
             await session.commit()

@@ -315,7 +315,9 @@ PARTS_ENVELOPE = {
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def conversation_with_parts(engine: AsyncEngine, two_users_three_chats: None) -> None:
+async def conversation_with_parts(
+    engine: AsyncEngine, two_users_three_chats: None
+) -> None:
     del two_users_three_chats
     base = datetime(2026, 5, 2, 10, 0, tzinfo=UTC)
     await _insert_conversation(engine, CONV_ALICE_PARTS, ALICE_UUID, DOC_AAA, base)
@@ -344,7 +346,9 @@ async def test_get_chat_messages_legacy_row_returns_parts_null(
     assert response.status_code == 200
     items = response.json()["items"]
     for msg in items:
-        assert msg["parts"] is None, f"expected parts=null for legacy row, got {msg['parts']!r}"
+        assert msg["parts"] is None, (
+            f"expected parts=null for legacy row, got {msg['parts']!r}"
+        )
 
 
 @pytest.mark.asyncio

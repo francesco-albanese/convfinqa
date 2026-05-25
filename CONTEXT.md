@@ -71,7 +71,9 @@ One typed payload produced by the Agent Loop and consumed by the SSE encoder. To
 The on-the-wire SSE format consumed by the frontend. Vercel AI SDK "UI Message Stream v1" framing (`type: text-delta` / `type: finish` / `type: data-*`). The Agent Loop's domain Stream Events are translated into UI Message Stream parts in `entrypoints/api/sse.py` and nowhere else.
 
 **Sensitive payload**:
-Data the backend produces but MUST NOT cross the SSE boundary. Today: the system prompt, the Anthropic reasoning signature, internal connection strings, and any raw tool error message that quotes server state (file paths, SQL execution plans). Tool input args and tool output values themselves are NOT sensitive — they're the point of the reasoning trace.
+Data the backend produces but MUST NOT cross the SSE boundary to browsers. Today: the system prompt, the Anthropic reasoning signature, internal connection strings, and any raw tool error message that quotes server state (file paths, SQL execution plans). Tool input args and tool output values themselves are NOT sensitive — they're the point of the reasoning trace.
+
+The **SSE wire** is the threat surface this rule covers. Server-to-server destinations (Langfuse SaaS via OTLP) are NOT the same surface — system prompts and reasoning signatures are forwarded there intentionally so a Trace can reconstruct a Turn. Cookies, Authorization headers, JWTs, and AWS credentials are masked before leaving the process regardless of destination (see Observability section).
 
 ### Persistence
 
@@ -98,6 +100,29 @@ Hard limit of 10 LLM↔tool iterations per user Turn. Dataset programs chain at 
 **Code execution backend**:
 Optional `python_exec(code) → stdout` tool, switched by `CODE_EXEC_BACKEND=disabled | agentcore | lambda`. Default `disabled`; the deterministic Math Tool catalog covers 99.97% of the dataset (ADR-0005). When enabled, AgentCore is the AWS-managed option (Firecracker microVM, per-session); Lambda is the DIY locked-execution-role option. Not in scope for the agent-architecture epic; tracked in beads epic `convfinqa-gyv`.
 
+### Observability
+
+**Trace**:
+One user Turn's end-to-end execution in Langfuse, rooted at the FastAPI request span (`POST /api/v1/chat/stream`). Contains nested Observations: one Agent span, 1–10 Generations, zero-or-more Tool spans. Identified by an OpenTelemetry trace_id. A Conversation produces one Trace per Turn.
+
+**Observation**:
+Langfuse umbrella term for any timed unit inside a Trace. The types we use: `span`, `generation`, `agent`, `tool`. Other Langfuse-defined types (`event`, `chain`, `retriever`, `evaluator`, `embedding`, `guardrail`) are not used today.
+
+**Generation**:
+Langfuse Observation type for one `litellm.acompletion(...)` call. Emitted automatically by the LiteLLM `langfuse_otel` callback. Carries model, full input messages, assembled output (text + reasoning + tool_calls), token usage, finish_reason, latency, time-to-first-token. One Turn produces 1–10 Generations (one per agent-loop iteration, bounded by `ITERATION_CAP`).
+
+**Tool span**:
+Langfuse Observation of type `tool` wrapping one math or `sql_query` invocation inside the agent loop. Input = parsed tool args; output = tool result (Decimal string for math, `list[dict]` for sql_query, or the error message on tool failure).
+
+**Agent span**:
+Langfuse Observation of type `agent` wrapping the body of `SendMessageUseCase.stream(...)`. Carries `trace_user_id` (= `users.id`), `session_id` (= `conversation_id`), and trace-level metadata (document_id, llm_model, stop_reason, total tokens, total cost). Parent of all Generations and Tool spans in the Trace.
+
+**Session** (Langfuse):
+Langfuse grouping that collects all Traces sharing a `session_id`. We bind `session_id = conversation_id`, so one Conversation = one Langfuse Session = N Traces (one per Turn).
+
+**trace_user_id**:
+Langfuse field that joins all of a user's Traces across all Sessions. Bound to `users.id` (UUID), resolved by auth middleware from `cognito_sub`. NOT email, NOT cognito_sub — keeps Langfuse free of Cognito-specific identifiers and PII.
+
 ## Flagged ambiguities
 
 **"reasoning step" (mockup language) vs Reasoning (backend term)**:
@@ -114,6 +139,7 @@ Cosmetic label the UI shows while a Reasoning block is still streaming. Not a di
 - [ADR-0004](docs/adr/0004-persistence-parts-and-reasoning-signatures.md) — Two-column trace persistence: `messages.parts` JSONB (served) + `messages.reasoning_signatures` JSONB (server-only)
 - [ADR-0005](docs/adr/0005-sandboxed-code-exec-deferred.md) — Sandboxed code execution deferred behind `CODE_EXEC_BACKEND=disabled` flag stub
 - [ADR-0006](docs/adr/0006-prompts-and-tool-docs-split.md) — System prompt and tool docs are separate modules; Tools invocable from pydantic schemas alone
+- [ADR-0007](docs/adr/0007-observability-langfuse-and-application-signals.md) — Observability: Langfuse 4.x for LLM + CloudWatch Application Signals via ADOT sidecar for infra, dual-export through a single OTel TracerProvider; manual context-manager spans in the use case (not `@observe`) because of async-generator + StreamingResponse bugs
 
 Follow-up work tracked in beads epic [`convfinqa-gyv`](#) — evals & adversarial test harness.
 

@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -96,10 +96,10 @@ class _FakeLLM:
     seen_systems: list[str] = field(default_factory=list[str])
 
     async def stream(
-        self, messages: Sequence[LLMMessage], system: str
+        self, messages: Sequence[LLMMessage], system: str, tools: Any = None
     ) -> AsyncIterator[LLMChunk]:
         self.seen_systems.append(system)
-        del messages
+        del messages, tools
         for d in self.deltas:
             yield LLMChunk(text=d)
 

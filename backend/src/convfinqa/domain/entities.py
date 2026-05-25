@@ -14,6 +14,7 @@ class Message:
     created_at: datetime
     stop_reason: StopReason | None = None
     parts: dict[str, object] | None = None
+    reasoning_signatures: dict[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)

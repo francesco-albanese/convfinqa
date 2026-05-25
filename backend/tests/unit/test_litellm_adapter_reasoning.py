@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from convfinqa.adapters.llm.litellm_adapter import LiteLLMAdapter
-from convfinqa.domain.ports.llm import LLMChunk, LLMMessage
+from convfinqa.domain.ports.llm import LLMChunk
 
 
 @dataclass
@@ -18,6 +18,7 @@ class _FakeDelta:
 @dataclass
 class _FakeChoice:
     delta: _FakeDelta = field(default_factory=_FakeDelta)
+    finish_reason: str | None = None
 
 
 @dataclass
@@ -46,7 +47,7 @@ async def _collect(adapter: LiteLLMAdapter, chunks: list[_FakeChunk]) -> list[LL
     async def _open_stream_stub(*args: Any, **kwargs: Any) -> AsyncIterator[_FakeChunk]:
         return _fake_stream()
 
-    messages = [LLMMessage(role="user", content="hello")]
+    messages = [{"role": "user", "content": "hello"}]
     with patch(
         "convfinqa.adapters.llm.litellm_adapter._open_stream",
         new=AsyncMock(side_effect=_open_stream_stub),
@@ -133,9 +134,8 @@ async def test_anthropic_signature_field_never_appears_in_emitted_chunks() -> No
 
     @dataclass
     class _FakeChoiceWithSig:
-        delta: _FakeDeltaWithSignature = field(
-            default_factory=_FakeDeltaWithSignature
-        )
+        delta: _FakeDeltaWithSignature = field(default_factory=_FakeDeltaWithSignature)
+        finish_reason: str | None = None
 
     chunks_with_sig: list[_FakeChunk] = [
         _FakeChunk(choices=[_FakeChoiceWithSig(delta=delta_with_sig)]),  # type: ignore[list-item]
@@ -190,7 +190,7 @@ async def test_gemini_model_does_not_pass_thinking_param() -> None:
         captured_kwargs.update(kwargs)
         return _fake_stream()
 
-    messages = [LLMMessage(role="user", content="hello")]
+    messages = [{"role": "user", "content": "hello"}]
     with patch(
         "convfinqa.adapters.llm.litellm_adapter._open_stream",
         new=AsyncMock(side_effect=_open_stream_stub),
@@ -220,7 +220,7 @@ async def test_anthropic_model_passes_thinking_param() -> None:
         captured_kwargs.update(kwargs)
         return _fake_stream()
 
-    messages = [LLMMessage(role="user", content="hello")]
+    messages = [{"role": "user", "content": "hello"}]
     with patch(
         "convfinqa.adapters.llm.litellm_adapter._open_stream",
         new=AsyncMock(side_effect=_open_stream_stub),
