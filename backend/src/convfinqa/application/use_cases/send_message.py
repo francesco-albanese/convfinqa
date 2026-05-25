@@ -216,12 +216,32 @@ class SendMessageUseCase:
 
             except GeneratorExit:
                 stop_reason = StopReason.INTERRUPTED
+                disconnect_parts: list[dict[str, Any]] = []
+                if reasoning_buffer and current_reasoning_id is not None:
+                    disconnect_parts.append(
+                        {
+                            "kind": "reasoning",
+                            "id": current_reasoning_id,
+                            "content": "".join(reasoning_buffer),
+                        }
+                    )
+                if current_text_buffer:
+                    disconnect_parts.append(
+                        {"kind": "text", "content": "".join(current_text_buffer)}
+                    )
+                if not disconnect_parts and buffered:
+                    disconnect_parts = [
+                        {"kind": "text", "content": "".join(buffered)}
+                    ]
+                disconnect_envelope = (
+                    build_envelope(disconnect_parts) if disconnect_parts else None
+                )
                 await self._persist_assistant(
                     conversation.id,
                     assistant_id,
                     "".join(buffered),
                     stop_reason,
-                    parts=None,
+                    parts=disconnect_envelope,
                 )
                 raise
             except Exception as exc:  # noqa: BLE001

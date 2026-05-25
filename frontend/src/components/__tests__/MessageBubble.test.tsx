@@ -139,7 +139,7 @@ describe("MessageBubble", () => {
 
 			const toggle = screen.getByRole("button", { name: /thinking/i });
 			expect(toggle).toHaveAttribute("aria-expanded", "false");
-			expect(screen.queryByText("some thought")).not.toBeInTheDocument();
+			expect(screen.getByText("some thought")).not.toBeVisible();
 		});
 
 		it("starts expanded while streaming", () => {
@@ -165,13 +165,13 @@ describe("MessageBubble", () => {
 			render(<MessageBubble message={message} />);
 
 			const toggle = screen.getByRole("button", { name: /thinking/i });
-			expect(screen.queryByText("hidden thought")).not.toBeInTheDocument();
+			expect(screen.getByText("hidden thought")).not.toBeVisible();
 
 			await user.click(toggle);
 			expect(screen.getByText("hidden thought")).toBeVisible();
 
 			await user.click(toggle);
-			expect(screen.queryByText("hidden thought")).not.toBeInTheDocument();
+			expect(screen.getByText("hidden thought")).not.toBeVisible();
 		});
 
 		it("does not render any Thinking toggle when there are no reasoning parts", () => {

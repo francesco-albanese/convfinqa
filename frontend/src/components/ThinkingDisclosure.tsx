@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type ThinkingDisclosureProps = {
@@ -11,6 +11,7 @@ export function ThinkingDisclosure({
 	isStreaming = false,
 }: ThinkingDisclosureProps) {
 	const [open, setOpen] = useState(isStreaming);
+	const panelId = useId();
 
 	useEffect(() => {
 		if (!isStreaming) {
@@ -29,6 +30,7 @@ export function ThinkingDisclosure({
 					"focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
 				)}
 				aria-expanded={open}
+				aria-controls={panelId}
 			>
 				<span
 					aria-hidden="true"
@@ -46,11 +48,13 @@ export function ThinkingDisclosure({
 					</span>
 				)}
 			</button>
-			{open && (
-				<div className="border-t border-border/50 px-3 py-2 font-mono text-muted-foreground text-xs leading-relaxed whitespace-pre-wrap">
-					{text}
-				</div>
-			)}
+			<div
+				id={panelId}
+				hidden={!open}
+				className="border-t border-border/50 px-3 py-2 font-mono text-muted-foreground text-xs leading-relaxed whitespace-pre-wrap"
+			>
+				{text}
+			</div>
 		</div>
 	);
 }

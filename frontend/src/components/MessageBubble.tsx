@@ -53,10 +53,11 @@ export function MessageBubble({
 					"prose-headings:font-semibold",
 				)}
 			>
-				{message.parts.map((part) =>
+				{message.parts.map((part, idx) =>
 					isReasoningUIPart(part) ? (
 						<ThinkingDisclosure
-							key={`${message.id}-${message.parts.indexOf(part)}`}
+							// biome-ignore lint/suspicious/noArrayIndexKey: ReasoningUIPart has no stable id; parts order is immutable after stream ends
+							key={`${message.id}-${idx}`}
 							text={part.text}
 							isStreaming={part.state === "streaming"}
 						/>
