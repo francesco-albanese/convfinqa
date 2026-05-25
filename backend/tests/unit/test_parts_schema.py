@@ -52,7 +52,7 @@ def test_parts_array_over_256_items_truncated_to_256() -> None:
         {"kind": "text", "content": f"item {i}"} for i in range(PARTS_MAX_COUNT + 10)
     ]
     result = build_envelope(parts)
-    assert len(result["parts"]) <= PARTS_MAX_COUNT
+    assert len(result["parts"]) == PARTS_MAX_COUNT
 
 
 def test_missing_kind_discriminator_raises_validation_error() -> None:

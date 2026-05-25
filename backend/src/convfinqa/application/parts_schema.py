@@ -79,13 +79,15 @@ def _truncate(text: str, max_bytes: int) -> str:
 
 def _truncate_envelope_total(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
-    accumulated = 0
     for part in parts:
-        serialized = json.dumps(part, separators=(",", ":")).encode("utf-8")
-        if accumulated + len(serialized) > ENVELOPE_MAX_BYTES:
+        candidate = [*result, part]
+        envelope_bytes = json.dumps(
+            {"schema_version": 1, "parts": candidate},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if len(envelope_bytes) > ENVELOPE_MAX_BYTES:
             break
         result.append(part)
-        accumulated += len(serialized)
     return result
 
 

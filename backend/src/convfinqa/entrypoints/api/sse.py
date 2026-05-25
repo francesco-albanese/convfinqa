@@ -43,8 +43,10 @@ def _frame(payload: dict[str, object]) -> str:
 
 def _safe_json(raw: str) -> object:
     """Parse JSON safely; return the raw string on failure rather than crashing."""
+    if raw == "":
+        return raw
     try:
-        return json.loads(raw) if raw else {}
+        return json.loads(raw)
     except (json.JSONDecodeError, ValueError):
         return raw
 

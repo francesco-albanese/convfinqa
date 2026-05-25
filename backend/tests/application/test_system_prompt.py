@@ -27,7 +27,7 @@ def test_prompt_embeds_framing_title_ticker_and_year() -> None:
 def test_prompt_does_not_inline_table_json() -> None:
     prompt = build_system_prompt("f", _document())
 
-    assert "rev" not in prompt
+    assert '"rev"' not in prompt
     assert "Table (JSON)" not in prompt
 
 

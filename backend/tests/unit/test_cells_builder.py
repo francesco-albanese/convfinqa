@@ -55,7 +55,9 @@ def test_column_order_controls_iteration() -> None:
         column_order=("B", "A"),
     )
     conn = build_cells_db(doc)
-    rows = conn.execute("SELECT col_label FROM cells WHERE row_label='x'").fetchall()
+    rows = conn.execute(
+        "SELECT col_label FROM cells WHERE row_label='x' ORDER BY rowid"
+    ).fetchall()
     col_labels = [r[0] for r in rows]
     assert col_labels == ["B", "A"]
 
