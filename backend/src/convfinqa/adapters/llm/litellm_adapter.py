@@ -8,6 +8,8 @@ from convfinqa.domain.value_objects import Usage
 from convfinqa.logging import get_logger
 
 LITELLM_LOG = get_logger("convfinqa.llm")
+MIN_THINKING_BUDGET_TOKENS = 1024
+DEFAULT_THINKING_BUDGET_TOKENS = 8000
 
 
 def _attach_cost_to_current_generation(
@@ -178,6 +180,19 @@ class LiteLLMAdapter:
     def _wants_thinking(self) -> bool:
         return "anthropic" in self._model or "bedrock" in self._model
 
+    def _thinking_param(self) -> dict[str, Any] | None:
+        if not self._wants_thinking():
+            return None
+        if self._max_output_tokens <= MIN_THINKING_BUDGET_TOKENS:
+            return None
+        return {
+            "type": "enabled",
+            "budget_tokens": min(
+                DEFAULT_THINKING_BUDGET_TOKENS,
+                self._max_output_tokens - 1,
+            ),
+        }
+
     async def stream(
         self,
         messages: Sequence[dict[str, Any]],
@@ -191,9 +206,7 @@ class LiteLLMAdapter:
         wire_messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         wire_messages.extend(messages)
 
-        thinking_param: dict[str, Any] | None = None
-        if self._wants_thinking():
-            thinking_param = {"type": "enabled", "budget_tokens": 8000}
+        thinking_param = self._thinking_param()
 
         litellm_tools = [_tool_spec_to_litellm(t) for t in tools] if tools else None
 

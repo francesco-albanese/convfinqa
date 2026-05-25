@@ -33,9 +33,13 @@ class _FakeChunk:
     usage: _FakeUsage | None = None
 
 
-def _make_adapter(model: str = "openai/gpt-4o") -> LiteLLMAdapter:
+def _make_adapter(
+    model: str = "openai/gpt-4o", max_output_tokens: int = 1024
+) -> LiteLLMAdapter:
     return LiteLLMAdapter(
-        model=model, request_timeout_seconds=30.0, max_output_tokens=1024
+        model=model,
+        request_timeout_seconds=30.0,
+        max_output_tokens=max_output_tokens,
     )
 
 
@@ -204,7 +208,7 @@ async def test_gemini_model_does_not_pass_thinking_param() -> None:
 
 
 @pytest.mark.asyncio
-async def test_anthropic_model_passes_thinking_param() -> None:
+async def test_anthropic_model_omits_thinking_when_max_tokens_cannot_fit_budget() -> None:
     chunks: list[_FakeChunk] = [
         _FakeChunk(choices=[_FakeChoice(_FakeDelta(content="hi"))]),
     ]
@@ -227,9 +231,39 @@ async def test_anthropic_model_passes_thinking_param() -> None:
     ):
         [c async for c in adapter.stream(messages, "system")]
 
+    assert captured_kwargs.get("thinking") is None
+
+
+@pytest.mark.asyncio
+async def test_anthropic_model_caps_thinking_budget_below_max_tokens() -> None:
+    chunks: list[_FakeChunk] = [
+        _FakeChunk(choices=[_FakeChoice(_FakeDelta(content="hi"))]),
+    ]
+    adapter = _make_adapter(
+        model="bedrock/anthropic.claude-haiku-4-5",
+        max_output_tokens=2048,
+    )
+
+    captured_kwargs: dict[str, Any] = {}
+
+    async def _fake_stream() -> AsyncIterator[_FakeChunk]:
+        for chunk in chunks:
+            yield chunk
+
+    async def _open_stream_stub(*args: Any, **kwargs: Any) -> AsyncIterator[_FakeChunk]:
+        captured_kwargs.update(kwargs)
+        return _fake_stream()
+
+    messages = [{"role": "user", "content": "hello"}]
+    with patch(
+        "convfinqa.adapters.llm.litellm_adapter._open_stream",
+        new=AsyncMock(side_effect=_open_stream_stub),
+    ):
+        [c async for c in adapter.stream(messages, "system")]
+
     assert captured_kwargs.get("thinking") == {
         "type": "enabled",
-        "budget_tokens": 8000,
+        "budget_tokens": 2047,
     }
 
 
