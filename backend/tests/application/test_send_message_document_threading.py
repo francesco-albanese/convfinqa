@@ -97,7 +97,14 @@ class _FakeLLM:
     seen_systems: list[str] = field(default_factory=list[str])
 
     async def stream(
-        self, messages: Sequence[LLMMessage], system: str, tools: Any = None
+        self,
+        messages: Sequence[LLMMessage],
+        system: str,
+        tools: Any = None,
+        generation_name: str | None = None,
+        trace_user_id: str | None = None,
+        session_id: str | None = None,
+        environment: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         self.seen_systems.append(system)
         del messages, tools

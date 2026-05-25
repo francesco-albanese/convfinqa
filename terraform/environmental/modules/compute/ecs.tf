@@ -48,6 +48,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_ssm" {
   policy_arn = aws_iam_policy.ssm_read.arn
 }
 
+resource "aws_iam_role_policy_attachment" "ecs_task_cloudwatch_agent" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_role_policy" "ecs_task_bedrock" {
   name = "bedrock-invoke"
   role = aws_iam_role.ecs_task.id
@@ -125,34 +130,61 @@ resource "aws_ecs_task_definition" "api" {
   task_role_arn            = aws_iam_role.ecs_task.arn
   execution_role_arn       = aws_iam_role.ecs_execution.arn
 
-  container_definitions = jsonencode([{
-    name      = "api"
-    image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
-    essential = true
+  container_definitions = jsonencode([
+    {
+      name      = "api"
+      image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
+      essential = true
 
-    portMappings = [{ containerPort = 8000, protocol = "tcp" }]
+      portMappings = [{ containerPort = 8000, protocol = "tcp" }]
 
-    environment = [
-      { name = "API_HOST", value = "0.0.0.0" },
-      { name = "API_PORT", value = "8000" },
-      { name = "COGNITO_REGION", value = data.aws_region.current.id },
-    ]
+      environment = [
+        { name = "API_HOST", value = "0.0.0.0" },
+        { name = "API_PORT", value = "8000" },
+        { name = "COGNITO_REGION", value = data.aws_region.current.id },
+        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4317" },
+        { name = "OTEL_SERVICE_NAME", value = "convfinqa" },
+        { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.namespace=convfinqa,environment=${var.account_name},aws.log.group.names=${aws_cloudwatch_log_group.ecs.name}" },
+      ]
 
-    secrets = [
-      { name = "DATABASE_URL", valueFrom = "/convfinqa/${var.account_name}/database_url" },
-      { name = "COGNITO_USER_POOL_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_user_pool_id" },
-      { name = "COGNITO_CLIENT_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_client_id" },
-    ]
+      secrets = [
+        { name = "DATABASE_URL", valueFrom = "/convfinqa/${var.account_name}/database_url" },
+        { name = "COGNITO_USER_POOL_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_user_pool_id" },
+        { name = "COGNITO_CLIENT_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_client_id" },
+        { name = "LANGFUSE_PUBLIC_KEY", valueFrom = aws_ssm_parameter.langfuse_public_key.name },
+        { name = "LANGFUSE_SECRET_KEY", valueFrom = aws_ssm_parameter.langfuse_secret_key.name },
+      ]
 
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
-        "awslogs-region"        = data.aws_region.current.id
-        "awslogs-stream-prefix" = "api"
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-region"        = data.aws_region.current.id
+          "awslogs-stream-prefix" = "api"
+        }
       }
-    }
-  }])
+    },
+    {
+      name              = "cloudwatch-agent"
+      image             = "public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest"
+      essential         = true
+      memory            = 64
+      memoryReservation = 32
+
+      environment = [
+        { name = "CW_CONFIG_CONTENT", value = jsonencode(local.cloudwatch_agent_config) },
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-region"        = data.aws_region.current.id
+          "awslogs-stream-prefix" = "cloudwatch-agent"
+        }
+      }
+    },
+  ])
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"

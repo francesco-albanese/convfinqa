@@ -7,7 +7,10 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.observability.langfuse_client import init_langfuse
-from convfinqa.adapters.observability.tracer_provider import init_tracer_provider
+from convfinqa.adapters.observability.tracer_provider import (
+    init_tracer_provider,
+    reset_tracer_provider_for_tests,
+)
 from convfinqa.config import Settings
 from convfinqa.container import for_testing
 from convfinqa.container.bootstrap import Container
@@ -26,6 +29,7 @@ async def observability_container(
     # writes OTel spans; no keys means no LangfuseSpanProcessor is added, only
     # our test exporter captures the spans.
     settings = Settings(langfuse_enabled=True, environment="test")
+    reset_tracer_provider_for_tests()
     init_tracer_provider(settings, extra_processors=[SimpleSpanProcessor(exporter)])
     observability = init_langfuse(settings)
     fake_llm = FakeLLMPort()

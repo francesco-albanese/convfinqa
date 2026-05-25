@@ -7,6 +7,11 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from convfinqa.config import Settings
 
 
+def reset_tracer_provider_for_tests() -> None:
+    trace._TRACER_PROVIDER = None  # pyright: ignore[reportPrivateUsage]
+    trace._TRACER_PROVIDER_SET_ONCE._done = False  # pyright: ignore[reportPrivateUsage]
+
+
 def init_tracer_provider(
     settings: Settings,
     extra_processors: list[SpanProcessor] | None = None,
@@ -20,7 +25,11 @@ def init_tracer_provider(
     )
     provider = TracerProvider(resource=resource)
 
-    if settings.langfuse_enabled and settings.langfuse_public_key and settings.langfuse_secret_key:
+    if (
+        settings.langfuse_enabled
+        and settings.langfuse_public_key
+        and settings.langfuse_secret_key
+    ):
         # LangfuseSpanProcessor is in a private submodule in langfuse 4.x;
         # it extends BatchSpanProcessor and wires Langfuse's OTel ingestion.
         from langfuse._client.span_processor import (
@@ -36,9 +45,7 @@ def init_tracer_provider(
         )
 
     if settings.otel_exporter_otlp_endpoint:
-        otlp_exporter = OTLPSpanExporter(
-            endpoint=settings.otel_exporter_otlp_endpoint
-        )
+        otlp_exporter = OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint)
         provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
 
     if extra_processors:

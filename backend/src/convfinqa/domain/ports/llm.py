@@ -39,4 +39,8 @@ class LLMPort(Protocol):
         messages: Sequence[dict[str, Any]],
         system: str,
         tools: Sequence[LLMToolSpec] | None = None,
+        generation_name: str | None = None,
+        trace_user_id: str | None = None,
+        session_id: str | None = None,
+        environment: str | None = None,
     ) -> AsyncIterator[LLMChunk]: ...

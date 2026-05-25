@@ -36,6 +36,20 @@ variable "app_domain" {
   type        = string
 }
 
+variable "langfuse_public_key" {
+  description = "Langfuse public key stored as an SSM SecureString."
+  type        = string
+  sensitive   = true
+  default     = "replace-with-langfuse-public-key"
+}
+
+variable "langfuse_secret_key" {
+  description = "Langfuse secret key stored as an SSM SecureString."
+  type        = string
+  sensitive   = true
+  default     = "replace-with-langfuse-secret-key"
+}
+
 variable "parent_zone_name" {
   description = "Name of the Route53 hosted zone in shared-services that will receive ACM validation CNAMEs (e.g. francescoalbanese.dev)"
   type        = string

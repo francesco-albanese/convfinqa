@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 from convfinqa.domain.ports.llm import LLMChunk, LLMMessage
 from convfinqa.domain.value_objects import Usage
@@ -25,6 +26,11 @@ class FakeLLMPort:
         self,
         messages: Sequence[LLMMessage],
         system: str,
+        tools: Any = None,
+        generation_name: str | None = None,
+        trace_user_id: str | None = None,
+        session_id: str | None = None,
+        environment: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         self.seen_messages.append(list(messages))
         self.seen_systems.append(system)

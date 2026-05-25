@@ -58,6 +58,40 @@ resource "aws_ssm_parameter" "system_prompt_override" {
   }
 }
 
+resource "aws_ssm_parameter" "langfuse_public_key" {
+  name        = "/convfinqa/${var.account_name}/langfuse_public_key"
+  description = "Langfuse public key for the ConvFinQA backend."
+  type        = "SecureString"
+  value       = var.langfuse_public_key
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "aws_ssm_parameter" "langfuse_secret_key" {
+  name        = "/convfinqa/${var.account_name}/langfuse_secret_key"
+  description = "Langfuse secret key for the ConvFinQA backend."
+  type        = "SecureString"
+  value       = var.langfuse_secret_key
+
+  tags = {
+    "franco:terraform_stack" = "convfinqa-compute"
+    "franco:environment"     = var.account_name
+    "franco:managed_by"      = "terraform"
+  }
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
 resource "aws_iam_policy" "ssm_read" {
   name        = "convfinqa-${var.account_name}-ssm-read"
   description = "Read access to all convfinqa SSM parameters for this environment"

@@ -25,6 +25,20 @@ variable "system_prompt_override" {
   default     = ""
 }
 
+variable "langfuse_public_key" {
+  description = "Langfuse public key stored as an SSM SecureString."
+  type        = string
+  sensitive   = true
+  default     = "replace-with-langfuse-public-key"
+}
+
+variable "langfuse_secret_key" {
+  description = "Langfuse secret key stored as an SSM SecureString."
+  type        = string
+  sensitive   = true
+  default     = "replace-with-langfuse-secret-key"
+}
+
 variable "public_subnet_ids" {
   description = "IDs of the public subnets where ECS tasks run."
   type        = list(string)

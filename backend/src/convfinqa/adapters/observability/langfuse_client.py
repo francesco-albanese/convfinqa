@@ -18,15 +18,11 @@ class _OtelSpanWrapper:
         self._span = span
 
     def set_output(self, output: str) -> None:
-        self._span.set_attribute(
-            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT, output
-        )
+        self._span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT, output)
 
     def set_error(self) -> None:
         self._span.set_status(StatusCode.ERROR)
-        self._span.set_attribute(
-            LangfuseOtelSpanAttributes.OBSERVATION_LEVEL, "ERROR"
-        )
+        self._span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL, "ERROR")
 
 
 class LangfuseClient:
@@ -38,9 +34,7 @@ class LangfuseClient:
         self, as_type: str, name: str, input: dict[str, Any] | None = None
     ) -> AsyncGenerator[ObservabilitySpan]:
         with self._tracer.start_as_current_span(name) as span:
-            span.set_attribute(
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
-            )
+            span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type)
             if input is not None:
                 span.set_attribute(
                     LangfuseOtelSpanAttributes.OBSERVATION_INPUT, json.dumps(input)
@@ -60,15 +54,17 @@ class LangfuseClient:
         if metadata is not None:
             for key, value in metadata.items():
                 attr_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"
-                serialized = value if isinstance(value, (str, int)) else json.dumps(value)
+                serialized = (
+                    value if isinstance(value, (str, int)) else json.dumps(value)
+                )
                 span.set_attribute(attr_key, serialized)
         if tags is not None:
-            span.set_attribute(
-                LangfuseOtelSpanAttributes.TRACE_TAGS, json.dumps(tags)
-            )
+            span.set_attribute(LangfuseOtelSpanAttributes.TRACE_TAGS, json.dumps(tags))
 
     def update_current_generation(self, **kwargs: Any) -> None:
-        pass
+        import langfuse
+
+        langfuse.get_client().update_current_generation(**kwargs)
 
     async def flush(self) -> None:
         provider = trace.get_tracer_provider()

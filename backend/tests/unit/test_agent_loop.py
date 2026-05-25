@@ -3,6 +3,7 @@
 import json
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -25,11 +26,14 @@ from convfinqa.domain.value_objects import StopReason
 # Stub LLM helpers
 # ---------------------------------------------------------------------------
 
+
 def _tool_use_chunk(call_id: str, name: str, args: dict[str, str]) -> list[LLMChunk]:
     args_str = json.dumps(args)
     return [
         LLMChunk(tool_call_event="start", tool_call_id=call_id, tool_call_name=name),
-        LLMChunk(tool_call_event="delta", tool_call_id=call_id, tool_call_delta=args_str),
+        LLMChunk(
+            tool_call_event="delta", tool_call_id=call_id, tool_call_delta=args_str
+        ),
         LLMChunk(tool_call_event="complete", tool_call_id=call_id, tool_call_name=name),
         LLMChunk(finish_reason_tool_use=True),
     ]
@@ -52,6 +56,10 @@ class _StubLLM:
         messages: Any,
         system: str,
         tools: Any = None,
+        generation_name: str | None = None,
+        trace_user_id: str | None = None,
+        session_id: str | None = None,
+        environment: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         self.received_wire_messages.append(list(messages))
         idx = min(self._call_count, len(self._responses) - 1)
@@ -63,6 +71,7 @@ class _StubLLM:
 # ---------------------------------------------------------------------------
 # Minimal stub for ConversationRepository, DocumentRepository, lock
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class _FakeMessage:
@@ -131,6 +140,45 @@ class _FakeLock:
         pass
 
 
+class _RecordedSpan:
+    def __init__(self, call: dict[str, Any]) -> None:
+        self._call = call
+
+    def set_output(self, output: str) -> None:
+        self._call["output"] = output
+
+    def set_error(self) -> None:
+        self._call["level"] = "error"
+
+
+class _RecordingObservability:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    @asynccontextmanager
+    async def start_as_current_observation(
+        self, as_type: str, name: str, input: dict[str, Any] | None = None
+    ) -> AsyncIterator[_RecordedSpan]:
+        call = {"as_type": as_type, "name": name, "input": input}
+        self.calls.append(call)
+        yield _RecordedSpan(call)
+
+    def propagate_attributes(
+        self,
+        user_id: str,
+        session_id: str,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+    ) -> None:
+        pass
+
+    def update_current_generation(self, **kwargs: Any) -> None:
+        pass
+
+    async def flush(self) -> None:
+        pass
+
+
 async def _collect_stream(use_case: Any, user_id: uuid.UUID) -> list[Any]:
     events = []
     async for event in use_case.stream(
@@ -145,6 +193,7 @@ async def _collect_stream(use_case: Any, user_id: uuid.UUID) -> list[Any]:
 def _make_use_case(llm: Any) -> Any:
     from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
     from convfinqa.application.use_cases.send_message import SendMessageUseCase
+
     return SendMessageUseCase(
         llm=llm,
         conversations=_FakeConversationRepo(),  # type: ignore[arg-type]
@@ -160,6 +209,7 @@ def _make_use_case(llm: Any) -> Any:
 # ---------------------------------------------------------------------------
 # Test: iteration cap
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_iteration_cap_stops_loop() -> None:
@@ -180,6 +230,7 @@ async def test_iteration_cap_stops_loop() -> None:
 # ---------------------------------------------------------------------------
 # Test: unknown tool name
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_unknown_tool_name_returns_error_result() -> None:
@@ -202,6 +253,7 @@ async def test_unknown_tool_name_returns_error_result() -> None:
 # Test: tool timeout
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_execute_tool_timeout_returns_error() -> None:
     """_execute_tool returns is_error=True when the tool exceeds the timeout."""
@@ -220,16 +272,81 @@ async def test_execute_tool_timeout_returns_error() -> None:
         doc_md="",
     )
 
-    result_json, is_error = await _execute_tool(slow_tool, '{"a": "1", "b": "2"}')
+    from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
+
+    result_json, is_error = await _execute_tool(
+        slow_tool,
+        '{"a": "1", "b": "2"}',
+        NoOpLangfuseClient(),  # type: ignore[arg-type]
+    )
 
     assert is_error is True
     data = json.loads(result_json)
     assert "timeout" in data["error"] or "failed" in data["error"]
 
 
+@pytest.mark.asyncio
+async def test_execute_tool_records_tool_span_output() -> None:
+    """Successful tool execution records a tool observation with args and output."""
+    tool = Tool(
+        name="add",
+        description="add",
+        input_schema=MathInput,
+        output_schema=MathOutput,
+        callable=lambda **kwargs: {"result": int(kwargs["a"]) + int(kwargs["b"])},
+        doc_md="",
+    )
+    observability = _RecordingObservability()
+
+    result_json, is_error = await _execute_tool(
+        tool,
+        '{"a": "2", "b": "3"}',
+        observability,  # type: ignore[arg-type]
+    )
+
+    assert is_error is False
+    assert json.loads(result_json) == {"result": 5}
+    assert observability.calls == [
+        {
+            "as_type": "tool",
+            "name": "add",
+            "input": {"a": "2", "b": "3"},
+            "output": result_json,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_records_error_level_on_invalid_args() -> None:
+    """Invalid tool args record an errored tool observation and return an error."""
+    tool = Tool(
+        name="add",
+        description="add",
+        input_schema=MathInput,
+        output_schema=MathOutput,
+        callable=lambda **kwargs: {"result": int(kwargs["a"]) + int(kwargs["b"])},
+        doc_md="",
+    )
+    observability = _RecordingObservability()
+
+    result_json, is_error = await _execute_tool(
+        tool,
+        '{"a": "2"}',
+        observability,  # type: ignore[arg-type]
+    )
+
+    assert is_error is True
+    assert "error" in json.loads(result_json)
+    assert observability.calls[0]["as_type"] == "tool"
+    assert observability.calls[0]["name"] == "add"
+    assert observability.calls[0]["level"] == "error"
+    assert observability.calls[0]["output"] == result_json
+
+
 # ---------------------------------------------------------------------------
 # Test: thinking-block signature replay in wire messages
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_thinking_blocks_included_in_wire_for_second_iteration() -> None:
@@ -265,7 +382,9 @@ async def test_thinking_blocks_included_in_wire_for_second_iteration() -> None:
     assistant_msgs = [m for m in second_call_messages if m.get("role") == "assistant"]
     assert assistant_msgs, "assistant message must be in second-call wire"
     content = assistant_msgs[0].get("content")
-    assert isinstance(content, list), "Anthropic format: content must be a list of blocks"
+    assert isinstance(content, list), (
+        "Anthropic format: content must be a list of blocks"
+    )
     block_types = [b.get("type") for b in content]
     assert "thinking" in block_types, "thinking block must be replayed"
     thinking_blocks = [b for b in content if b.get("type") == "thinking"]

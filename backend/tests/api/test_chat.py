@@ -82,7 +82,7 @@ async def test_sync_chat_continuation_includes_prior_history(
     assert [r.role for r in rows] == ["user", "assistant", "user", "assistant"]
 
     second_call_messages = fake_llm.seen_messages[1]
-    contents = [m.content for m in second_call_messages]
+    contents = [m["content"] for m in second_call_messages if isinstance(m, dict)]
     assert "first" in contents
     assert "Hello world" in contents
     assert contents[-1] == "second"

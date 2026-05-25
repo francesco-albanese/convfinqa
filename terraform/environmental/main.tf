@@ -39,6 +39,8 @@ module "compute" {
   ecs_sg_id                = module.network.ecs_sg_id
   vpc_id                   = module.network.vpc_id
   database_url             = module.data.database_url
+  langfuse_public_key      = var.langfuse_public_key
+  langfuse_secret_key      = var.langfuse_secret_key
 }
 
 module "keepalive" {

@@ -5,6 +5,65 @@ import litellm
 
 from convfinqa.domain.ports.llm import LLMChunk, LLMToolSpec
 from convfinqa.domain.value_objects import Usage
+from convfinqa.logging import get_logger
+
+LITELLM_LOG = get_logger("convfinqa.llm")
+
+
+def _attach_cost_to_current_generation(
+    kwargs: dict[str, Any],
+    response: Any,
+    start_time: Any,
+    end_time: Any,
+) -> None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+
+    completion_cost: Any = litellm.completion_cost  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+    total_cost = completion_cost(
+        model=kwargs.get("model"),
+        completion_response=response,
+    )
+    import langfuse
+
+    langfuse.get_client().update_current_generation(
+        cost_details={"input": 0.0, "output": 0.0, "total": total_cost}
+    )
+
+
+async def _log_llm_failure(
+    kwargs: dict[str, Any],
+    exception: Any,
+    start_time: Any,
+    end_time: Any,
+) -> None:
+    LITELLM_LOG.warning(
+        "llm_failure",
+        extra={
+            "exc_type": type(exception).__name__,
+            "exc_message": str(exception),
+            "model": kwargs.get("model", "unknown"),
+        },
+    )
+
+
+def _register_callbacks() -> None:
+    callbacks: Any = litellm.callbacks  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+    if "langfuse_otel" not in callbacks:
+        litellm.callbacks = [*callbacks, "langfuse_otel"]  # pyright: ignore[reportUnknownMemberType]
+    successes: Any = litellm.success_callback  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+    if _attach_cost_to_current_generation not in successes:
+        litellm.success_callback = [  # pyright: ignore[reportUnknownMemberType]
+            *successes,
+            _attach_cost_to_current_generation,
+        ]
+    failure: Any = litellm.failure_callback  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+    if _log_llm_failure not in failure:
+        litellm.failure_callback = [*failure, _log_llm_failure]  # pyright: ignore[reportUnknownMemberType]
+
+
+_register_callbacks()
 
 
 class _LiteLLMDelta(Protocol):
@@ -45,6 +104,10 @@ async def _open_stream(
     max_output_tokens: int,
     thinking: dict[str, Any] | None = None,
     tools: list[dict[str, Any]] | None = None,
+    generation_name: str | None = None,
+    trace_user_id: str | None = None,
+    session_id: str | None = None,
+    environment: str | None = None,
 ) -> AsyncIterable[_LiteLLMChunk]:
     acompletion: Any = litellm.acompletion  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
     kwargs: dict[str, Any] = {
@@ -60,6 +123,17 @@ async def _open_stream(
     if tools:
         kwargs["tools"] = tools
         kwargs["tool_choice"] = "auto"
+    metadata: dict[str, Any] = {}
+    if generation_name is not None:
+        metadata["generation_name"] = generation_name
+    if trace_user_id is not None:
+        metadata["trace_user_id"] = trace_user_id
+    if session_id is not None:
+        metadata["session_id"] = session_id
+    if environment is not None:
+        metadata["tags"] = [f"environment:{environment}"]
+    if metadata:
+        kwargs["metadata"] = metadata
     response = await acompletion(**kwargs)
     return cast(AsyncIterable[_LiteLLMChunk], response)
 
@@ -109,6 +183,10 @@ class LiteLLMAdapter:
         messages: Sequence[dict[str, Any]],
         system: str,
         tools: Sequence[LLMToolSpec] | None = None,
+        generation_name: str | None = None,
+        trace_user_id: str | None = None,
+        session_id: str | None = None,
+        environment: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         wire_messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         wire_messages.extend(messages)
@@ -126,6 +204,10 @@ class LiteLLMAdapter:
             self._max_output_tokens,
             thinking=thinking_param,
             tools=litellm_tools,
+            generation_name=generation_name,
+            trace_user_id=trace_user_id,
+            session_id=session_id,
+            environment=environment,
         )
 
         reasoning_active = False

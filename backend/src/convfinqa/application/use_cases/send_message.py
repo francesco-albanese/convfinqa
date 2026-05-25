@@ -131,7 +131,9 @@ class SendMessageUseCase:
                 tags=[f"environment:{self._environment}"],
             )
             system_prompt = (
-                build_system_prompt(self._framing, document) + "\n\n" + build_tool_docs()
+                build_system_prompt(self._framing, document)
+                + "\n\n"
+                + build_tool_docs()
             )
             tool_specs = build_tool_specs()
 
@@ -170,7 +172,15 @@ class SendMessageUseCase:
                         assistant_thinking_blocks: list[dict[str, Any]] = []
 
                         async for event in process_llm_chunks(
-                            self._llm.stream(wire_messages, system_prompt, tool_specs),
+                            self._llm.stream(
+                                wire_messages,
+                                system_prompt,
+                                tool_specs,
+                                generation_name=f"iteration-{iteration}",
+                                trace_user_id=str(user_id),
+                                session_id=conversation.id,
+                                environment=self._environment,
+                            ),
                             state,
                             parts_in_order,
                             text_chunks,
@@ -194,7 +204,10 @@ class SendMessageUseCase:
 
                         if current_text_buffer:
                             parts_in_order.append(
-                                {"kind": "text", "content": "".join(current_text_buffer)}
+                                {
+                                    "kind": "text",
+                                    "content": "".join(current_text_buffer),
+                                }
                             )
                             current_text_buffer.clear()
 
@@ -212,6 +225,7 @@ class SendMessageUseCase:
                             wire_messages,
                             document,
                             seen_citations,
+                            self._observability,
                         ):
                             yield event
 
@@ -264,7 +278,9 @@ class SendMessageUseCase:
                     return
 
                 span.set_output("".join(text_chunks))
-                yield Finish(stop_reason=stop_reason, usage=usage, created_at=finished_at)
+                yield Finish(
+                    stop_reason=stop_reason, usage=usage, created_at=finished_at
+                )
 
     async def _resolve_conversation_and_document(
         self,
