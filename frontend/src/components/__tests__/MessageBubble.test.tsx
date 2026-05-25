@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
-import type { UIMessage } from "ai";
+import userEvent from "@testing-library/user-event";
+import type { ReasoningUIPart, UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { MessageBubble } from "@/components/MessageBubble";
 
@@ -8,6 +9,17 @@ function makeMessage(role: UIMessage["role"], text: string): UIMessage {
 		id: `${role}-${Math.random()}`,
 		role,
 		parts: [{ type: "text", text }],
+	};
+}
+
+function makeAssistantWithReasoning(
+	text: string,
+	reasoningParts: ReasoningUIPart[],
+): UIMessage {
+	return {
+		id: `assistant-${Math.random()}`,
+		role: "assistant",
+		parts: [...reasoningParts, { type: "text", text }],
 	};
 }
 
@@ -105,5 +117,70 @@ describe("MessageBubble", () => {
 
 		rerender(<MessageBubble message={makeMessage("assistant", "thinking…")} />);
 		expect(screen.queryByTestId("streaming-cursor")).not.toBeInTheDocument();
+	});
+
+	describe("reasoning disclosure", () => {
+		it("renders a Thinking toggle for each reasoning part", () => {
+			const message = makeAssistantWithReasoning("final answer", [
+				{ type: "reasoning", text: "step one", state: "done" },
+			]);
+			render(<MessageBubble message={message} />);
+
+			expect(
+				screen.getByRole("button", { name: /thinking/i }),
+			).toBeInTheDocument();
+		});
+
+		it("starts collapsed when reasoning state is done (persisted replay)", () => {
+			const message = makeAssistantWithReasoning("answer", [
+				{ type: "reasoning", text: "some thought", state: "done" },
+			]);
+			render(<MessageBubble message={message} />);
+
+			const toggle = screen.getByRole("button", { name: /thinking/i });
+			expect(toggle).toHaveAttribute("aria-expanded", "false");
+			expect(screen.getByText("some thought")).not.toBeVisible();
+		});
+
+		it("starts expanded while streaming", () => {
+			const message = makeAssistantWithReasoning("", [
+				{
+					type: "reasoning",
+					text: "reasoning in progress",
+					state: "streaming",
+				},
+			]);
+			render(<MessageBubble message={message} />);
+
+			const toggle = screen.getByRole("button", { name: /thinking/i });
+			expect(toggle).toHaveAttribute("aria-expanded", "true");
+			expect(screen.getByText("reasoning in progress")).toBeVisible();
+		});
+
+		it("toggling the button reveals and hides the reasoning text", async () => {
+			const user = userEvent.setup();
+			const message = makeAssistantWithReasoning("answer", [
+				{ type: "reasoning", text: "hidden thought", state: "done" },
+			]);
+			render(<MessageBubble message={message} />);
+
+			const toggle = screen.getByRole("button", { name: /thinking/i });
+			expect(screen.getByText("hidden thought")).not.toBeVisible();
+
+			await user.click(toggle);
+			expect(screen.getByText("hidden thought")).toBeVisible();
+
+			await user.click(toggle);
+			expect(screen.getByText("hidden thought")).not.toBeVisible();
+		});
+
+		it("does not render any Thinking toggle when there are no reasoning parts", () => {
+			render(
+				<MessageBubble message={makeMessage("assistant", "plain reply")} />,
+			);
+			expect(
+				screen.queryByRole("button", { name: /thinking/i }),
+			).not.toBeInTheDocument();
+		});
 	});
 });

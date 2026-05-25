@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -186,9 +188,7 @@ async def test_list_chats_orders_by_last_message_at_desc_and_groups_by_document(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get(
-            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
-        )
+        response = await client.get("/api/v1/chats", headers={"X-User-Id": ALICE_UUID})
 
     assert response.status_code == 200
     items = response.json()["items"]
@@ -212,9 +212,7 @@ async def test_list_chats_document_shape_omits_page_and_includes_title(
 ) -> None:
     del two_users_three_chats
     async with await _client(app) as client:
-        response = await client.get(
-            "/api/v1/chats", headers={"X-User-Id": ALICE_UUID}
-        )
+        response = await client.get("/api/v1/chats", headers={"X-User-Id": ALICE_UUID})
 
     document = response.json()["items"][0]["document"]
     assert set(document.keys()) == {"id", "ticker", "year", "title"}
@@ -276,3 +274,103 @@ async def test_get_chat_messages_missing_user_id_header_returns_401(
         )
 
     assert response.status_code == 401
+
+
+async def _insert_message_with_parts(
+    engine: AsyncEngine,
+    msg_id: str,
+    conv_id: str,
+    role: str,
+    content: str,
+    created_at: datetime,
+    parts: Any,
+) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO messages "
+                "(id, conversation_id, role, content, created_at, parts) "
+                "VALUES (:id, :conv_id, :role, :content, :created_at, "
+                "CAST(:parts AS jsonb))"
+            ),
+            {
+                "id": msg_id,
+                "conv_id": conv_id,
+                "role": role,
+                "content": content,
+                "created_at": created_at,
+                "parts": json.dumps(parts),
+            },
+        )
+
+
+CONV_ALICE_PARTS = "conv-alice-parts-v1"
+PARTS_ENVELOPE = {
+    "schema_version": 1,
+    "parts": [
+        {"kind": "reasoning", "id": "rsn_test123", "content": "thinking..."},
+        {"kind": "text", "content": "answer here"},
+    ],
+}
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def conversation_with_parts(
+    engine: AsyncEngine, two_users_three_chats: None
+) -> None:
+    del two_users_three_chats
+    base = datetime(2026, 5, 2, 10, 0, tzinfo=UTC)
+    await _insert_conversation(engine, CONV_ALICE_PARTS, ALICE_UUID, DOC_AAA, base)
+    await _insert_message_with_parts(
+        engine,
+        "m-alice-parts-1",
+        CONV_ALICE_PARTS,
+        "assistant",
+        "answer here",
+        base,
+        PARTS_ENVELOPE,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_chat_messages_legacy_row_returns_parts_null(
+    app: FastAPI, two_users_three_chats: None
+) -> None:
+    del two_users_three_chats
+    async with await _client(app) as client:
+        response = await client.get(
+            f"/api/v1/chats/{CONV_ALICE_AAA_OLD}/messages",
+            headers={"X-User-Id": ALICE_UUID},
+        )
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    for msg in items:
+        assert msg["parts"] is None, (
+            f"expected parts=null for legacy row, got {msg['parts']!r}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_chat_messages_parts_envelope_round_trips_through_api(
+    app: FastAPI, conversation_with_parts: None
+) -> None:
+    del conversation_with_parts
+    async with await _client(app) as client:
+        response = await client.get(
+            f"/api/v1/chats/{CONV_ALICE_PARTS}/messages",
+            headers={"X-User-Id": ALICE_UUID},
+        )
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) == 1
+    parts = items[0]["parts"]
+    assert parts is not None
+    assert parts["schema_version"] == 1
+    assert len(parts["parts"]) == 2
+    assert parts["parts"][0]["kind"] == "reasoning"
+    assert parts["parts"][0]["id"] == "rsn_test123"
+    assert parts["parts"][0]["content"] == "thinking..."
+    assert parts["parts"][1]["kind"] == "text"
+    assert parts["parts"][1]["content"] == "answer here"

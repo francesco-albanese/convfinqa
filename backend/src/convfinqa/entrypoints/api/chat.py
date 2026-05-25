@@ -6,12 +6,20 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
 from convfinqa.application.use_cases.send_message import (
+    Citation,
     ConcurrentRequest,
     ConversationResolved,
     ErrorEvent,
     Finish,
     MessageStarted,
+    ReasoningDelta,
+    ReasoningEnd,
+    ReasoningStart,
     TextDelta,
+    ToolCallArgsComplete,
+    ToolCallArgsDelta,
+    ToolCallStart,
+    ToolResult,
 )
 from convfinqa.domain.value_objects import StopReason
 from convfinqa.entrypoints.api.dependencies import (
@@ -107,6 +115,17 @@ async def sync_chat(
                         )
                 case ErrorEvent(detail=detail):
                     raise UpstreamLLMError(detail)
+                case (
+                    ReasoningStart()
+                    | ReasoningDelta()
+                    | ReasoningEnd()
+                    | ToolCallStart()
+                    | ToolCallArgsDelta()
+                    | ToolCallArgsComplete()
+                    | ToolResult()
+                    | Citation()
+                ):
+                    pass
     finally:
         await events.aclose()
 

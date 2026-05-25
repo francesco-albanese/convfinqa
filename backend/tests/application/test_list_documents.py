@@ -12,9 +12,7 @@ class _FakeDocsPort(DocumentsPort):
     next_page: DocumentListPage = field(
         default_factory=lambda: DocumentListPage(items=(), next_cursor=None)
     )
-    seen: list[ListDocumentsQuery] = field(
-        default_factory=list[ListDocumentsQuery]
-    )
+    seen: list[ListDocumentsQuery] = field(default_factory=list[ListDocumentsQuery])
 
     async def list(self, query: ListDocumentsQuery) -> DocumentListPage:
         self.seen.append(query)
@@ -46,9 +44,7 @@ async def test_use_case_passes_query_arguments_through_to_port() -> None:
 @pytest.mark.asyncio
 async def test_use_case_returns_page_returned_by_port() -> None:
     page = DocumentListPage(
-        items=(
-            DocumentSummary(id="x", ticker="X", year=2020, page=1, title="X 2020"),
-        ),
+        items=(DocumentSummary(id="x", ticker="X", year=2020, page=1, title="X 2020"),),
         next_cursor="next-cursor-token",
     )
     fake = _FakeDocsPort(next_page=page)

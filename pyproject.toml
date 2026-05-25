@@ -19,6 +19,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10",
     "python-json-logger==4.1.0",
     "sqlalchemy[asyncio]>=2.0",
+    "sqlglot>=26.0",
     "typer>=0.23.1",
     "uvicorn>=0.46.0",
 ]

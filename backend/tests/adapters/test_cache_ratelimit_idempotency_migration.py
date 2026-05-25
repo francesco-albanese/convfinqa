@@ -42,7 +42,11 @@ async def test_rate_limit_cascade_deletes_on_user_delete(
                 "INSERT INTO users (id, cognito_sub, email) "
                 "VALUES (CAST(:id AS uuid), :sub, :email)"
             ),
-            {"id": str(user_id), "sub": f"sub-{user_id.hex}", "email": "rl@example.com"},
+            {
+                "id": str(user_id),
+                "sub": f"sub-{user_id.hex}",
+                "email": "rl@example.com",
+            },
         )
         await conn.execute(
             text(
@@ -66,8 +70,7 @@ async def test_rate_limit_cascade_deletes_on_user_delete(
         count = (
             await conn.execute(
                 text(
-                    "SELECT count(*) FROM rate_limit "
-                    "WHERE user_id = CAST(:id AS uuid)"
+                    "SELECT count(*) FROM rate_limit WHERE user_id = CAST(:id AS uuid)"
                 ),
                 {"id": str(user_id)},
             )

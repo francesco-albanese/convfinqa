@@ -1,13 +1,40 @@
 import logging
 import uuid
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from uuid import uuid4
+from typing import Any
 
+from convfinqa.application.agent.chunks import process_llm_chunks
+from convfinqa.application.agent.iteration import ITERATION_CAP, IterationState
+from convfinqa.application.agent.replay import execute_and_replay_tools
+from convfinqa.application.agent.stream_events import (
+    Citation,
+    ConcurrentRequest,
+    ConversationResolved,
+    ErrorEvent,
+    Finish,
+    MessageStarted,
+    ReasoningDelta,
+    ReasoningEnd,
+    ReasoningStart,
+    StreamEvent,
+    TextDelta,
+    ToolCallArgsComplete,
+    ToolCallArgsDelta,
+    ToolCallStart,
+    ToolResult,
+)
+from convfinqa.application.agent.tool_executor import TOOL_TIMEOUT_MATH_S, execute_tool
+from convfinqa.application.agent.wire import (
+    build_tool_specs,
+    history_to_wire,
+    new_message_id,
+)
+from convfinqa.application.parts_schema import build_envelope
 from convfinqa.application.prompts.system_prompt import build_system_prompt
+from convfinqa.application.prompts.tool_docs import build_tool_docs
 from convfinqa.domain.entities import Conversation, Document, Message
-from convfinqa.domain.ports.llm import LLMMessage, LLMPort
+from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
@@ -16,51 +43,36 @@ from convfinqa.domain.ports.repository import (
 from convfinqa.domain.value_objects import Role, StopReason, Usage
 from convfinqa.logging import get_logger
 
+__all__ = [
+    "SendMessageUseCase",
+    "StreamEvent",
+    "ConversationResolved",
+    "MessageStarted",
+    "TextDelta",
+    "ReasoningStart",
+    "ReasoningDelta",
+    "ReasoningEnd",
+    "ToolCallStart",
+    "ToolCallArgsDelta",
+    "ToolCallArgsComplete",
+    "ToolResult",
+    "Citation",
+    "Finish",
+    "ErrorEvent",
+    "ConcurrentRequest",
+    "ConversationNotFoundError",
+    "DocumentNotFoundError",
+    "DocumentIdRequiredError",
+    "ITERATION_CAP",
+    "TOOL_TIMEOUT_MATH_S",
+    "_execute_tool",
+]
+
 UPSTREAM_LLM_PUBLIC_DETAIL = "upstream LLM error"
 
 logger = get_logger("convfinqa.send_message")
 
-
-@dataclass(frozen=True, slots=True)
-class ConversationResolved:
-    conversation_id: str
-
-
-@dataclass(frozen=True, slots=True)
-class MessageStarted:
-    message_id: str
-
-
-@dataclass(frozen=True, slots=True)
-class TextDelta:
-    text: str
-
-
-@dataclass(frozen=True, slots=True)
-class Finish:
-    stop_reason: StopReason
-    usage: Usage | None
-    created_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class ErrorEvent:
-    detail: str
-
-
-@dataclass(frozen=True, slots=True)
-class ConcurrentRequest:
-    conversation_id: str
-
-
-StreamEvent = (
-    ConversationResolved
-    | MessageStarted
-    | TextDelta
-    | Finish
-    | ErrorEvent
-    | ConcurrentRequest
-)
+_execute_tool = execute_tool
 
 
 class ConversationNotFoundError(Exception):
@@ -73,20 +85,6 @@ class DocumentNotFoundError(Exception):
 
 class DocumentIdRequiredError(Exception):
     pass
-
-
-def _new_message_id() -> str:
-    return f"msg_{uuid4().hex}"
-
-
-def _to_llm_messages(
-    conversation: Conversation, latest_user_text: str
-) -> list[LLMMessage]:
-    history = [
-        LLMMessage(role=m.role.value, content=m.content) for m in conversation.messages
-    ]
-    history.append(LLMMessage(role=Role.USER.value, content=latest_user_text))
-    return history
 
 
 class SendMessageUseCase:
@@ -114,45 +112,104 @@ class SendMessageUseCase:
         conversation, document = await self._resolve_conversation_and_document(
             conversation_id, user_id, document_id
         )
-        system_prompt = build_system_prompt(self._framing, document)
+        system_prompt = (
+            build_system_prompt(self._framing, document) + "\n\n" + build_tool_docs()
+        )
+        tool_specs = build_tool_specs()
 
         async with self._locks.try_acquire(conversation.id) as acquired:
             if not acquired:
                 yield ConcurrentRequest(conversation_id=conversation.id)
                 return
 
-            user_message = Message(
-                id=_new_message_id(),
+            user_msg = Message(
+                id=new_message_id(),
                 conversation_id=conversation.id,
                 role=Role.USER,
                 content=user_text,
                 created_at=datetime.now(UTC),
             )
-            await self._conversations.append_message(conversation.id, user_message)
+            await self._conversations.append_message(conversation.id, user_msg)
 
             yield ConversationResolved(conversation_id=conversation.id)
 
-            assistant_id = _new_message_id()
+            assistant_id = new_message_id()
             yield MessageStarted(message_id=assistant_id)
 
-            buffered: list[str] = []
+            wire_messages = history_to_wire(conversation, user_text)
+            parts_in_order: list[dict[str, Any]] = []
+            text_chunks: list[str] = []
+            current_text_buffer: list[str] = []
+            reasoning_signatures: dict[str, str] = {}
+            seen_citations: set[tuple[str, str]] = set()
             usage: Usage | None = None
             stop_reason = StopReason.END_TURN
             errored = False
 
-            llm_messages = _to_llm_messages(conversation, user_text)
-
             try:
-                async for chunk in self._llm.stream(llm_messages, system_prompt):
-                    if chunk.text:
-                        buffered.append(chunk.text)
-                        yield TextDelta(text=chunk.text)
-                    if chunk.usage is not None:
-                        usage = chunk.usage
+                for iteration in range(ITERATION_CAP):
+                    state = IterationState()
+                    assistant_thinking_blocks: list[dict[str, Any]] = []
+
+                    async for event in process_llm_chunks(
+                        self._llm.stream(wire_messages, system_prompt, tool_specs),
+                        state,
+                        parts_in_order,
+                        text_chunks,
+                        current_text_buffer,
+                        reasoning_signatures,
+                        assistant_thinking_blocks,
+                    ):
+                        yield event
+
+                    usage = state.usage
+
+                    if state.current_reasoning_id:
+                        parts_in_order.append(
+                            {
+                                "kind": "reasoning",
+                                "id": state.current_reasoning_id,
+                                "content": "".join(state.reasoning_buffer),
+                            }
+                        )
+                        yield ReasoningEnd(id=state.current_reasoning_id)
+
+                    if current_text_buffer:
+                        parts_in_order.append(
+                            {"kind": "text", "content": "".join(current_text_buffer)}
+                        )
+                        current_text_buffer.clear()
+
+                    if not state.finish_reason_tool_use or not state.tool_calls:
+                        break
+
+                    if iteration == ITERATION_CAP - 1:
+                        stop_reason = StopReason.ITERATION_CAP
+                        break
+
+                    async for event in execute_and_replay_tools(
+                        state.tool_calls,
+                        assistant_thinking_blocks,
+                        parts_in_order,
+                        wire_messages,
+                        document,
+                        seen_citations,
+                    ):
+                        yield event
+
             except GeneratorExit:
                 stop_reason = StopReason.INTERRUPTED
+                if current_text_buffer:
+                    parts_in_order.append(
+                        {"kind": "text", "content": "".join(current_text_buffer)}
+                    )
                 await self._persist_assistant(
-                    conversation.id, assistant_id, "".join(buffered), stop_reason
+                    conversation.id,
+                    assistant_id,
+                    "".join(text_chunks),
+                    stop_reason,
+                    parts_in_order,
+                    reasoning_signatures,
                 )
                 raise
             except Exception as exc:  # noqa: BLE001
@@ -168,8 +225,18 @@ class SendMessageUseCase:
                     },
                 )
 
+            if current_text_buffer:
+                parts_in_order.append(
+                    {"kind": "text", "content": "".join(current_text_buffer)}
+                )
+
             finished_at = await self._persist_assistant(
-                conversation.id, assistant_id, "".join(buffered), stop_reason
+                conversation.id,
+                assistant_id,
+                "".join(text_chunks),
+                stop_reason,
+                parts_in_order,
+                reasoning_signatures,
             )
 
             if errored:
@@ -210,8 +277,14 @@ class SendMessageUseCase:
         message_id: str,
         content: str,
         stop_reason: StopReason,
+        parts_in_order: list[dict[str, Any]],
+        reasoning_signatures: dict[str, str],
     ) -> datetime:
         created_at = datetime.now(UTC)
+        parts_dict = build_envelope(parts_in_order) if parts_in_order else None
+        sigs: dict[str, str] | None = (
+            reasoning_signatures if reasoning_signatures else None
+        )
         message = Message(
             id=message_id,
             conversation_id=conversation_id,
@@ -219,6 +292,8 @@ class SendMessageUseCase:
             content=content,
             created_at=created_at,
             stop_reason=stop_reason,
+            parts=parts_dict,
+            reasoning_signatures=sigs,
         )
         await self._conversations.append_message(conversation_id, message)
         return created_at

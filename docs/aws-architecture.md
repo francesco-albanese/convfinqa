@@ -31,7 +31,7 @@ A React/Vite SPA served from **S3 behind a single CloudFront distribution**. The
 - No NAT Gateway — `~$32/mo`. We use public-subnet Fargate locked to the CloudFront origin prefix list instead.
 - No ElastiCache (~$11/mo floor) or DynamoDB until measurement proves the need.
 - No Secrets Manager ($0.40/secret/mo) — SSM Parameter Store SecureString is free.
-- No CloudFront Container Insights, no X-Ray, no WAF — cost-priority defaults off.
+- No CloudFront Container Insights, no WAF — cost-priority defaults off. CloudWatch Application Signals (which uses X-Ray under the hood) IS enabled via ADOT sidecar — within the 100M signals/mo free tier at portfolio scale ([§3.9](#39-observability-decision) / [ADR-0007](./adr/0007-observability-langfuse-and-application-signals.md)).
 
 ---
 
@@ -234,17 +234,27 @@ Upgrade path: move to Secrets Manager when DB credential rotation becomes a real
 
 ### 3.9 Observability decision
 
-**Status**: Decided · **Cost**: ~$0 (within free tier)
+**Status**: Decided · **Cost**: ~$0 within free tiers (Application Signals 100M signals/mo free, Langfuse Hobby 50K observations/mo free) · See [ADR-0007](./adr/0007-observability-langfuse-and-application-signals.md)
 
-**Lineage:** CloudWatch with cheap defaults handles infrastructure; Langfuse SaaS handles the LLM-specific signal. Skip Container Insights, X-Ray, and CloudFront response logs — all paid features that don't earn their cost at portfolio scale.
+**Lineage:** One OpenTelemetry `TracerProvider` per process, two span processors fan out: `LangfuseSpanProcessor` filters and forwards LLM-flavored spans to Langfuse SaaS; a second `BatchSpanProcessor` with an OTLP exporter forwards *every* span to the in-task ADOT Collector sidecar → CloudWatch Application Signals. Drops the original "No X-Ray" line because Application Signals (re:Invent 2024+, native OTel) supersedes pure X-Ray with a better service-map / SLO UX for the same free-tier cost.
 
 **Chose:**
-- **CloudWatch Logs**: 7-day retention; JSON-structured (the FastAPI app already uses `python-json-logger`). Free tier covers our volume.
-- **Container Insights OFF** (saves ~$0.50/mo per container).
-- **ALB access logs** to a small S3 bucket with a 30-day lifecycle policy. Recommended over CloudFront response logs (cheaper, contains the same data plus client IP after CloudFront forwards).
-- **No CloudWatch dashboards.**
-- **No X-Ray.**
-- **Langfuse SaaS** for LLM tracing — already wired via the project's `langfuse-trace` skill. Free tier sufficient.
+- **Langfuse 4.x SaaS** (`https://cloud.langfuse.com/api/public/otel`, OTLP/HTTP, Basic auth) for LLM observability. One Trace per user Turn; `session_id = conversation_id`; `trace_user_id = users.id`. Every Trace reconstructs question + system prompt + full wire history per iteration + reasoning + tool calls + assembled outputs + tokens + USD cost + latency + stop reason.
+- **CloudWatch Application Signals** for infra observability via ADOT Collector sidecar (`public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest`) on each ECS task; app exports OTLP to `localhost:4317`. Auto-instrumentations enabled in the FastAPI process: `opentelemetry-instrumentation-fastapi`, `-sqlalchemy`, `-asyncpg`, `-httpx`, `-botocore`, `-logging` (injects trace_id into log records → CloudWatch Logs Insights joins logs to traces), `system_metrics`.
+- **ADOT Node.js Lambda layer** attached to all five auth BFF functions; sink is the same CloudWatch Application Signals.
+- **CloudWatch Logs**: 7-day retention; JSON-structured (FastAPI app uses `python-json-logger`); auto-correlated to traces via `-logging` instrumentation.
+- **Container Insights OFF** (Application Signals supersedes it).
+- **ALB access logs** to a small S3 bucket with a 30-day lifecycle policy.
+- **No CloudWatch dashboards.** App Signals provides the default service map + golden-metric views for free.
+- **No standalone X-Ray.** App Signals is built on X-Ray + CloudWatch Metrics under the hood.
+- **No tail-based sampling Collector.** 100% head sampling at portfolio scale; revisit only if free tiers burst.
+
+**Implementation notes (load-bearing)**
+- Inside `SendMessageUseCase.stream(...)`: manual `langfuse.start_as_current_observation(as_type="agent"|"tool")` context managers — NOT `@observe` (Langfuse issues #7226 + #8216 hit our async-generator + StreamingResponse shape).
+- LiteLLM emits one `generation` Observation per `acompletion(...)` call via the `langfuse_otel` callback, joining OTel context automatically.
+- USD cost source = `litellm.completion_cost(...)` in Python, attached post-hoc via `langfuse.update_current_generation(cost_details=...)`. NOT Langfuse-UI custom-model definitions (avoids two sources of truth for prices).
+- Sensitive-data mask: a global Langfuse `mask=` function plus FastAPI header filtering drops Cookies, Authorization headers, JWT-shape strings, and credential-named keys. Everything else (user text, tool args, system prompt, reasoning signatures, full wire history) flows.
+- Single Langfuse project across environments, tagged via the `environment` trace attribute. Tests set `LANGFUSE_ENABLED=false` so the SDK is a no-op; the OTLP exporter is also disabled in test config.
 
 ### 3.10 CI/CD decision
 

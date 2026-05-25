@@ -38,7 +38,9 @@ class CognitoJwksAdapter:
     _keys: dict[str, Any] = field(default_factory=dict, init=False, repr=False)  # pyright: ignore[reportUnknownVariableType]
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
     _user_cache: TTLCache[str, UserRecord | None] = field(  # pyright: ignore[reportUnknownVariableType,reportAssignmentType]
-        default_factory=lambda: TTLCache(maxsize=_CACHE_MAXSIZE, ttl=_CACHE_TTL_SECONDS),
+        default_factory=lambda: TTLCache(
+            maxsize=_CACHE_MAXSIZE, ttl=_CACHE_TTL_SECONDS
+        ),
         init=False,
         repr=False,
     )

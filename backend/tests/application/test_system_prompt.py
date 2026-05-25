@@ -1,5 +1,3 @@
-import json
-
 from convfinqa.application.prompts.system_prompt import build_system_prompt
 from convfinqa.domain.entities import Document
 
@@ -17,22 +15,26 @@ def _document(pre_text: str | None = "", post_text: str | None = "") -> Document
     )
 
 
-def test_prompt_embeds_framing_title_ticker_year_and_table_json() -> None:
+def test_prompt_embeds_framing_title_ticker_and_year() -> None:
     prompt = build_system_prompt("YOU ARE CONVFINQA", _document())
 
     assert prompt.startswith("YOU ARE CONVFINQA")
     assert "ACME 2024 annual report" in prompt
     assert "Ticker: ACME" in prompt
     assert "Year: 2024" in prompt
-    assert json.dumps({"rev": [1, 2]}, separators=(",", ":")) in prompt
+
+
+def test_prompt_does_not_inline_table_json() -> None:
+    prompt = build_system_prompt("f", _document())
+
+    assert '"rev"' not in prompt
+    assert "Table (JSON)" not in prompt
 
 
 def test_prompt_embeds_full_pre_and_post_text_verbatim() -> None:
     huge_pre = "PRE-" + "A" * 50_000
     huge_post = "POST-" + "B" * 50_000
-    prompt = build_system_prompt(
-        "f", _document(pre_text=huge_pre, post_text=huge_post)
-    )
+    prompt = build_system_prompt("f", _document(pre_text=huge_pre, post_text=huge_post))
 
     assert huge_pre in prompt
     assert huge_post in prompt
@@ -44,33 +46,3 @@ def test_prompt_handles_none_text_fields_without_crashing() -> None:
 
     assert "Pre-table narrative" in prompt
     assert "Post-table narrative" in prompt
-
-
-def test_prompt_serializes_table_in_column_order_for_integer_like_keys() -> None:
-    document = Document(
-        id="doc-jkhy",
-        ticker="JKHY",
-        year=2009,
-        page=28,
-        title="JKHY 2009",
-        pre_text="",
-        post_text="",
-        table_data={
-            "2007": {"r": 1},
-            "2008": {"r": 2},
-            "Year ended June 30, 2009": {"r": 3},
-        },
-        column_order=("Year ended June 30, 2009", "2008", "2007"),
-    )
-
-    prompt = build_system_prompt("f", document)
-
-    expected_table = json.dumps(
-        {
-            "Year ended June 30, 2009": {"r": 3},
-            "2008": {"r": 2},
-            "2007": {"r": 1},
-        },
-        separators=(",", ":"),
-    )
-    assert expected_table in prompt
