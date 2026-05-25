@@ -9,6 +9,7 @@ CREDENTIAL_KEYS = frozenset(
         "secret",
         "password",
         "token",
+        "user_text",
         "aws_session_token",
         "aws_secret_access_key",
         "private_key",

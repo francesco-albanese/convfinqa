@@ -40,14 +40,16 @@ variable "langfuse_public_key" {
   description = "Langfuse public key stored as an SSM SecureString."
   type        = string
   sensitive   = true
-  default     = "replace-with-langfuse-public-key"
+  nullable    = true
+  default     = null
 }
 
 variable "langfuse_secret_key" {
   description = "Langfuse secret key stored as an SSM SecureString."
   type        = string
   sensitive   = true
-  default     = "replace-with-langfuse-secret-key"
+  nullable    = true
+  default     = null
 }
 
 variable "parent_zone_name" {

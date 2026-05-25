@@ -16,6 +16,7 @@ locals {
         application_signals = {}
         otlp = {
           grpc_endpoint = "127.0.0.1:4317"
+          http_endpoint = "127.0.0.1:4318"
         }
       }
     }
@@ -25,6 +26,8 @@ locals {
       }
     }
   }
+
+  langfuse_configured = var.langfuse_public_key != null && var.langfuse_secret_key != null
 }
 
 data "aws_ssm_parameter" "google_client_id" {

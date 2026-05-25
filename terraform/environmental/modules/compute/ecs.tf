@@ -142,18 +142,22 @@ resource "aws_ecs_task_definition" "api" {
         { name = "API_HOST", value = "0.0.0.0" },
         { name = "API_PORT", value = "8000" },
         { name = "COGNITO_REGION", value = data.aws_region.current.id },
-        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4317" },
+        { name = "LANGFUSE_ENABLED", value = "true" },
+        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4318/v1/traces" },
         { name = "OTEL_SERVICE_NAME", value = "convfinqa" },
         { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.namespace=convfinqa,environment=${var.account_name},aws.log.group.names=${aws_cloudwatch_log_group.ecs.name}" },
       ]
 
-      secrets = [
+      secrets = concat([
         { name = "DATABASE_URL", valueFrom = "/convfinqa/${var.account_name}/database_url" },
         { name = "COGNITO_USER_POOL_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_user_pool_id" },
         { name = "COGNITO_CLIENT_ID", valueFrom = "/convfinqa/${var.account_name}/cognito_client_id" },
-        { name = "LANGFUSE_PUBLIC_KEY", valueFrom = aws_ssm_parameter.langfuse_public_key.name },
-        { name = "LANGFUSE_SECRET_KEY", valueFrom = aws_ssm_parameter.langfuse_secret_key.name },
-      ]
+        ],
+        local.langfuse_configured ? [
+          { name = "LANGFUSE_PUBLIC_KEY", valueFrom = aws_ssm_parameter.langfuse_public_key[0].name },
+          { name = "LANGFUSE_SECRET_KEY", valueFrom = aws_ssm_parameter.langfuse_secret_key[0].name },
+        ] : []
+      )
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -166,7 +170,7 @@ resource "aws_ecs_task_definition" "api" {
     },
     {
       name              = "cloudwatch-agent"
-      image             = "public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest"
+      image             = var.cloudwatch_agent_image
       essential         = true
       memory            = 64
       memoryReservation = 32

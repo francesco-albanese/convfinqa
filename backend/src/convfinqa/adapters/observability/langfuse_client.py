@@ -9,8 +9,14 @@ from langfuse._client.attributes import (
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
+from convfinqa.adapters.observability.mask import mask
 from convfinqa.config import Settings
 from convfinqa.domain.ports.observability import ObservabilityPort, ObservabilitySpan
+
+
+def _serialize_redacted(value: Any) -> str:
+    redacted = mask(value)
+    return redacted if isinstance(redacted, str) else json.dumps(redacted)
 
 
 class _OtelSpanWrapper:
@@ -18,7 +24,14 @@ class _OtelSpanWrapper:
         self._span = span
 
     def set_output(self, output: str) -> None:
-        self._span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT, output)
+        try:
+            parsed = json.loads(output)
+        except json.JSONDecodeError:
+            parsed = output
+        self._span.set_attribute(
+            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+            _serialize_redacted(parsed),
+        )
 
     def set_error(self) -> None:
         self._span.set_status(StatusCode.ERROR)
@@ -37,7 +50,8 @@ class LangfuseClient:
             span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type)
             if input is not None:
                 span.set_attribute(
-                    LangfuseOtelSpanAttributes.OBSERVATION_INPUT, json.dumps(input)
+                    LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
+                    _serialize_redacted(input),
                 )
             yield _OtelSpanWrapper(span)  # type: ignore[misc]
 
@@ -54,8 +68,11 @@ class LangfuseClient:
         if metadata is not None:
             for key, value in metadata.items():
                 attr_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"
+                redacted = mask(value)
                 serialized = (
-                    value if isinstance(value, (str, int)) else json.dumps(value)
+                    redacted
+                    if isinstance(redacted, (str, int))
+                    else json.dumps(redacted)
                 )
                 span.set_attribute(attr_key, serialized)
         if tags is not None:

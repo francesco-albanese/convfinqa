@@ -59,10 +59,12 @@ resource "aws_ssm_parameter" "system_prompt_override" {
 }
 
 resource "aws_ssm_parameter" "langfuse_public_key" {
+  count = local.langfuse_configured ? 1 : 0
+
   name        = "/convfinqa/${var.account_name}/langfuse_public_key"
   description = "Langfuse public key for the ConvFinQA backend."
   type        = "SecureString"
-  value       = var.langfuse_public_key
+  value       = coalesce(var.langfuse_public_key, "")
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"
@@ -76,10 +78,12 @@ resource "aws_ssm_parameter" "langfuse_public_key" {
 }
 
 resource "aws_ssm_parameter" "langfuse_secret_key" {
+  count = local.langfuse_configured ? 1 : 0
+
   name        = "/convfinqa/${var.account_name}/langfuse_secret_key"
   description = "Langfuse secret key for the ConvFinQA backend."
   type        = "SecureString"
-  value       = var.langfuse_secret_key
+  value       = coalesce(var.langfuse_secret_key, "")
 
   tags = {
     "franco:terraform_stack" = "convfinqa-compute"

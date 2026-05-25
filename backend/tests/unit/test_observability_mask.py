@@ -69,7 +69,7 @@ from convfinqa.adapters.observability.mask import REDACTED, mask
         ),
         (
             {"user_text": "What is the revenue?"},
-            {"user_text": "What is the revenue?"},
+            {"user_text": REDACTED},
         ),
     ],
 )
