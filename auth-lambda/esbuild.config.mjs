@@ -20,7 +20,7 @@ await esbuild.build({
 	entryPoints: entries,
 	bundle: true,
 	platform: "node",
-	target: "node24",
+	target: "node22",
 	format: "esm",
 	outdir: OUT_DIR,
 	outExtension: { ".js": ".mjs" },
