@@ -60,7 +60,9 @@ class _StubLLM:
         trace_user_id: str | None = None,
         session_id: str | None = None,
         environment: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
+        del model
         self.received_wire_messages.append(list(messages))
         idx = min(self._call_count, len(self._responses) - 1)
         self._call_count += 1

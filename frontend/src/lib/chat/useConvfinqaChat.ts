@@ -7,6 +7,7 @@ export type UseConvfinqaChatOptions = {
 	getUserId: () => string;
 	getDocumentId: () => string | null;
 	getConversationId: () => string | null;
+	getModel: () => string | null;
 	onData?: ChatOnDataCallback<UIMessage>;
 	onFinish?: ChatOnFinishCallback<UIMessage>;
 };
@@ -23,6 +24,7 @@ export function useConvfinqaChat(
 				getUserId: () => optionsRef.current.getUserId(),
 				getDocumentId: () => optionsRef.current.getDocumentId(),
 				getConversationId: () => optionsRef.current.getConversationId(),
+				getModel: () => optionsRef.current.getModel(),
 			}),
 		[],
 	);

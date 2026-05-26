@@ -19,6 +19,7 @@ class FakeLLMPort:
         default_factory=list[Sequence[LLMMessage]]
     )
     seen_systems: list[str] = field(default_factory=list[str])
+    seen_models: list[str | None] = field(default_factory=list[str | None])
     gate: asyncio.Event | None = None
     stream_started: asyncio.Event | None = None
 
@@ -31,9 +32,11 @@ class FakeLLMPort:
         trace_user_id: str | None = None,
         session_id: str | None = None,
         environment: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         self.seen_messages.append(list(messages))
         self.seen_systems.append(system)
+        self.seen_models.append(model)
         if self.stream_started is not None:
             self.stream_started.set()
         if self.gate is not None:

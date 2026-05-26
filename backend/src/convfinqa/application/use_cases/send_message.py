@@ -115,7 +115,9 @@ class SendMessageUseCase:
         conversation_id: str | None,
         user_text: str,
         document_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncGenerator[StreamEvent]:
+        resolved_model = model or self._llm_model
         async with self._observability.start_as_current_observation(
             as_type="agent",
             name="send_message",
@@ -128,7 +130,7 @@ class SendMessageUseCase:
                 self._observability.propagate_attributes(
                     user_id=str(user_id),
                     session_id=conversation.id,
-                    metadata={"document_id": document.id, "llm_model": self._llm_model},
+                    metadata={"document_id": document.id, "llm_model": resolved_model},
                     tags=[f"environment:{self._environment}"],
                 )
                 system_prompt = (
@@ -184,6 +186,7 @@ class SendMessageUseCase:
                                 trace_user_id=str(user_id),
                                 session_id=conversation.id,
                                 environment=self._environment,
+                                model=resolved_model,
                             ),
                             state,
                             parts_in_order,

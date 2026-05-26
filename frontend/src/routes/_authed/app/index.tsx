@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
+import { ModelPicker } from "@/components/ModelPicker";
 import { StopButton } from "@/components/StopButton";
 import { StreamErrorBanner } from "@/components/StreamErrorBanner";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
@@ -35,6 +36,7 @@ import {
 	useChatMessages,
 } from "@/lib/queries/chats";
 import { closeDocPicker, openDocPicker } from "@/lib/ui/docPickerStore";
+import { useSelectedModel } from "@/lib/ui/modelStore";
 import {
 	closeRightPanelSheet,
 	closeSidebarDrawer,
@@ -140,6 +142,9 @@ function AppChatPage() {
 	const navigate = Route.useNavigate();
 	const queryClient = useQueryClient();
 	const userId = useAuthedUserId();
+	const selectedModel = useSelectedModel();
+	const selectedModelRef = useRef(selectedModel);
+	selectedModelRef.current = selectedModel;
 
 	const seededChatIdRef = useRef<string | null>(null);
 
@@ -205,6 +210,7 @@ function AppChatPage() {
 		getUserId: () => userId,
 		getDocumentId: () => documentId ?? null,
 		getConversationId: () => chatId ?? null,
+		getModel: () => selectedModelRef.current,
 		onData: handleData,
 		onFinish: handleFinish,
 	});
@@ -351,6 +357,9 @@ function AppChatPage() {
 					onStopped={recordStopped}
 					className="self-end"
 				/>
+				<div className="flex items-center justify-end">
+					<ModelPicker />
+				</div>
 				<Composer onSend={handleSend} disabled={!documentId} />
 			</section>
 		</main>

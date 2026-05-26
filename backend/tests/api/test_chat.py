@@ -57,6 +57,68 @@ async def test_sync_chat_happy_path_creates_conversation_and_persists_messages(
 
 
 @pytest.mark.asyncio
+async def test_sync_chat_forwards_default_model_when_omitted(
+    app: FastAPI,
+    fake_llm: FakeLLMPort,
+    seeded_document_id: str,
+) -> None:
+    async with await _client(app) as client:
+        response = await client.post(
+            "/api/v1/chat",
+            headers={"X-User-Id": SEEDED_USER_UUID},
+            json={"message": "hi", "document_id": seeded_document_id},
+        )
+
+    assert response.status_code == 200
+    default_model = "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+    assert response.json()["model"] == default_model
+    assert fake_llm.seen_models == [default_model]
+
+
+@pytest.mark.asyncio
+async def test_sync_chat_forwards_chosen_model_when_in_allowlist(
+    app: FastAPI,
+    fake_llm: FakeLLMPort,
+    seeded_document_id: str,
+) -> None:
+    chosen_model = "gemini/gemini-2.5-flash"
+    async with await _client(app) as client:
+        response = await client.post(
+            "/api/v1/chat",
+            headers={"X-User-Id": SEEDED_USER_UUID},
+            json={
+                "message": "hi",
+                "document_id": seeded_document_id,
+                "model": chosen_model,
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["model"] == chosen_model
+    assert fake_llm.seen_models == [chosen_model]
+
+
+@pytest.mark.asyncio
+async def test_sync_chat_rejects_model_outside_allowlist_with_422(
+    app: FastAPI,
+    seeded_document_id: str,
+) -> None:
+    async with await _client(app) as client:
+        response = await client.post(
+            "/api/v1/chat",
+            headers={"X-User-Id": SEEDED_USER_UUID},
+            json={
+                "message": "hi",
+                "document_id": seeded_document_id,
+                "model": "openai/gpt-not-allowed",
+            },
+        )
+
+    assert response.status_code == 422
+    assert "not supported" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_sync_chat_continuation_includes_prior_history(
     app: FastAPI,
     session_factory: async_sessionmaker[AsyncSession],

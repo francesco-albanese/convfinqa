@@ -177,11 +177,11 @@ class LiteLLMAdapter:
         self._request_timeout_seconds = request_timeout_seconds
         self._max_output_tokens = max_output_tokens
 
-    def _wants_thinking(self) -> bool:
-        return "anthropic" in self._model or "bedrock" in self._model
+    def _wants_thinking(self, model: str) -> bool:
+        return "anthropic" in model or "bedrock" in model
 
-    def _thinking_param(self) -> dict[str, Any] | None:
-        if not self._wants_thinking():
+    def _thinking_param(self, model: str) -> dict[str, Any] | None:
+        if not self._wants_thinking(model):
             return None
         if self._max_output_tokens <= MIN_THINKING_BUDGET_TOKENS:
             return None
@@ -202,16 +202,18 @@ class LiteLLMAdapter:
         trace_user_id: str | None = None,
         session_id: str | None = None,
         environment: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
+        effective_model = model or self._model
         wire_messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         wire_messages.extend(messages)
 
-        thinking_param = self._thinking_param()
+        thinking_param = self._thinking_param(effective_model)
 
         litellm_tools = [_tool_spec_to_litellm(t) for t in tools] if tools else None
 
         stream = await _open_stream(
-            self._model,
+            effective_model,
             wire_messages,
             self._request_timeout_seconds,
             self._max_output_tokens,

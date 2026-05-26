@@ -6,6 +6,7 @@ export type CreateChatTransportOptions = {
 	getUserId: () => string;
 	getDocumentId: () => string | null;
 	getConversationId: () => string | null;
+	getModel: () => string | null;
 };
 
 export function createChatTransport(
@@ -20,6 +21,7 @@ export function createChatTransport(
 				messages,
 				conversationId: options.getConversationId(),
 				documentId: options.getDocumentId(),
+				model: options.getModel(),
 			}),
 		}),
 	});
