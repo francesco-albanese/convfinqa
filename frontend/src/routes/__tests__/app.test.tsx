@@ -11,6 +11,7 @@ import type { ChatStatus, UIMessage } from "ai";
 import { act, useEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { setDocPickerOpen } from "@/lib/ui/docPickerStore";
 import { routeTree } from "@/routeTree.gen";
 
 type DataPart = { type: string; data?: unknown };
@@ -114,6 +115,7 @@ function renderApp(initialPath: string) {
 type ChatsFetchOverrides = {
 	chatList?: unknown;
 	chatMessagesByChatId?: Record<string, unknown>;
+	documentById?: Record<string, unknown>;
 };
 
 const APP_TEST_USER = { user_id: "app-test-user", email: "app@test.com" };
@@ -126,6 +128,21 @@ function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 			if (url === "/api/v1/me") {
 				return Promise.resolve(
 					new Response(JSON.stringify(APP_TEST_USER), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+			}
+			if (url.startsWith("/api/v1/documents/")) {
+				const docId = decodeURIComponent(
+					url.slice("/api/v1/documents/".length).split("?")[0] ?? "",
+				);
+				const document = overrides.documentById?.[docId];
+				if (!document) {
+					return Promise.resolve(new Response("{}", { status: 404 }));
+				}
+				return Promise.resolve(
+					new Response(JSON.stringify(document), {
 						status: 200,
 						headers: { "Content-Type": "application/json" },
 					}),
@@ -150,6 +167,28 @@ function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 						status: 200,
 						headers: { "Content-Type": "application/json" },
 					}),
+				);
+			}
+			if (url.startsWith("/api/v1/documents")) {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({
+							items: [
+								{
+									id: "Single_NKE/2010/page_28.pdf-3",
+									ticker: "NKE",
+									year: 2010,
+									page: 28,
+									title: "NKE 2010 page 28",
+								},
+							],
+							next_cursor: null,
+						}),
+						{
+							status: 200,
+							headers: { "Content-Type": "application/json" },
+						},
+					),
 				);
 			}
 			return Promise.resolve(
@@ -259,5 +298,136 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		renderApp("/app");
 		await screen.findByLabelText("Message");
 		expect(screen.queryByTestId("unpin-button")).not.toBeInTheDocument();
+	});
+
+	it("unpin clears the on-screen conversation and lands on empty /app", async () => {
+		streamScript.assistantText = "Revenue rose to $1.2B in 2009.";
+		const user = userEvent.setup();
+		const { router } = renderApp("/app?documentId=doc-1&chatId=conv-7");
+		const textarea = await screen.findByLabelText("Message");
+		await user.type(textarea, "what was the revenue?");
+		await act(async () => {
+			await user.keyboard("{Meta>}{Enter}{/Meta}");
+		});
+		expect(
+			await screen.findByText("Revenue rose to $1.2B in 2009."),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByTestId("unpin-button"));
+
+		await waitFor(() => {
+			expect(router.state.location.href).toBe("/app");
+		});
+		expect(
+			screen.queryByText("Revenue rose to $1.2B in 2009."),
+		).not.toBeInTheDocument();
+	});
+
+	it("clicking the logo clears the conversation and unpins the document", async () => {
+		streamScript.assistantText = "Revenue rose to $1.2B in 2009.";
+		const user = userEvent.setup();
+		const { router } = renderApp("/app?documentId=doc-1&chatId=conv-7");
+		const textarea = await screen.findByLabelText("Message");
+		await user.type(textarea, "what was the revenue?");
+		await act(async () => {
+			await user.keyboard("{Meta>}{Enter}{/Meta}");
+		});
+		expect(
+			await screen.findByText("Revenue rose to $1.2B in 2009."),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByTestId("reset-logo-button"));
+
+		await waitFor(() => {
+			expect(router.state.location.href).toBe("/app");
+		});
+		expect(
+			screen.queryByText("Revenue rose to $1.2B in 2009."),
+		).not.toBeInTheDocument();
+	});
+
+	it("New conversation clears the on-screen messages and unpins the document", async () => {
+		streamScript.assistantText = "Revenue rose to $1.2B in 2009.";
+		const user = userEvent.setup();
+		const { router } = renderApp("/app?documentId=doc-1&chatId=conv-7");
+		const textarea = await screen.findByLabelText("Message");
+		await user.type(textarea, "what was the revenue?");
+		await act(async () => {
+			await user.keyboard("{Meta>}{Enter}{/Meta}");
+		});
+		expect(
+			await screen.findByText("Revenue rose to $1.2B in 2009."),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "New conversation" }));
+
+		await waitFor(() => {
+			expect(router.state.location.href).toBe("/app");
+		});
+		expect(
+			screen.queryByText("Revenue rose to $1.2B in 2009."),
+		).not.toBeInTheDocument();
+	});
+
+	it("changing the document wipes the conversation and pins the new document", async () => {
+		streamScript.assistantText = "Revenue rose to $1.2B in 2009.";
+		const user = userEvent.setup();
+		const { router } = renderApp("/app?documentId=doc-1&chatId=conv-7");
+		const textarea = await screen.findByLabelText("Message");
+		await user.type(textarea, "what was the revenue?");
+		await act(async () => {
+			await user.keyboard("{Meta>}{Enter}{/Meta}");
+		});
+		expect(
+			await screen.findByText("Revenue rose to $1.2B in 2009."),
+		).toBeInTheDocument();
+
+		act(() => {
+			setDocPickerOpen(true);
+		});
+		const result = await screen.findByRole("option", {
+			name: /nke 2010 page 28/i,
+		});
+		await user.click(result);
+
+		await waitFor(() => {
+			expect(router.state.location.search).toEqual({
+				documentId: "Single_NKE/2010/page_28.pdf-3",
+			});
+		});
+		expect(
+			screen.queryByText("Revenue rose to $1.2B in 2009."),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows suggested-question pills for a pinned empty chat, then hides them after sending", async () => {
+		const question = "what is the net cash from operating activities in 2009?";
+		stubChatsFetch({
+			documentById: {
+				"doc-1": {
+					id: "doc-1",
+					ticker: "JKHY",
+					year: 2009,
+					page: 28,
+					title: "JKHY 2009 annual report",
+					pre_text: "",
+					post_text: "",
+					table_data: null,
+					column_order: null,
+					conv_questions: [question, "what about in 2008?"],
+				},
+			},
+		});
+		const user = userEvent.setup();
+		renderApp("/app?documentId=doc-1");
+
+		const pill = await screen.findByRole("button", { name: question });
+		expect(pill).toBeInTheDocument();
+
+		await act(async () => {
+			await user.click(pill);
+		});
+
+		expect(screen.queryByTestId("suggested-questions")).not.toBeInTheDocument();
 	});
 });

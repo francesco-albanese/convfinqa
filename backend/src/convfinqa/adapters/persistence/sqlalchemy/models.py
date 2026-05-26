@@ -51,6 +51,7 @@ class ConversationOrm(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     messages: Mapped[list["MessageOrm"]] = relationship(
         back_populates="conversation",
@@ -108,6 +109,7 @@ class DocumentOrm(Base):
     post_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     table_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     column_order: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    conv_questions: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     search_tsv: Mapped[str] = mapped_column(
         TSVECTOR,
         Computed(DOCUMENTS_TSVECTOR_EXPRESSION, persisted=True),

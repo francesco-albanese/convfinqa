@@ -1,4 +1,6 @@
-from pydantic import AliasChoices, Field
+from typing import Self
+
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +14,12 @@ class Settings(BaseSettings):
 
     llm_model: str = Field(
         default="bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+    )
+    llm_models: list[str] = Field(
+        default=[
+            "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "gemini/gemini-2.5-flash",
+        ]
     )
     system_prompt: str = Field(
         default=(
@@ -60,6 +68,14 @@ class Settings(BaseSettings):
     environment: str = Field(default="dev")
     otel_service_name: str = Field(default="convfinqa")
     otel_exporter_otlp_endpoint: str | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def _default_model_in_allowlist(self) -> Self:
+        if self.llm_model not in self.llm_models:
+            raise ValueError(
+                f"llm_model {self.llm_model!r} is not in llm_models {self.llm_models!r}"
+            )
+        return self
 
 
 SETTINGS = Settings()

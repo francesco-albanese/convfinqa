@@ -4,29 +4,33 @@ export type ChatRequestBody = {
 	message: string;
 	conversation_id?: string;
 	document_id?: string;
+	model?: string;
 };
 
 type BuildChatRequestBodyArgs = {
 	messages: UIMessage[];
 	conversationId: string | null;
 	documentId: string | null;
+	model?: string | null;
 };
 
 export function buildChatRequestBody({
 	messages,
 	conversationId,
 	documentId,
+	model,
 }: BuildChatRequestBodyArgs): ChatRequestBody {
 	const message = extractLatestUserText(messages);
+	const modelField = model ? { model } : {};
 	if (conversationId) {
-		return { message, conversation_id: conversationId };
+		return { message, conversation_id: conversationId, ...modelField };
 	}
 	if (!documentId) {
 		throw new Error(
 			"createChatTransport: document_id is required when no conversation_id is known",
 		);
 	}
-	return { message, document_id: documentId };
+	return { message, document_id: documentId, ...modelField };
 }
 
 function extractLatestUserText(messages: UIMessage[]): string {

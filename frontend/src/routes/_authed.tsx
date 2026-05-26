@@ -1,12 +1,20 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Outlet,
+	useNavigate,
+	useSearch,
+} from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { resetConversation } from "@/lib/chat/conversationReset";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
+import { useDeleteConversation } from "@/lib/queries/chats";
 import {
+	closeDocPicker,
 	openDocPicker,
 	setDocPickerOpen,
 	useDocPickerOpen,
@@ -44,6 +52,12 @@ function AuthedLayout() {
 	const sheetOpen = useRightPanelSheetOpen();
 	const pickerOpen = useDocPickerOpen();
 	const navigate = useNavigate();
+	const search = useSearch({ strict: false });
+	const activeChatId =
+		typeof search.chatId === "string" && search.chatId.length > 0
+			? search.chatId
+			: null;
+	const deleteConversation = useDeleteConversation();
 	const { userId, email, status, signOut } = useAuth();
 	const isBelowLg = useIsBelowLg();
 	const sidebarShellRef = useRef<HTMLElement>(null);
@@ -84,13 +98,15 @@ function AuthedLayout() {
 		onClose: closeRightPanelSheet,
 	});
 
-	const handleNewConversation = useCallback(() => {
+	const closeOverlays = useCallback(() => {
+		closeDocPicker();
+		closeRightPanelSheet();
 		closeSidebarDrawer();
-		void navigate({
-			to: "/app",
-			search: (prev) => ({ ...prev, chatId: undefined }),
-		});
-	}, [navigate]);
+	}, []);
+
+	const handleNewConversation = useCallback(() => {
+		resetConversation({ navigate, closeOverlays }, { documentId: null });
+	}, [navigate, closeOverlays]);
 
 	const handleSignOut = useCallback(() => {
 		signOut();
@@ -98,13 +114,9 @@ function AuthedLayout() {
 
 	const handlePickDocumentSelect = useCallback(
 		(id: string) => {
-			closeSidebarDrawer();
-			void navigate({
-				to: "/app",
-				search: (prev) => ({ ...prev, documentId: id }),
-			});
+			resetConversation({ navigate, closeOverlays }, { documentId: id });
 		},
-		[navigate],
+		[navigate, closeOverlays],
 	);
 
 	const handleSelectChat = useCallback(
@@ -116,6 +128,22 @@ function AuthedLayout() {
 			});
 		},
 		[navigate],
+	);
+
+	const handleDeleteChat = useCallback(
+		(chatId: string) => {
+			deleteConversation.mutate(chatId, {
+				onSuccess: () => {
+					if (chatId === activeChatId) {
+						resetConversation(
+							{ navigate, closeOverlays },
+							{ documentId: null },
+						);
+					}
+				},
+			});
+		},
+		[deleteConversation, activeChatId, navigate, closeOverlays],
 	);
 
 	const handlePickDocument = useCallback(() => {
@@ -174,6 +202,7 @@ function AuthedLayout() {
 					onNewConversation={handleNewConversation}
 					onPickDocument={handlePickDocument}
 					onSelectChat={handleSelectChat}
+					onDeleteChat={handleDeleteChat}
 					onSignOut={handleSignOut}
 				/>
 			</aside>

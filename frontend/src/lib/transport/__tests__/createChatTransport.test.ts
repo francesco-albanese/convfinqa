@@ -10,6 +10,7 @@ describe("createChatTransport headers callback", () => {
 			getUserId: () => userId,
 			getDocumentId: () => "doc-1",
 			getConversationId: () => null,
+			getModel: () => null,
 		});
 
 		const headersFn = (transport as unknown as HeadersAccessor).headers;

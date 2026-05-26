@@ -8,7 +8,7 @@ import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -29,11 +29,11 @@ UPSERT_SQL = text(
     """
     INSERT INTO documents (
         id, ticker, year, page, title, pre_text, post_text, table_data,
-        column_order
+        column_order, conv_questions
     )
     VALUES (
         :id, :ticker, :year, :page, :title, :pre_text, :post_text,
-        CAST(:table_data AS jsonb), :column_order
+        CAST(:table_data AS jsonb), :column_order, :conv_questions
     )
     ON CONFLICT (id) DO UPDATE SET
         ticker = EXCLUDED.ticker,
@@ -43,7 +43,8 @@ UPSERT_SQL = text(
         pre_text = EXCLUDED.pre_text,
         post_text = EXCLUDED.post_text,
         table_data = EXCLUDED.table_data,
-        column_order = EXCLUDED.column_order
+        column_order = EXCLUDED.column_order,
+        conv_questions = EXCLUDED.conv_questions
     """
 )
 
@@ -59,6 +60,7 @@ class DocumentRecord:
     post_text: str | None
     table_data: dict[str, Any] | None
     column_order: list[str] | None
+    conv_questions: list[str] | None
 
 
 def parse_document_id(document_id: str) -> tuple[str | None, int | None, int | None]:
@@ -76,6 +78,18 @@ def derive_title(ticker: str | None, year: int | None, page: int | None) -> str 
     if ticker is None or year is None or page is None:
         return None
     return f"{ticker} {year} annual report — page {page}"
+
+
+def extract_conv_questions(raw_record: dict[str, Any]) -> list[str] | None:
+    raw_dialogue: object = raw_record.get("dialogue")
+    if not isinstance(raw_dialogue, dict):
+        return None
+    dialogue = cast(dict[str, object], raw_dialogue)
+    questions = dialogue.get("conv_questions")
+    if not isinstance(questions, list):
+        return None
+    questions_list = cast(list[object], questions)
+    return [question for question in questions_list if isinstance(question, str)]
 
 
 def iter_document_records(dataset_path: Path) -> Iterator[DocumentRecord]:
@@ -101,6 +115,7 @@ def iter_document_records(dataset_path: Path) -> Iterator[DocumentRecord]:
                 post_text=doc.get("post_text"),
                 table_data=table_data,
                 column_order=column_order,
+                conv_questions=extract_conv_questions(raw_record),
             )
 
 
@@ -118,6 +133,7 @@ def _to_param_dict(record: DocumentRecord) -> dict[str, Any]:
         "post_text": record.post_text,
         "table_data": table_data_json,
         "column_order": record.column_order,
+        "conv_questions": record.conv_questions,
     }
 
 

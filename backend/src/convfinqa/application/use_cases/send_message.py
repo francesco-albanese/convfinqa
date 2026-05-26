@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 import uuid
 from collections.abc import AsyncGenerator
@@ -11,6 +13,7 @@ from convfinqa.application.agent.stream_events import (
     Citation,
     ConcurrentRequest,
     ConversationResolved,
+    ConversationTitle,
     ErrorEvent,
     Finish,
     MessageStarted,
@@ -33,6 +36,7 @@ from convfinqa.application.agent.wire import (
 from convfinqa.application.parts_schema import build_envelope
 from convfinqa.application.prompts.system_prompt import build_system_prompt
 from convfinqa.application.prompts.tool_docs import build_tool_docs
+from convfinqa.application.use_cases.title_generation import generate_title
 from convfinqa.domain.entities import Conversation, Document, Message
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
@@ -58,6 +62,7 @@ __all__ = [
     "ToolCallArgsComplete",
     "ToolResult",
     "Citation",
+    "ConversationTitle",
     "Finish",
     "ErrorEvent",
     "ConcurrentRequest",
@@ -115,7 +120,10 @@ class SendMessageUseCase:
         conversation_id: str | None,
         user_text: str,
         document_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncGenerator[StreamEvent]:
+        resolved_model = model or self._llm_model
+        is_new_conversation = conversation_id is None
         async with self._observability.start_as_current_observation(
             as_type="agent",
             name="send_message",
@@ -128,7 +136,7 @@ class SendMessageUseCase:
                 self._observability.propagate_attributes(
                     user_id=str(user_id),
                     session_id=conversation.id,
-                    metadata={"document_id": document.id, "llm_model": self._llm_model},
+                    metadata={"document_id": document.id, "llm_model": resolved_model},
                     tags=[f"environment:{self._environment}"],
                 )
                 system_prompt = (
@@ -160,6 +168,12 @@ class SendMessageUseCase:
                 assistant_id = new_message_id()
                 yield MessageStarted(message_id=assistant_id)
 
+                title_task: asyncio.Task[str | None] | None = None
+                if is_new_conversation:
+                    title_task = asyncio.create_task(
+                        generate_title(self._llm, user_text, document, resolved_model)
+                    )
+
                 wire_messages = history_to_wire(conversation, user_text)
                 parts_in_order: list[dict[str, Any]] = []
                 text_chunks: list[str] = []
@@ -184,6 +198,7 @@ class SendMessageUseCase:
                                 trace_user_id=str(user_id),
                                 session_id=conversation.id,
                                 environment=self._environment,
+                                model=resolved_model,
                             ),
                             state,
                             parts_in_order,
@@ -236,6 +251,7 @@ class SendMessageUseCase:
                 except GeneratorExit:
                     stop_reason = StopReason.INTERRUPTED
                     span.set_error()
+                    await self._cancel_title_task(title_task)
                     if current_text_buffer:
                         parts_in_order.append(
                             {"kind": "text", "content": "".join(current_text_buffer)}
@@ -268,23 +284,62 @@ class SendMessageUseCase:
                         {"kind": "text", "content": "".join(current_text_buffer)}
                     )
 
-                finished_at = await self._persist_assistant(
-                    conversation.id,
-                    assistant_id,
-                    "".join(text_chunks),
-                    stop_reason,
-                    parts_in_order,
-                    reasoning_signatures,
-                )
+                try:
+                    finished_at = await self._persist_assistant(
+                        conversation.id,
+                        assistant_id,
+                        "".join(text_chunks),
+                        stop_reason,
+                        parts_in_order,
+                        reasoning_signatures,
+                    )
 
-                if errored:
-                    yield ErrorEvent(detail=UPSTREAM_LLM_PUBLIC_DETAIL)
-                    return
+                    if errored:
+                        yield ErrorEvent(detail=UPSTREAM_LLM_PUBLIC_DETAIL)
+                        return
 
-                span.set_output("".join(text_chunks))
-                yield Finish(
-                    stop_reason=stop_reason, usage=usage, created_at=finished_at
-                )
+                    if title_task is not None:
+                        title = await self._resolve_title(title_task, conversation.id)
+                        if title is not None:
+                            yield ConversationTitle(
+                                conversation_id=conversation.id, title=title
+                            )
+
+                    span.set_output("".join(text_chunks))
+                    yield Finish(
+                        stop_reason=stop_reason, usage=usage, created_at=finished_at
+                    )
+                finally:
+                    await self._cancel_title_task(title_task)
+
+    async def _resolve_title(
+        self, title_task: asyncio.Task[str | None], conversation_id: str
+    ) -> str | None:
+        try:
+            title = await title_task
+            if title is None:
+                return None
+            await self._conversations.set_title(conversation_id, title)
+            return title
+        except Exception as exc:  # noqa: BLE001
+            logger.log(
+                logging.WARNING,
+                "title_generation_failed",
+                extra={
+                    "exc_type": exc.__class__.__name__,
+                    "exc_message": str(exc) or exc.__class__.__name__,
+                    "conversation_id": conversation_id,
+                },
+            )
+            return None
+
+    @staticmethod
+    async def _cancel_title_task(title_task: asyncio.Task[str | None] | None) -> None:
+        if title_task is None or title_task.done():
+            return
+        title_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await title_task
 
     async def _resolve_conversation_and_document(
         self,

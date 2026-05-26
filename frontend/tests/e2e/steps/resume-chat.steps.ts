@@ -19,6 +19,7 @@ type SidebarSummary = {
 		year: number | null;
 		title: string | null;
 	};
+	title: string | null;
 	last_message_preview: string;
 	last_message_at: string;
 };
@@ -105,6 +106,7 @@ Given(
 				year: Number.parseInt(title.split(" ")[1] ?? "", 10) || null,
 				title,
 			},
+			title: null,
 			last_message_preview: (lastUser?.content ?? "").slice(0, 80),
 			last_message_at: lastUser?.created_at ?? new Date().toISOString(),
 		});
@@ -139,6 +141,7 @@ Given(
 						year: Number.parseInt(title.split(" ")[1] ?? "", 10) || null,
 						title,
 					},
+					title: null,
 					last_message_preview: preview.slice(0, 80),
 					last_message_at: new Date().toISOString(),
 				});

@@ -36,6 +36,7 @@ class DocumentResponse(BaseModel):
     post_text: str | None
     table_data: dict[str, Any] | None
     column_order: list[str] | None
+    conv_questions: list[str] | None
 
 
 def _to_list_response(page: DocumentListPage) -> DocumentListResponse:
@@ -66,6 +67,11 @@ def _to_document_response(document: Document) -> DocumentResponse:
         table_data=document.table_data,
         column_order=(
             list(document.column_order) if document.column_order is not None else None
+        ),
+        conv_questions=(
+            list(document.conv_questions)
+            if document.conv_questions is not None
+            else None
         ),
     )
 

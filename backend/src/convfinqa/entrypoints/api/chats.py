@@ -8,6 +8,7 @@ from convfinqa.application.parts_schema import MessagePartsEnvelope
 from convfinqa.domain.entities import ConversationSummary, Message
 from convfinqa.entrypoints.api.dependencies import (
     CurrentUserDep,
+    DeleteConversation,
     GetChatMessages,
     ListChats,
 )
@@ -30,6 +31,7 @@ class ChatSummaryResponse(BaseModel):
     document: ChatDocumentResponse
     last_message_preview: str
     last_message_at: datetime
+    title: str | None
 
 
 class ChatListResponse(BaseModel):
@@ -59,6 +61,7 @@ def _to_summary_response(summary: ConversationSummary) -> ChatSummaryResponse:
         ),
         last_message_preview=summary.last_message_preview,
         last_message_at=summary.last_message_at,
+        title=summary.title,
     )
 
 
@@ -108,3 +111,22 @@ async def get_chat_messages(
 ) -> ChatMessageListResponse:
     messages = await get_use_case.execute(conversation_id, user_id)
     return ChatMessageListResponse(items=[_to_message_response(m) for m in messages])
+
+
+@chats_router.delete(
+    "/chats/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_chat(
+    user_id: CurrentUserDep,
+    delete_use_case: DeleteConversation,
+    conversation_id: Annotated[
+        str,
+        Path(
+            min_length=1,
+            max_length=CONVERSATION_ID_MAX_LENGTH,
+            pattern=CONVERSATION_ID_PATTERN,
+        ),
+    ],
+) -> None:
+    await delete_use_case.execute(conversation_id, user_id)

@@ -15,6 +15,7 @@ function summary(
 		},
 		last_message_preview: overrides.last_message_preview ?? "preview",
 		last_message_at: overrides.last_message_at ?? "2026-05-14T10:00:00+00:00",
+		title: overrides.title ?? null,
 	};
 }
 

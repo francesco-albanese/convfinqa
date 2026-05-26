@@ -21,6 +21,7 @@ export const DocumentSchema = DocumentSummarySchema.extend({
 	post_text: z.string().nullable(),
 	table_data: TableDataSchema.nullable(),
 	column_order: z.array(z.string()).nullable(),
+	conv_questions: z.array(z.string()).nullable(),
 });
 
 export type Document = z.infer<typeof DocumentSchema>;

@@ -153,6 +153,7 @@ describe("useDocument", () => {
 			post_text: "after",
 			table_data: { "2009": { "net income": 103102 } },
 			column_order: ["2009"],
+			conv_questions: null,
 		};
 		const fetchMock = vi.fn().mockResolvedValue(documentResponse(doc));
 		vi.stubGlobal("fetch", fetchMock);

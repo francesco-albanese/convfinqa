@@ -45,16 +45,21 @@ def bootstrap_application(settings: Settings) -> Container:
             "not set. Auth middleware is bypassed; X-User-Id header is trusted as "
             "identity. Do NOT run in this state in production.",
         )
-    send_message, list_documents, get_document, list_chats, get_chat_messages = (
-        build_use_cases(
-            llm,
-            conversations,
-            documents,
-            documents_port,
-            locks,
-            settings,
-            observability,
-        )
+    (
+        send_message,
+        list_documents,
+        get_document,
+        list_chats,
+        get_chat_messages,
+        delete_conversation,
+    ) = build_use_cases(
+        llm,
+        conversations,
+        documents,
+        documents_port,
+        locks,
+        settings,
+        observability,
     )
     cache, rate_limit = build_pg_adapters(session_factory)
     return Container(
@@ -71,6 +76,7 @@ def bootstrap_application(settings: Settings) -> Container:
         get_document=get_document,
         list_chats=list_chats,
         get_chat_messages=get_chat_messages,
+        delete_conversation=delete_conversation,
         observability=observability,
         cache=cache,
         rate_limit=rate_limit,
@@ -97,16 +103,21 @@ def for_testing(
     conversations, documents, documents_port, locks, _ = build_persistence(
         session_factory
     )
-    send_message, list_documents, get_document, list_chats, get_chat_messages = (
-        build_use_cases(
-            llm,
-            conversations,
-            documents,
-            documents_port,
-            locks,
-            settings,
-            resolved_observability,
-        )
+    (
+        send_message,
+        list_documents,
+        get_document,
+        list_chats,
+        get_chat_messages,
+        delete_conversation,
+    ) = build_use_cases(
+        llm,
+        conversations,
+        documents,
+        documents_port,
+        locks,
+        settings,
+        resolved_observability,
     )
     pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
     resolved_cache: CachePort = cache if cache is not None else pg_cache
@@ -127,6 +138,7 @@ def for_testing(
         get_document=get_document,
         list_chats=list_chats,
         get_chat_messages=get_chat_messages,
+        delete_conversation=delete_conversation,
         observability=resolved_observability,
         cache=resolved_cache,
         rate_limit=resolved_rate_limit,

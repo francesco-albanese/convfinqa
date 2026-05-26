@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { AuthProvider, useAuth } from "@/lib/auth/AuthProvider";
 import {
 	buildChatListUrl,
 	buildChatMessagesUrl,
+	buildDeleteChatUrl,
 	type ChatList,
 	ChatListSchema,
 	type ChatMessageList,
@@ -13,6 +14,7 @@ import {
 	type ChatSummary,
 	useChatList,
 	useChatMessages,
+	useDeleteConversation,
 } from "@/lib/queries/chats";
 
 const TEST_USER = { user_id: "chats-test-user-uuid", email: "chats@test.com" };
@@ -75,6 +77,7 @@ describe("ChatListSchema", () => {
 					},
 					last_message_preview: "Hello",
 					last_message_at: "2026-05-14T08:00:00+00:00",
+					title: "Revenue trend question",
 				},
 			],
 		};
@@ -150,6 +153,7 @@ describe("useChatList", () => {
 					},
 					last_message_preview: "Hello",
 					last_message_at: "2026-05-14T08:00:00+00:00",
+					title: null,
 				},
 			],
 		};
@@ -268,6 +272,55 @@ describe("useChatMessages", () => {
 	});
 });
 
+describe("useDeleteConversation", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("DELETEs the conversation with X-User-Id and invalidates the chat list", async () => {
+		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") return Promise.resolve(jsonResponse(TEST_USER));
+			return Promise.resolve(new Response(null, { status: 204 }));
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+		const wrapper = ({ children }: { children: ReactNode }) =>
+			createElement(
+				QueryClientProvider,
+				{ client },
+				createElement(AuthProvider, null, children),
+			);
+
+		const { result } = renderHook(
+			() => ({ auth: useAuth(), del: useDeleteConversation() }),
+			{ wrapper },
+		);
+
+		await waitFor(() => {
+			expect(result.current.auth.status).toBe("authed");
+		});
+
+		result.current.del.mutate("conv_abc");
+
+		await waitFor(() => {
+			expect(result.current.del.isSuccess).toBe(true);
+		});
+
+		const deleteCall = fetchMock.mock.calls.find(
+			([u]) => String(u) === buildDeleteChatUrl("conv_abc"),
+		);
+		expect(deleteCall).toBeDefined();
+		expect((deleteCall?.[1] as RequestInit | undefined)?.method).toBe("DELETE");
+		expect(headerValue(deleteCall, "X-User-Id")).toBe(TEST_USER.user_id);
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["chats"] });
+	});
+});
+
 describe("ChatSummary type inference", () => {
 	it("infers a ChatSummary that matches the documented backend contract", () => {
 		const summary: ChatSummary = {
@@ -280,6 +333,7 @@ describe("ChatSummary type inference", () => {
 			},
 			last_message_preview: "preview",
 			last_message_at: "2026-05-14T08:00:00+00:00",
+			title: null,
 		};
 		expect(summary.id).toBe("conv_abc");
 	});

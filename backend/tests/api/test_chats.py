@@ -9,6 +9,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from tests.conftest import SEEDED_USER_UUID
+from tests.fakes.llm import FakeLLMPort
+
 DOC_AAA = "doc-aaa-2024"
 DOC_BBB = "doc-bbb-2025"
 
@@ -374,3 +377,105 @@ async def test_get_chat_messages_parts_envelope_round_trips_through_api(
     assert parts["parts"][0]["content"] == "thinking..."
     assert parts["parts"][1]["kind"] == "text"
     assert parts["parts"][1]["content"] == "answer here"
+
+
+async def _start_conversation(
+    app: FastAPI, document_id: str, message: str = "what was revenue"
+) -> str:
+    async with await _client(app) as client:
+        response = await client.post(
+            "/api/v1/chat",
+            headers={"X-User-Id": SEEDED_USER_UUID},
+            json={"message": message, "document_id": document_id},
+        )
+    assert response.status_code == 200
+    return response.json()["conversation_id"]
+
+
+async def _list_chats(app: FastAPI) -> list[dict[str, Any]]:
+    async with await _client(app) as client:
+        response = await client.get(
+            "/api/v1/chats", headers={"X-User-Id": SEEDED_USER_UUID}
+        )
+    assert response.status_code == 200
+    return response.json()["items"]
+
+
+@pytest.mark.asyncio
+async def test_new_conversation_gets_auto_title_exposed_in_chats(
+    app: FastAPI, seeded_document_id: str
+) -> None:
+    conversation_id = await _start_conversation(app, seeded_document_id)
+
+    items = await _list_chats(app)
+    summary = next(item for item in items if item["id"] == conversation_id)
+    assert summary["title"] is not None
+    assert len(summary["title"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_delete_conversation_removes_chat_and_cascades_messages(
+    app: FastAPI, engine: AsyncEngine, two_users_three_chats: None
+) -> None:
+    del two_users_three_chats
+    async with await _client(app) as client:
+        delete_resp = await client.delete(
+            f"/api/v1/chats/{CONV_ALICE_AAA_OLD}",
+            headers={"X-User-Id": ALICE_UUID},
+        )
+        list_resp = await client.get("/api/v1/chats", headers={"X-User-Id": ALICE_UUID})
+
+    assert delete_resp.status_code == 204
+    assert CONV_ALICE_AAA_OLD not in [item["id"] for item in list_resp.json()["items"]]
+
+    async with engine.connect() as conn:
+        remaining_messages = (
+            await conn.execute(
+                text("SELECT COUNT(*) FROM messages WHERE conversation_id = :conv_id"),
+                {"conv_id": CONV_ALICE_AAA_OLD},
+            )
+        ).scalar_one()
+    assert remaining_messages == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_unknown_conversation_returns_404(app: FastAPI) -> None:
+    async with await _client(app) as client:
+        response = await client.delete(
+            "/api/v1/chats/conv_deadbeefdeadbeefdeadbeefdeadbeef",
+            headers={"X-User-Id": ALICE_UUID},
+        )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_other_users_conversation_returns_404_and_keeps_row(
+    app: FastAPI, engine: AsyncEngine, two_users_three_chats: None
+) -> None:
+    del two_users_three_chats
+    async with await _client(app) as client:
+        delete_resp = await client.delete(
+            f"/api/v1/chats/{CONV_BOB_AAA}",
+            headers={"X-User-Id": ALICE_UUID},
+        )
+        bob_list_resp = await client.get(
+            "/api/v1/chats", headers={"X-User-Id": BOB_UUID}
+        )
+
+    assert delete_resp.status_code == 404
+    assert CONV_BOB_AAA in [item["id"] for item in bob_list_resp.json()["items"]]
+
+
+@pytest.mark.asyncio
+async def test_title_generation_failure_leaves_conversation_functional(
+    app: FastAPI, fake_llm: FakeLLMPort, seeded_document_id: str
+) -> None:
+    fake_llm.title_raise_with = RuntimeError("title model unavailable")
+
+    conversation_id = await _start_conversation(app, seeded_document_id)
+
+    items = await _list_chats(app)
+    summary = next(item for item in items if item["id"] == conversation_id)
+    assert summary["title"] is None
+    assert summary["last_message_preview"] == "what was revenue"

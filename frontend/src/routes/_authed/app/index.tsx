@@ -11,9 +11,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
+import { ModelPicker } from "@/components/ModelPicker";
 import { StopButton } from "@/components/StopButton";
 import { StreamErrorBanner } from "@/components/StreamErrorBanner";
+import { SuggestedQuestions } from "@/components/SuggestedQuestions";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
+import {
+	clearChatResetControls,
+	registerChatResetControls,
+	resetConversation,
+} from "@/lib/chat/conversationReset";
 import {
 	type AppSearch,
 	AppSearchSchema,
@@ -21,16 +28,25 @@ import {
 	type CitationData,
 	CitationDataSchema,
 	ConversationDataSchema,
+	TitleDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
 import { useStreamErrorRetry } from "@/lib/chat/useStreamErrorRetry";
 import {
+	type ChatList,
 	type ChatMessage,
+	chatListQueryKey,
 	type StoredCitationPart,
 	useChatMessages,
 } from "@/lib/queries/chats";
-import { openDocPicker } from "@/lib/ui/docPickerStore";
-import { openRightPanelSheet } from "@/lib/ui/responsiveStore";
+import { useDocument } from "@/lib/queries/documents";
+import { closeDocPicker, openDocPicker } from "@/lib/ui/docPickerStore";
+import { useSelectedModel } from "@/lib/ui/modelStore";
+import {
+	closeRightPanelSheet,
+	closeSidebarDrawer,
+	openRightPanelSheet,
+} from "@/lib/ui/responsiveStore";
 
 export const Route = createFileRoute("/_authed/app/")({
 	validateSearch: (raw: Record<string, unknown>): AppSearch => {
@@ -131,6 +147,9 @@ function AppChatPage() {
 	const navigate = Route.useNavigate();
 	const queryClient = useQueryClient();
 	const userId = useAuthedUserId();
+	const selectedModel = useSelectedModel();
+	const selectedModelRef = useRef(selectedModel);
+	selectedModelRef.current = selectedModel;
 
 	const seededChatIdRef = useRef<string | null>(null);
 
@@ -163,6 +182,25 @@ function AppChatPage() {
 				return;
 			}
 
+			if (partResult.data.type === "data-title") {
+				const titleResult = TitleDataSchema.safeParse(partResult.data.data);
+				if (!titleResult.success || !userId) return;
+				const { conversationId, title } = titleResult.data;
+				const key = chatListQueryKey(userId);
+				const existing = queryClient.getQueryData<ChatList>(key);
+				if (!existing) {
+					void queryClient.invalidateQueries({ queryKey: ["chats"] });
+					return;
+				}
+				queryClient.setQueryData<ChatList>(key, {
+					...existing,
+					items: existing.items.map((item) =>
+						item.id === conversationId ? { ...item, title } : item,
+					),
+				});
+				return;
+			}
+
 			if (partResult.data.type === "data-citation") {
 				const citationResult = CitationDataSchema.safeParse(
 					partResult.data.data,
@@ -185,7 +223,7 @@ function AppChatPage() {
 				});
 			}
 		},
-		[chatId, navigate],
+		[chatId, navigate, queryClient, userId],
 	);
 
 	const handleFinish = useCallback(() => {
@@ -196,6 +234,7 @@ function AppChatPage() {
 		getUserId: () => userId,
 		getDocumentId: () => documentId ?? null,
 		getConversationId: () => chatId ?? null,
+		getModel: () => selectedModelRef.current,
 		onData: handleData,
 		onFinish: handleFinish,
 	});
@@ -204,7 +243,24 @@ function AppChatPage() {
 	chatRef.current = chat;
 	chatMessagesRef.current = chat.messages;
 
+	useEffect(() => {
+		const controls = {
+			stop: () => chatRef.current.stop(),
+			setMessages: (messages: UIMessage[]) =>
+				chatRef.current.setMessages(messages),
+		};
+		registerChatResetControls(controls);
+		return () => clearChatResetControls(controls);
+	}, []);
+
+	const closeOverlays = useCallback(() => {
+		closeDocPicker();
+		closeRightPanelSheet();
+		closeSidebarDrawer();
+	}, []);
+
 	const messagesQuery = useChatMessages(chatId ?? null);
+	const pinnedDocumentQuery = useDocument(documentId ?? null);
 
 	useEffect(() => {
 		if (!chatId || seededChatIdRef.current === chatId || !messagesQuery.data) {
@@ -249,16 +305,25 @@ function AppChatPage() {
 		chatId: chatId ?? null,
 	});
 
-	const handleUnpin = useCallback(() => {
-		navigate({ search: () => ({}), replace: true });
-	}, [navigate]);
+	const handleResetConversation = useCallback(() => {
+		resetConversation({ navigate, closeOverlays }, { documentId: null });
+	}, [navigate, closeOverlays]);
 
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
 			<header className="flex items-center justify-between gap-3 border-border border-b py-3 pr-6 pl-16 lg:pl-6">
 				<div className="flex min-w-0 items-center gap-2">
 					<div className="min-w-0">
-						<h1 className="font-semibold text-base">ConvFinQA</h1>
+						<h1 className="font-semibold text-base">
+							<button
+								type="button"
+								onClick={handleResetConversation}
+								data-testid="reset-logo-button"
+								className="rounded-sm text-left hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+							>
+								ConvFinQA
+							</button>
+						</h1>
 						<p className="truncate text-muted-foreground text-xs">
 							{documentId
 								? `Pinned: ${documentId}`
@@ -268,7 +333,7 @@ function AppChatPage() {
 					{documentId ? (
 						<button
 							type="button"
-							onClick={handleUnpin}
+							onClick={handleResetConversation}
 							aria-label="Unpin document and start over"
 							data-testid="unpin-button"
 							className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
@@ -292,8 +357,15 @@ function AppChatPage() {
 				aria-label="Conversation"
 				className="flex-1 overflow-y-auto px-6 py-4"
 			>
-				{!documentId && chat.messages.length === 0 ? (
-					<EmptyState onPinDocument={openDocPicker} />
+				{chat.messages.length === 0 ? (
+					documentId ? (
+						<SuggestedQuestions
+							questions={pinnedDocumentQuery.data?.conv_questions ?? []}
+							onSend={handleSend}
+						/>
+					) : (
+						<EmptyState onPinDocument={openDocPicker} />
+					)
 				) : (
 					<MessageList
 						messages={chat.messages}
@@ -317,6 +389,9 @@ function AppChatPage() {
 					onStopped={recordStopped}
 					className="self-end"
 				/>
+				<div className="flex items-center justify-end">
+					<ModelPicker />
+				</div>
 				<Composer onSend={handleSend} disabled={!documentId} />
 			</section>
 		</main>

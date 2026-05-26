@@ -1,9 +1,9 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import CursorResult, delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
@@ -29,7 +29,8 @@ LIST_CHATS_SQL = text(
     "       COALESCE(LEFT(latest_user.content, :preview_max), '') "
     "         AS last_message_preview, "
     "       COALESCE(latest_any.created_at, c.created_at) "
-    "         AS last_message_at "
+    "         AS last_message_at, "
+    "       c.title AS conversation_title "
     "FROM conversations c "
     "JOIN documents d ON d.id = c.document_id "
     "LEFT JOIN LATERAL ( "
@@ -75,6 +76,7 @@ def _to_conversation(orm: ConversationOrm) -> Conversation:
         document_id=orm.document_id,
         created_at=orm.created_at,
         messages=tuple(_to_message(m) for m in orm.messages),
+        title=orm.title,
     )
 
 
@@ -133,6 +135,7 @@ class SqlAlchemyConversationRepository:
                 document_id=orm.document_id,
                 created_at=orm.created_at,
                 messages=(),
+                title=orm.title,
             )
 
     async def append_message(self, conversation_id: str, message: Message) -> None:
@@ -174,6 +177,7 @@ class SqlAlchemyConversationRepository:
                 ),
                 last_message_preview=row[6],
                 last_message_at=row[7],
+                title=row[8],
             )
             for row in rows
         )
@@ -196,6 +200,29 @@ class SqlAlchemyConversationRepository:
             )
             result = await session.execute(messages_stmt)
             return tuple(_to_message(m) for m in result.scalars().all())
+
+    async def set_title(self, conversation_id: str, title: str) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                update(ConversationOrm)
+                .where(ConversationOrm.id == conversation_id)
+                .values(title=title)
+            )
+            await session.commit()
+
+    async def delete(self, conversation_id: str, user_id: uuid.UUID) -> bool:
+        async with self._session_factory() as session:
+            result = cast(
+                CursorResult[Any],
+                await session.execute(
+                    delete(ConversationOrm).where(
+                        ConversationOrm.id == conversation_id,
+                        ConversationOrm.user_id == user_id,
+                    )
+                ),
+            )
+            await session.commit()
+            return result.rowcount > 0
 
 
 class SqlAlchemyDocumentRepository:

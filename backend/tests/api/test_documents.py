@@ -199,6 +199,53 @@ async def test_get_document_response_includes_wire_column_order(
 
 
 @pytest.mark.asyncio
+async def test_get_document_response_exposes_conv_questions(
+    app: FastAPI, engine: AsyncEngine
+) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO documents "
+                "(id, ticker, year, page, title, pre_text, post_text, "
+                "table_data, conv_questions) "
+                "VALUES (:id, 'JKHY', 2009, 28, 't', '', '', "
+                "CAST('{}' AS jsonb), :conv_questions) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "conv_questions = EXCLUDED.conv_questions"
+            ),
+            {
+                "id": "doc-jkhy-conv-questions-api",
+                "conv_questions": [
+                    "what is the net cash from operating activities in 2009?",
+                    "what about in 2008?",
+                ],
+            },
+        )
+
+    async with await _client(app) as client:
+        response = await client.get("/api/v1/documents/doc-jkhy-conv-questions-api")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["conv_questions"] == [
+        "what is the net cash from operating activities in 2009?",
+        "what about in 2008?",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_document_conv_questions_null_when_absent(
+    app: FastAPI, seeded_corpus: None
+) -> None:
+    del seeded_corpus
+    async with await _client(app) as client:
+        response = await client.get("/api/v1/documents/doc-jkhy-2009")
+
+    assert response.status_code == 200
+    assert response.json()["conv_questions"] is None
+
+
+@pytest.mark.asyncio
 async def test_list_documents_malformed_cursor_returns_400_problem(
     app: FastAPI, seeded_corpus: None
 ) -> None:

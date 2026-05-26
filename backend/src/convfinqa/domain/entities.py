@@ -24,6 +24,7 @@ class Conversation:
     document_id: str
     created_at: datetime
     messages: tuple[Message, ...] = field(default_factory=tuple)
+    title: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +38,7 @@ class Document:
     post_text: str | None
     table_data: dict[str, Any] | None
     column_order: tuple[str, ...] | None = None
+    conv_questions: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,3 +62,4 @@ class ConversationSummary:
     document: DocumentSummary
     last_message_preview: str
     last_message_at: datetime
+    title: str | None = None

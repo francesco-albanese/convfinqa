@@ -12,6 +12,7 @@ type SidebarProps = {
 	onNewConversation: () => void;
 	onPickDocument: () => void;
 	onSelectChat: (chatId: string, documentId: string) => void;
+	onDeleteChat: (chatId: string) => void;
 	onSignOut: () => void;
 };
 
@@ -23,6 +24,7 @@ export function Sidebar({
 	onNewConversation,
 	onPickDocument,
 	onSelectChat,
+	onDeleteChat,
 	onSignOut,
 }: SidebarProps) {
 	const searchId = useId();
@@ -113,6 +115,7 @@ export function Sidebar({
 					query={query}
 					collapsed={collapsed}
 					onSelectChat={onSelectChat}
+					onDeleteChat={onDeleteChat}
 				/>
 			</div>
 

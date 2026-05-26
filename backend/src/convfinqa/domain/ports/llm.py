@@ -43,4 +43,5 @@ class LLMPort(Protocol):
         trace_user_id: str | None = None,
         session_id: str | None = None,
         environment: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[LLMChunk]: ...

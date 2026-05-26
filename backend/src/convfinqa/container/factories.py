@@ -12,6 +12,9 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
 )
 from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUserLookup
 from convfinqa.adapters.rate_limit.postgres import PostgresRateLimitAdapter
+from convfinqa.application.use_cases.delete_conversation import (
+    DeleteConversationUseCase,
+)
 from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
 from convfinqa.application.use_cases.list_chats import ListChatsUseCase
@@ -83,6 +86,7 @@ def build_use_cases(
     GetDocumentUseCase,
     ListChatsUseCase,
     GetChatMessagesUseCase,
+    DeleteConversationUseCase,
 ]:
     send_message = SendMessageUseCase(
         llm=llm,
@@ -98,7 +102,15 @@ def build_use_cases(
     get_document = GetDocumentUseCase(documents=documents_port)
     list_chats = ListChatsUseCase(conversations=conversations)
     get_chat_messages = GetChatMessagesUseCase(conversations=conversations)
-    return send_message, list_documents, get_document, list_chats, get_chat_messages
+    delete_conversation = DeleteConversationUseCase(conversations=conversations)
+    return (
+        send_message,
+        list_documents,
+        get_document,
+        list_chats,
+        get_chat_messages,
+        delete_conversation,
+    )
 
 
 def build_pg_adapters(

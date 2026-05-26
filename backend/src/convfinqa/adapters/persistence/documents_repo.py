@@ -43,7 +43,7 @@ class SqlAlchemyDocumentsRepository:
     async def get(self, document_id: str) -> Document | None:
         sql = text(
             "SELECT id, ticker, year, page, title, pre_text, post_text, "
-            "table_data, column_order "
+            "table_data, column_order, conv_questions "
             "FROM documents WHERE id = :id"
         )
         async with self._session_factory() as session:
@@ -51,6 +51,7 @@ class SqlAlchemyDocumentsRepository:
         if row is None:
             return None
         raw_column_order = row[8]
+        raw_conv_questions = row[9]
         return Document(
             id=row[0],
             ticker=row[1],
@@ -62,6 +63,9 @@ class SqlAlchemyDocumentsRepository:
             table_data=row[7],
             column_order=tuple(raw_column_order)
             if raw_column_order is not None
+            else None,
+            conv_questions=tuple(raw_conv_questions)
+            if raw_conv_questions is not None
             else None,
         )
 

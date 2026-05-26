@@ -39,6 +39,32 @@ describe("buildChatRequestBody", () => {
 		expect(body).not.toHaveProperty("document_id");
 	});
 
+	it("includes model when one is selected", () => {
+		const body = buildChatRequestBody({
+			messages: [userMessage("what was the revenue in 2009?")],
+			conversationId: null,
+			documentId: "single_NKE/2010/page_X",
+			model: "gemini/gemini-2.5-flash",
+		});
+
+		expect(body).toEqual({
+			message: "what was the revenue in 2009?",
+			document_id: "single_NKE/2010/page_X",
+			model: "gemini/gemini-2.5-flash",
+		});
+	});
+
+	it("omits model when none is selected (server picks its default)", () => {
+		const body = buildChatRequestBody({
+			messages: [userMessage("and 2008?")],
+			conversationId: "conv-42",
+			documentId: null,
+			model: null,
+		});
+
+		expect(body).not.toHaveProperty("model");
+	});
+
 	it("throws when no conversation_id and no document_id", () => {
 		expect(() =>
 			buildChatRequestBody({

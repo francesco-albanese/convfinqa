@@ -181,6 +181,24 @@ describe("/_authed layout — drawer + sheet a11y (below lg)", () => {
 		expect(hamburger).toHaveFocus();
 	});
 
+	it("closes the open sidebar drawer when New conversation resets the chat", async () => {
+		const user = userEvent.setup();
+		const { router } = renderApp("/app?documentId=doc-1&chatId=conv-7");
+		const shell = await screen.findByTestId("authed-shell");
+
+		await user.click(screen.getByTestId("sidebar-hamburger"));
+		await waitFor(() => {
+			expect(shell).toHaveAttribute("data-drawer", "open");
+		});
+
+		await user.click(screen.getByRole("button", { name: "New conversation" }));
+
+		await waitFor(() => {
+			expect(shell).toHaveAttribute("data-drawer", "closed");
+		});
+		expect(router.state.location.href).toBe("/app");
+	});
+
 	it("marks the right-panel sheet as role=dialog and closes via Escape", async () => {
 		const documentBody = {
 			id: "Single_NKE/2010/page_28.pdf-3",
@@ -192,6 +210,7 @@ describe("/_authed layout — drawer + sheet a11y (below lg)", () => {
 			post_text: null,
 			column_order: null,
 			table_data: null,
+			conv_questions: null,
 		};
 		vi.stubGlobal(
 			"fetch",
