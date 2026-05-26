@@ -51,6 +51,7 @@ class ConversationOrm(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     messages: Mapped[list["MessageOrm"]] = relationship(
         back_populates="conversation",

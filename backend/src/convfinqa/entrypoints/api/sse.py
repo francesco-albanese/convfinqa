@@ -6,6 +6,7 @@ from convfinqa.application.use_cases.send_message import (
     Citation,
     ConcurrentRequest,
     ConversationResolved,
+    ConversationTitle,
     ErrorEvent,
     Finish,
     MessageStarted,
@@ -140,6 +141,13 @@ async def to_ui_message_stream(
                     {
                         "type": "data-citation",
                         "data": {"rowLabel": row_label, "colLabel": col_label},
+                    }
+                )
+            case ConversationTitle(conversation_id=cid, title=title):
+                yield _frame(
+                    {
+                        "type": "data-title",
+                        "data": {"conversationId": cid, "title": title},
                     }
                 )
             case ConcurrentRequest():

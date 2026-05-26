@@ -17,6 +17,7 @@ export const ChatSummarySchema = z.object({
 	document: ChatDocumentSchema,
 	last_message_preview: z.string(),
 	last_message_at: IsoDatetime,
+	title: z.string().nullable(),
 });
 
 export const ChatListSchema = z.object({

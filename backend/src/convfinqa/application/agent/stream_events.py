@@ -83,6 +83,12 @@ class Citation:
     col_label: str
 
 
+@dataclass(frozen=True, slots=True)
+class ConversationTitle:
+    conversation_id: str
+    title: str
+
+
 StreamEvent = (
     ConversationResolved
     | MessageStarted
@@ -98,4 +104,5 @@ StreamEvent = (
     | ErrorEvent
     | ConcurrentRequest
     | Citation
+    | ConversationTitle
 )

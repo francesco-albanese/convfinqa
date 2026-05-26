@@ -75,6 +75,7 @@ describe("ChatListSchema", () => {
 					},
 					last_message_preview: "Hello",
 					last_message_at: "2026-05-14T08:00:00+00:00",
+					title: "Revenue trend question",
 				},
 			],
 		};
@@ -150,6 +151,7 @@ describe("useChatList", () => {
 					},
 					last_message_preview: "Hello",
 					last_message_at: "2026-05-14T08:00:00+00:00",
+					title: null,
 				},
 			],
 		};
@@ -280,6 +282,7 @@ describe("ChatSummary type inference", () => {
 			},
 			last_message_preview: "preview",
 			last_message_at: "2026-05-14T08:00:00+00:00",
+			title: null,
 		};
 		expect(summary.id).toBe("conv_abc");
 	});

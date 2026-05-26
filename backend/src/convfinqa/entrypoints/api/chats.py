@@ -30,6 +30,7 @@ class ChatSummaryResponse(BaseModel):
     document: ChatDocumentResponse
     last_message_preview: str
     last_message_at: datetime
+    title: str | None
 
 
 class ChatListResponse(BaseModel):
@@ -59,6 +60,7 @@ def _to_summary_response(summary: ConversationSummary) -> ChatSummaryResponse:
         ),
         last_message_preview=summary.last_message_preview,
         last_message_at=summary.last_message_at,
+        title=summary.title,
     )
 
 

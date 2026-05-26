@@ -28,11 +28,14 @@ import {
 	type CitationData,
 	CitationDataSchema,
 	ConversationDataSchema,
+	TitleDataSchema,
 } from "@/lib/chat/schemas";
 import { useConvfinqaChat } from "@/lib/chat/useConvfinqaChat";
 import { useStreamErrorRetry } from "@/lib/chat/useStreamErrorRetry";
 import {
+	type ChatList,
 	type ChatMessage,
+	chatListQueryKey,
 	type StoredCitationPart,
 	useChatMessages,
 } from "@/lib/queries/chats";
@@ -179,6 +182,25 @@ function AppChatPage() {
 				return;
 			}
 
+			if (partResult.data.type === "data-title") {
+				const titleResult = TitleDataSchema.safeParse(partResult.data.data);
+				if (!titleResult.success || !userId) return;
+				const { conversationId, title } = titleResult.data;
+				const key = chatListQueryKey(userId);
+				const existing = queryClient.getQueryData<ChatList>(key);
+				if (!existing) {
+					void queryClient.invalidateQueries({ queryKey: ["chats"] });
+					return;
+				}
+				queryClient.setQueryData<ChatList>(key, {
+					...existing,
+					items: existing.items.map((item) =>
+						item.id === conversationId ? { ...item, title } : item,
+					),
+				});
+				return;
+			}
+
 			if (partResult.data.type === "data-citation") {
 				const citationResult = CitationDataSchema.safeParse(
 					partResult.data.data,
@@ -201,7 +223,7 @@ function AppChatPage() {
 				});
 			}
 		},
-		[chatId, navigate],
+		[chatId, navigate, queryClient, userId],
 	);
 
 	const handleFinish = useCallback(() => {

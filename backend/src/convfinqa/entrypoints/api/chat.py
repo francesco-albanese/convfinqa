@@ -9,6 +9,7 @@ from convfinqa.application.use_cases.send_message import (
     Citation,
     ConcurrentRequest,
     ConversationResolved,
+    ConversationTitle,
     ErrorEvent,
     Finish,
     MessageStarted,
@@ -137,6 +138,7 @@ async def sync_chat(
                     | ToolCallArgsComplete()
                     | ToolResult()
                     | Citation()
+                    | ConversationTitle()
                 ):
                     pass
     finally:

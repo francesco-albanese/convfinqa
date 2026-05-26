@@ -44,12 +44,13 @@ export type ChatRowProps = {
 
 export function ChatRow({ chat, documentId, onSelectChat }: ChatRowProps) {
 	const preview = chat.last_message_preview.trim() || "(no messages)";
+	const label = chat.title?.trim() || preview;
 	const timestamp = formatTimestamp(chat.last_message_at);
 	return (
 		<button
 			type="button"
 			onClick={() => onSelectChat(chat.id, documentId)}
-			aria-label={`Open conversation: ${preview}`}
+			aria-label={`Open conversation: ${label}`}
 			data-testid="sidebar-chat-row"
 			data-chat-id={chat.id}
 			className={cn(
@@ -58,7 +59,7 @@ export function ChatRow({ chat, documentId, onSelectChat }: ChatRowProps) {
 			)}
 		>
 			<span className="line-clamp-2 w-full text-foreground text-sm">
-				{preview}
+				{label}
 			</span>
 			<span className="text-muted-foreground text-xs">{timestamp}</span>
 		</button>

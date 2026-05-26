@@ -20,6 +20,7 @@ export function makeSummary(opts: {
 	title: string;
 	preview: string;
 	at: string;
+	convTitle?: string | null;
 }) {
 	return {
 		id: opts.id,
@@ -31,6 +32,7 @@ export function makeSummary(opts: {
 		},
 		last_message_preview: opts.preview,
 		last_message_at: opts.at,
+		title: opts.convTitle ?? null,
 	};
 }
 

@@ -15,11 +15,14 @@ class FakeLLMPort:
     )
     raise_after: int | None = None
     raise_with: Exception | None = None
+    title_deltas: tuple[str, ...] = ("Test ", "title ", "here")
+    title_raise_with: Exception | None = None
     seen_messages: list[Sequence[LLMMessage]] = field(
         default_factory=list[Sequence[LLMMessage]]
     )
     seen_systems: list[str] = field(default_factory=list[str])
     seen_models: list[str | None] = field(default_factory=list[str | None])
+    title_seen_systems: list[str] = field(default_factory=list[str])
     gate: asyncio.Event | None = None
     stream_started: asyncio.Event | None = None
 
@@ -34,6 +37,13 @@ class FakeLLMPort:
         environment: str | None = None,
         model: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
+        if generation_name == "title-generation":
+            self.title_seen_systems.append(system)
+            if self.title_raise_with is not None:
+                raise self.title_raise_with
+            for delta in self.title_deltas:
+                yield LLMChunk(text=delta)
+            return
         self.seen_messages.append(list(messages))
         self.seen_systems.append(system)
         self.seen_models.append(model)

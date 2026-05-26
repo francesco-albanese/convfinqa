@@ -78,10 +78,17 @@ async def test_stream_chat_emits_ai_sdk_v5_frames_in_order_with_streaming_header
         "text-start",
         "text-delta",
         "text-delta",
+        "data-title",
         "text-end",
         "finish",
         "[DONE]",
     ]
+
+    title_frame = next(
+        f for f in frames if isinstance(f, dict) and f["type"] == "data-title"
+    )
+    assert title_frame["data"]["title"]
+    assert title_frame["data"]["conversationId"].startswith("conv_")
 
     start = frames[0]
     data_conv = frames[1]

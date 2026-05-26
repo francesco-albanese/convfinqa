@@ -36,6 +36,7 @@ function makeChat(preview: string): ChatDocumentGroup["conversations"][number] {
 		},
 		last_message_preview: preview,
 		last_message_at: "2024-01-15T10:00:00Z",
+		title: null,
 	};
 }
 

@@ -9,6 +9,11 @@ export const CitationDataSchema = z.object({
 	colLabel: z.string(),
 });
 
+export const TitleDataSchema = z.object({
+	conversationId: z.string().min(1),
+	title: z.string().min(1),
+});
+
 export const ChatDataPartSchema = z.object({
 	type: z.string(),
 	data: z.unknown().optional(),
@@ -21,3 +26,4 @@ export const AppSearchSchema = z.object({
 
 export type AppSearch = z.infer<typeof AppSearchSchema>;
 export type CitationData = z.infer<typeof CitationDataSchema>;
+export type TitleData = z.infer<typeof TitleDataSchema>;
