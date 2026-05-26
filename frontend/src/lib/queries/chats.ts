@@ -1,7 +1,12 @@
-import { skipToken, useQuery } from "@tanstack/react-query";
+import {
+	skipToken,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { z } from "zod";
 import { apiFetch } from "@/lib/api/client";
-import { useAuthedUserId } from "@/lib/auth/AuthProvider";
+import { useAuth, useAuthedUserId } from "@/lib/auth/AuthProvider";
 
 const IsoDatetime = z.iso.datetime({ offset: true });
 
@@ -101,6 +106,10 @@ export function buildChatMessagesUrl(chatId: string): string {
 	return `${CHATS_PATH}/${encodeURIComponent(chatId)}/messages`;
 }
 
+export function buildDeleteChatUrl(chatId: string): string {
+	return `${CHATS_PATH}/${encodeURIComponent(chatId)}`;
+}
+
 export function chatListQueryKey(userId: string) {
 	return ["chats", "list", userId] as const;
 }
@@ -138,11 +147,42 @@ export async function fetchChatMessages(
 	return ChatMessageListSchema.parse(await response.json());
 }
 
+export async function deleteConversation(
+	chatId: string,
+	userId: string,
+): Promise<void> {
+	const response = await apiFetch(buildDeleteChatUrl(chatId), {
+		method: "DELETE",
+		headers: authHeaders(userId),
+	});
+	if (!response.ok) {
+		throw new Error(
+			`deleteConversation: ${response.status} ${response.statusText}`,
+		);
+	}
+}
+
 export function useChatList() {
 	const userId = useAuthedUserId();
 	return useQuery({
 		queryKey: chatListQueryKey(userId),
 		queryFn: userId ? () => fetchChatList(userId) : skipToken,
+	});
+}
+
+export function useDeleteConversation() {
+	const { userId } = useAuth();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (chatId: string) => {
+			if (!userId) {
+				throw new Error("useDeleteConversation: no authenticated user");
+			}
+			return deleteConversation(chatId, userId);
+		},
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: ["chats"] });
+		},
 	});
 }
 

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ChatRow } from "@/components/SidebarChatRow";
 import type { ChatDocumentGroup } from "@/lib/transforms/groupByDocument";
@@ -50,5 +51,53 @@ describe("ChatRow", () => {
 			"aria-label",
 			"Open conversation: what was revenue in 2024",
 		);
+	});
+
+	it("does not render a delete control when onDeleteChat is absent", () => {
+		render(
+			<ChatRow chat={makeChat({})} documentId="doc-1" onSelectChat={vi.fn()} />,
+		);
+
+		expect(screen.queryByTestId("sidebar-chat-delete")).not.toBeInTheDocument();
+	});
+
+	it("selecting the row is not triggered by clicking delete", async () => {
+		const onSelectChat = vi.fn();
+		const onDeleteChat = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<ChatRow
+				chat={makeChat({ id: "conv-9" })}
+				documentId="doc-1"
+				onSelectChat={onSelectChat}
+				onDeleteChat={onDeleteChat}
+			/>,
+		);
+
+		await user.click(screen.getByTestId("sidebar-chat-delete"));
+
+		expect(onSelectChat).not.toHaveBeenCalled();
+		expect(onDeleteChat).not.toHaveBeenCalled();
+	});
+
+	it("deletes only after confirming, and cancel aborts", async () => {
+		const onDeleteChat = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<ChatRow
+				chat={makeChat({ id: "conv-9" })}
+				documentId="doc-1"
+				onSelectChat={vi.fn()}
+				onDeleteChat={onDeleteChat}
+			/>,
+		);
+
+		await user.click(screen.getByTestId("sidebar-chat-delete"));
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+		expect(onDeleteChat).not.toHaveBeenCalled();
+
+		await user.click(screen.getByTestId("sidebar-chat-delete"));
+		await user.click(screen.getByRole("button", { name: "Delete" }));
+		expect(onDeleteChat).toHaveBeenCalledWith("conv-9");
 	});
 });

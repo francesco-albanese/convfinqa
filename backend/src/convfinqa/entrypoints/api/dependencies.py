@@ -3,6 +3,9 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from convfinqa.application.use_cases.delete_conversation import (
+    DeleteConversationUseCase,
+)
 from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
 from convfinqa.application.use_cases.list_chats import ListChatsUseCase
@@ -78,6 +81,12 @@ def get_chat_messages(
     return container.get_chat_messages
 
 
+def get_delete_conversation(
+    container: Annotated[Container, Depends(get_container)],
+) -> DeleteConversationUseCase:
+    return container.delete_conversation
+
+
 CurrentUserId = Annotated[str, Depends(current_user_id)]
 CurrentUserEmail = Annotated[str | None, Depends(current_user_email)]
 CurrentUserDep = Annotated[uuid.UUID, Depends(get_current_user_id)]
@@ -87,3 +96,6 @@ ListDocuments = Annotated[ListDocumentsUseCase, Depends(get_list_documents)]
 GetDocument = Annotated[GetDocumentUseCase, Depends(get_document)]
 ListChats = Annotated[ListChatsUseCase, Depends(get_list_chats)]
 GetChatMessages = Annotated[GetChatMessagesUseCase, Depends(get_chat_messages)]
+DeleteConversation = Annotated[
+    DeleteConversationUseCase, Depends(get_delete_conversation)
+]

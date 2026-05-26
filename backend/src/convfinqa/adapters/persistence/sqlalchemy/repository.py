@@ -1,9 +1,9 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
-from sqlalchemy import select, text, update
+from sqlalchemy import CursorResult, delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
@@ -209,6 +209,20 @@ class SqlAlchemyConversationRepository:
                 .values(title=title)
             )
             await session.commit()
+
+    async def delete(self, conversation_id: str, user_id: uuid.UUID) -> bool:
+        async with self._session_factory() as session:
+            result = cast(
+                CursorResult[Any],
+                await session.execute(
+                    delete(ConversationOrm).where(
+                        ConversationOrm.id == conversation_id,
+                        ConversationOrm.user_id == user_id,
+                    )
+                ),
+            )
+            await session.commit()
+            return result.rowcount > 0
 
 
 class SqlAlchemyDocumentRepository:

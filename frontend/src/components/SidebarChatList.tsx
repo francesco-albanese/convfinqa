@@ -20,12 +20,14 @@ export type SidebarChatListProps = {
 	query: string;
 	collapsed: boolean;
 	onSelectChat: (chatId: string, documentId: string) => void;
+	onDeleteChat: (chatId: string) => void;
 };
 
 export function SidebarChatList({
 	query,
 	collapsed,
 	onSelectChat,
+	onDeleteChat,
 }: SidebarChatListProps) {
 	const { data, isLoading, isError } = useChatList();
 	const userId = useAuthedUserId();
@@ -85,6 +87,7 @@ export function SidebarChatList({
 				rows={rows}
 				onToggleGroup={toggleGroup}
 				onSelectChat={onSelectChat}
+				onDeleteChat={onDeleteChat}
 			/>
 		);
 	}
@@ -105,6 +108,7 @@ export function SidebarChatList({
 						chat={row.chat}
 						documentId={row.groupId}
 						onSelectChat={onSelectChat}
+						onDeleteChat={onDeleteChat}
 					/>
 				),
 			)}
@@ -116,12 +120,14 @@ type VirtualizedRowsProps = {
 	rows: FlattenedRow[];
 	onToggleGroup: (documentId: string) => void;
 	onSelectChat: (chatId: string, documentId: string) => void;
+	onDeleteChat: (chatId: string) => void;
 };
 
 function VirtualizedRows({
 	rows,
 	onToggleGroup,
 	onSelectChat,
+	onDeleteChat,
 }: VirtualizedRowsProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const virtualizer = useVirtualizer({
@@ -182,6 +188,7 @@ function VirtualizedRows({
 									chat={row.chat}
 									documentId={row.groupId}
 									onSelectChat={onSelectChat}
+									onDeleteChat={onDeleteChat}
 								/>
 							)}
 						</li>

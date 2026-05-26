@@ -2,6 +2,9 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from convfinqa.application.use_cases.delete_conversation import (
+    DeleteConversationUseCase,
+)
 from convfinqa.application.use_cases.get_chat_messages import GetChatMessagesUseCase
 from convfinqa.application.use_cases.get_document import GetDocumentUseCase
 from convfinqa.application.use_cases.list_chats import ListChatsUseCase
@@ -33,6 +36,7 @@ class Container:
     get_document: GetDocumentUseCase
     list_chats: ListChatsUseCase
     get_chat_messages: GetChatMessagesUseCase
+    delete_conversation: DeleteConversationUseCase
     observability: ObservabilityPort
     cache: CachePort
     rate_limit: RateLimitPort

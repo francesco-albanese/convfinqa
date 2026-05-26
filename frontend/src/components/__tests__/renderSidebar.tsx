@@ -10,6 +10,7 @@ export type SidebarHandlers = {
 	onNewConversation: () => void;
 	onPickDocument: () => void;
 	onSelectChat: (chatId: string, documentId: string) => void;
+	onDeleteChat: (chatId: string) => void;
 	onSignOut: () => void;
 };
 
@@ -21,6 +22,7 @@ export function renderSidebar(
 		onNewConversation: vi.fn(),
 		onPickDocument: vi.fn(),
 		onSelectChat: vi.fn(),
+		onDeleteChat: vi.fn(),
 		onSignOut: vi.fn(),
 	};
 	const client = new QueryClient({
@@ -39,6 +41,7 @@ export function renderSidebar(
 					}
 					onPickDocument={props.onPickDocument ?? handlers.onPickDocument}
 					onSelectChat={props.onSelectChat ?? handlers.onSelectChat}
+					onDeleteChat={props.onDeleteChat ?? handlers.onDeleteChat}
 					onSignOut={props.onSignOut ?? handlers.onSignOut}
 				/>
 			</AuthProvider>
