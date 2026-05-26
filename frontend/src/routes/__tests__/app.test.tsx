@@ -400,8 +400,10 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("shows suggested-question pills for a pinned empty chat, then hides them after sending", async () => {
-		const question = "what is the net cash from operating activities in 2009?";
+	it("prefills the composer from a suggested pill without sending, then offers the remaining question as a follow-up once a turn completes", async () => {
+		const firstQuestion =
+			"what is the net cash from operating activities in 2009?";
+		const secondQuestion = "what about in 2008?";
 		stubChatsFetch({
 			documentById: {
 				"doc-1": {
@@ -414,20 +416,34 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 					post_text: "",
 					table_data: null,
 					column_order: null,
-					conv_questions: [question, "what about in 2008?"],
+					conv_questions: [firstQuestion, secondQuestion],
 				},
 			},
 		});
+		streamScript.assistantText =
+			"Net cash from operating activities was $206m.";
 		const user = userEvent.setup();
 		renderApp("/app?documentId=doc-1");
 
-		const pill = await screen.findByRole("button", { name: question });
-		expect(pill).toBeInTheDocument();
-
+		const pill = await screen.findByRole("button", { name: firstQuestion });
 		await act(async () => {
 			await user.click(pill);
 		});
 
-		expect(screen.queryByTestId("suggested-questions")).not.toBeInTheDocument();
+		const textarea = screen.getByRole("textbox", { name: /message/i });
+		expect(textarea).toHaveValue(firstQuestion);
+		expect(screen.getByTestId("suggested-questions")).toBeInTheDocument();
+
+		await act(async () => {
+			await user.keyboard("{Meta>}{Enter}{/Meta}");
+		});
+
+		expect(
+			screen.queryByRole("button", { name: firstQuestion }),
+		).not.toBeInTheDocument();
+		expect(screen.getByText("try next")).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: secondQuestion }),
+		).toBeInTheDocument();
 	});
 });
