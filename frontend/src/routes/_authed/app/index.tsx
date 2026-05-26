@@ -15,6 +15,11 @@ import { StopButton } from "@/components/StopButton";
 import { StreamErrorBanner } from "@/components/StreamErrorBanner";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import {
+	clearChatResetControls,
+	registerChatResetControls,
+	resetConversation,
+} from "@/lib/chat/conversationReset";
+import {
 	type AppSearch,
 	AppSearchSchema,
 	ChatDataPartSchema,
@@ -29,8 +34,12 @@ import {
 	type StoredCitationPart,
 	useChatMessages,
 } from "@/lib/queries/chats";
-import { openDocPicker } from "@/lib/ui/docPickerStore";
-import { openRightPanelSheet } from "@/lib/ui/responsiveStore";
+import { closeDocPicker, openDocPicker } from "@/lib/ui/docPickerStore";
+import {
+	closeRightPanelSheet,
+	closeSidebarDrawer,
+	openRightPanelSheet,
+} from "@/lib/ui/responsiveStore";
 
 export const Route = createFileRoute("/_authed/app/")({
 	validateSearch: (raw: Record<string, unknown>): AppSearch => {
@@ -204,6 +213,22 @@ function AppChatPage() {
 	chatRef.current = chat;
 	chatMessagesRef.current = chat.messages;
 
+	useEffect(() => {
+		const controls = {
+			stop: () => chatRef.current.stop(),
+			setMessages: (messages: UIMessage[]) =>
+				chatRef.current.setMessages(messages),
+		};
+		registerChatResetControls(controls);
+		return () => clearChatResetControls(controls);
+	}, []);
+
+	const closeOverlays = useCallback(() => {
+		closeDocPicker();
+		closeRightPanelSheet();
+		closeSidebarDrawer();
+	}, []);
+
 	const messagesQuery = useChatMessages(chatId ?? null);
 
 	useEffect(() => {
@@ -249,16 +274,25 @@ function AppChatPage() {
 		chatId: chatId ?? null,
 	});
 
-	const handleUnpin = useCallback(() => {
-		navigate({ search: () => ({}), replace: true });
-	}, [navigate]);
+	const handleResetConversation = useCallback(() => {
+		resetConversation({ navigate, closeOverlays }, { documentId: null });
+	}, [navigate, closeOverlays]);
 
 	return (
 		<main className="flex h-full min-h-0 flex-col bg-background text-foreground">
 			<header className="flex items-center justify-between gap-3 border-border border-b py-3 pr-6 pl-16 lg:pl-6">
 				<div className="flex min-w-0 items-center gap-2">
 					<div className="min-w-0">
-						<h1 className="font-semibold text-base">ConvFinQA</h1>
+						<h1 className="font-semibold text-base">
+							<button
+								type="button"
+								onClick={handleResetConversation}
+								data-testid="reset-logo-button"
+								className="rounded-sm text-left hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+							>
+								ConvFinQA
+							</button>
+						</h1>
 						<p className="truncate text-muted-foreground text-xs">
 							{documentId
 								? `Pinned: ${documentId}`
@@ -268,7 +302,7 @@ function AppChatPage() {
 					{documentId ? (
 						<button
 							type="button"
-							onClick={handleUnpin}
+							onClick={handleResetConversation}
 							aria-label="Unpin document and start over"
 							data-testid="unpin-button"
 							className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"

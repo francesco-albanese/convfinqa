@@ -5,8 +5,10 @@ import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { resetConversation } from "@/lib/chat/conversationReset";
 import { type LayoutSearch, LayoutSearchSchema } from "@/lib/layout/schemas";
 import {
+	closeDocPicker,
 	openDocPicker,
 	setDocPickerOpen,
 	useDocPickerOpen,
@@ -84,13 +86,15 @@ function AuthedLayout() {
 		onClose: closeRightPanelSheet,
 	});
 
-	const handleNewConversation = useCallback(() => {
+	const closeOverlays = useCallback(() => {
+		closeDocPicker();
+		closeRightPanelSheet();
 		closeSidebarDrawer();
-		void navigate({
-			to: "/app",
-			search: (prev) => ({ ...prev, chatId: undefined }),
-		});
-	}, [navigate]);
+	}, []);
+
+	const handleNewConversation = useCallback(() => {
+		resetConversation({ navigate, closeOverlays }, { documentId: null });
+	}, [navigate, closeOverlays]);
 
 	const handleSignOut = useCallback(() => {
 		signOut();
@@ -98,13 +102,9 @@ function AuthedLayout() {
 
 	const handlePickDocumentSelect = useCallback(
 		(id: string) => {
-			closeSidebarDrawer();
-			void navigate({
-				to: "/app",
-				search: (prev) => ({ ...prev, documentId: id }),
-			});
+			resetConversation({ navigate, closeOverlays }, { documentId: id });
 		},
-		[navigate],
+		[navigate, closeOverlays],
 	);
 
 	const handleSelectChat = useCallback(
