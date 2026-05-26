@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Self
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
@@ -21,6 +21,7 @@ from convfinqa.application.use_cases.send_message import (
     ToolCallStart,
     ToolResult,
 )
+from convfinqa.config import Settings
 from convfinqa.domain.value_objects import StopReason
 from convfinqa.entrypoints.api.dependencies import (
     CurrentUserDep,
@@ -46,12 +47,22 @@ class ChatRequest(BaseModel):
         max_length=512,
         pattern=r"^[A-Za-z0-9._/\-]+$",
     )
+    model: str | None = None
 
     @model_validator(mode="after")
     def _document_id_required_for_new_conversation(self) -> Self:
         if self.conversation_id is None and self.document_id is None:
             raise ValueError("document_id is required when starting a new conversation")
         return self
+
+
+def _resolve_model(requested: str | None, settings: Settings) -> str:
+    if requested is not None and requested not in settings.llm_models:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="requested model is not supported",
+        )
+    return requested or settings.llm_model
 
 
 class ChatUsage(BaseModel):
@@ -81,6 +92,7 @@ async def sync_chat(
     send_message: SendMessage,
     settings: SettingsDep,
 ) -> ChatResponse:
+    resolved_model = _resolve_model(body.model, settings)
     conversation_id = ""
     message_id = ""
     parts: list[str] = []
@@ -93,6 +105,7 @@ async def sync_chat(
         conversation_id=body.conversation_id,
         user_text=body.message,
         document_id=body.document_id,
+        model=resolved_model,
     )
     try:
         async for event in events:
@@ -137,7 +150,7 @@ async def sync_chat(
         conversation_id=conversation_id,
         role="assistant",
         content="".join(parts),
-        model=settings.llm_model,
+        model=resolved_model,
         stop_reason=stop_reason.value,
         usage=usage_payload,
         created_at=created_at,
@@ -152,12 +165,15 @@ async def stream_chat(
     body: ChatRequest,
     user_id: CurrentUserDep,
     send_message: SendMessage,
+    settings: SettingsDep,
 ) -> StreamingResponse:
+    resolved_model = _resolve_model(body.model, settings)
     events = send_message.stream(
         user_id=user_id,
         conversation_id=body.conversation_id,
         user_text=body.message,
         document_id=body.document_id,
+        model=resolved_model,
     )
     first_event = await anext(events)
 

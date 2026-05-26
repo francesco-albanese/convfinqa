@@ -105,9 +105,10 @@ class _FakeLLM:
         trace_user_id: str | None = None,
         session_id: str | None = None,
         environment: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
         self.seen_systems.append(system)
-        del messages, tools
+        del messages, tools, model
         for d in self.deltas:
             yield LLMChunk(text=d)
 

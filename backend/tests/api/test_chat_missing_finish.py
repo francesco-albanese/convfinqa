@@ -22,8 +22,9 @@ class _StubSendMessage:
         conversation_id: str | None,
         user_text: str,
         document_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncGenerator[StreamEvent]:
-        del user_id, conversation_id, user_text, document_id
+        del user_id, conversation_id, user_text, document_id, model
         yield ConversationResolved(conversation_id="conv_xyz")
         yield MessageStarted(message_id="msg_xyz")
         yield TextDelta(text="hi")
