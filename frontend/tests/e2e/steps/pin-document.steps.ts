@@ -15,6 +15,7 @@ const JKHY_DOCUMENT = {
 	title: JKHY_DOCUMENT_TITLE,
 	pre_text: "Cash flow analysis for fiscal 2009.",
 	post_text: "Refer to footnote 4 for additional context.",
+	conv_questions: null,
 	column_order: ["Year ended June 30, 2009", "2008", "2007"],
 	table_data: {
 		"Year ended June 30, 2009": {
