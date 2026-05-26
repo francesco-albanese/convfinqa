@@ -1,28 +1,33 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { useModels } from "@/lib/queries/models";
 import { setSelectedModel, useSelectedModel } from "@/lib/ui/modelStore";
 import { cn } from "@/lib/utils";
 
 export function ModelPicker() {
-	const labelId = useId();
+	const selectId = useId();
 	const { data } = useModels();
 	const selected = useSelectedModel();
 
+	useEffect(() => {
+		if (data && selected !== null && !data.models.includes(selected)) {
+			setSelectedModel(data.default);
+		}
+	}, [data, selected]);
+
 	if (!data || data.models.length === 0) return null;
 
-	const value = selected ?? data.default;
+	const value =
+		selected !== null && data.models.includes(selected)
+			? selected
+			: data.default;
 
 	return (
 		<div className="flex items-center gap-2">
-			<label
-				id={labelId}
-				className="text-muted-foreground text-xs"
-				htmlFor={labelId}
-			>
+			<label className="text-muted-foreground text-xs" htmlFor={selectId}>
 				Model
 			</label>
 			<select
-				aria-labelledby={labelId}
+				id={selectId}
 				value={value}
 				onChange={(event) => setSelectedModel(event.target.value)}
 				className={cn(

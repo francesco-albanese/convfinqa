@@ -30,7 +30,7 @@ export function resetConversation(
 	deps: ResetConversationDeps,
 	options: { documentId: string | null },
 ): void {
-	const controls = deps.getControls?.() ?? registered;
+	const controls = deps.getControls ? deps.getControls() : registered;
 	controls?.stop();
 	controls?.setMessages([]);
 	deps.closeOverlays();

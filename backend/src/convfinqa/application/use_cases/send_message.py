@@ -284,31 +284,33 @@ class SendMessageUseCase:
                         {"kind": "text", "content": "".join(current_text_buffer)}
                     )
 
-                finished_at = await self._persist_assistant(
-                    conversation.id,
-                    assistant_id,
-                    "".join(text_chunks),
-                    stop_reason,
-                    parts_in_order,
-                    reasoning_signatures,
-                )
+                try:
+                    finished_at = await self._persist_assistant(
+                        conversation.id,
+                        assistant_id,
+                        "".join(text_chunks),
+                        stop_reason,
+                        parts_in_order,
+                        reasoning_signatures,
+                    )
 
-                if errored:
+                    if errored:
+                        yield ErrorEvent(detail=UPSTREAM_LLM_PUBLIC_DETAIL)
+                        return
+
+                    if title_task is not None:
+                        title = await self._resolve_title(title_task, conversation.id)
+                        if title is not None:
+                            yield ConversationTitle(
+                                conversation_id=conversation.id, title=title
+                            )
+
+                    span.set_output("".join(text_chunks))
+                    yield Finish(
+                        stop_reason=stop_reason, usage=usage, created_at=finished_at
+                    )
+                finally:
                     await self._cancel_title_task(title_task)
-                    yield ErrorEvent(detail=UPSTREAM_LLM_PUBLIC_DETAIL)
-                    return
-
-                if title_task is not None:
-                    title = await self._resolve_title(title_task, conversation.id)
-                    if title is not None:
-                        yield ConversationTitle(
-                            conversation_id=conversation.id, title=title
-                        )
-
-                span.set_output("".join(text_chunks))
-                yield Finish(
-                    stop_reason=stop_reason, usage=usage, created_at=finished_at
-                )
 
     async def _resolve_title(
         self, title_task: asyncio.Task[str | None], conversation_id: str

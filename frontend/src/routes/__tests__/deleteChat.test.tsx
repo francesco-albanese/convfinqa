@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
@@ -109,6 +109,10 @@ async function confirmDeleteOf(label: string) {
 describe("/_authed — delete conversation", () => {
 	beforeEach(() => {
 		stubFetch();
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
 	});
 
 	it("deleting the active conversation resets to empty /app", async () => {
