@@ -52,22 +52,26 @@ async function ensureRoutes(page: Page): Promise<void> {
 
 	await page.route(
 		(url) => /^\/api\/v1\/chats\/[^/]+\/messages$/.test(url.pathname),
-		(route) =>
-			route.fulfill({
+		(route, request) => {
+			if (request.method() !== "GET") return route.fallback();
+			return route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ items: [] }),
-			}),
+			});
+		},
 	);
 
 	await page.route(
 		(url) => url.pathname === "/api/v1/chats",
-		(route) =>
-			route.fulfill({
+		(route, request) => {
+			if (request.method() !== "GET") return route.fallback();
+			return route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(listBody()),
-			}),
+			});
+		},
 	);
 }
 
