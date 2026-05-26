@@ -4,7 +4,7 @@ function userMessageText(message: UIMessage): string {
 	return message.parts
 		.filter((p): p is TextUIPart => p.type === "text")
 		.map((p) => p.text)
-		.join(" ")
+		.join("")
 		.trim();
 }
 
