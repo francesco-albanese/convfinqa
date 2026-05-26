@@ -1,8 +1,17 @@
+from datetime import UTC, datetime
+
+from convfinqa.application.agent.wire import history_to_wire
 from convfinqa.application.prompts.system_prompt import build_system_prompt
-from convfinqa.domain.entities import Document
+from convfinqa.application.prompts.tool_docs import build_tool_docs
+from convfinqa.domain.entities import Conversation, Document, Message
+from convfinqa.domain.value_objects import Role
 
 
-def _document(pre_text: str | None = "", post_text: str | None = "") -> Document:
+def _document(
+    pre_text: str | None = "",
+    post_text: str | None = "",
+    conv_questions: tuple[str, ...] | None = None,
+) -> Document:
     return Document(
         id="doc-id",
         ticker="ACME",
@@ -12,6 +21,7 @@ def _document(pre_text: str | None = "", post_text: str | None = "") -> Document
         pre_text=pre_text,
         post_text=post_text,
         table_data={"rev": [1, 2]},
+        conv_questions=conv_questions,
     )
 
 
@@ -46,3 +56,63 @@ def test_prompt_handles_none_text_fields_without_crashing() -> None:
 
     assert "Pre-table narrative" in prompt
     assert "Post-table narrative" in prompt
+
+
+CANONICAL_QUESTIONS = (
+    "what is the net cash from operating activities in 2009?",
+    "what about in 2008?",
+    "what is the net change?",
+)
+
+
+def test_system_prompt_never_leaks_canonical_conv_questions() -> None:
+    document = _document(
+        pre_text="some narrative",
+        post_text="more narrative",
+        conv_questions=CANONICAL_QUESTIONS,
+    )
+
+    system_prompt = (
+        build_system_prompt("YOU ARE CONVFINQA", document) + "\n\n" + build_tool_docs()
+    )
+
+    for question in CANONICAL_QUESTIONS:
+        assert question not in system_prompt
+
+
+def test_wire_message_history_carries_only_real_turns_not_conv_questions() -> None:
+    now = datetime.now(UTC)
+    conversation = Conversation(
+        id="conv-1",
+        user_id="user-1",
+        document_id="doc-id",
+        created_at=now,
+        messages=(
+            Message(
+                id="m1",
+                conversation_id="conv-1",
+                role=Role.USER,
+                content="what was revenue?",
+                created_at=now,
+            ),
+            Message(
+                id="m2",
+                conversation_id="conv-1",
+                role=Role.ASSISTANT,
+                content="Revenue was 1.2B.",
+                created_at=now,
+            ),
+        ),
+    )
+
+    wire = history_to_wire(conversation, user_text="and operating income?")
+
+    wire_text = [message["content"] for message in wire]
+    assert wire_text == [
+        "what was revenue?",
+        "Revenue was 1.2B.",
+        "and operating income?",
+    ]
+    serialized = str(wire)
+    for question in CANONICAL_QUESTIONS:
+        assert question not in serialized

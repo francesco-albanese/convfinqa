@@ -33,6 +33,7 @@ const SAMPLE_DOCUMENT: Document = {
 	pre_text: "Cash flow analysis for fiscal 2009.",
 	post_text: "Refer to footnote 4 for additional context.",
 	column_order: ["Year ended June 30, 2009", "2008", "2007"],
+	conv_questions: null,
 	table_data: {
 		"Year ended June 30, 2009": {
 			"net cash from operating activities": 206588,

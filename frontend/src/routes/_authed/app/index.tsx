@@ -14,6 +14,7 @@ import { MessageList } from "@/components/MessageList";
 import { ModelPicker } from "@/components/ModelPicker";
 import { StopButton } from "@/components/StopButton";
 import { StreamErrorBanner } from "@/components/StreamErrorBanner";
+import { SuggestedQuestions } from "@/components/SuggestedQuestions";
 import { useAuthedUserId } from "@/lib/auth/AuthProvider";
 import {
 	clearChatResetControls,
@@ -35,6 +36,7 @@ import {
 	type StoredCitationPart,
 	useChatMessages,
 } from "@/lib/queries/chats";
+import { useDocument } from "@/lib/queries/documents";
 import { closeDocPicker, openDocPicker } from "@/lib/ui/docPickerStore";
 import { useSelectedModel } from "@/lib/ui/modelStore";
 import {
@@ -236,6 +238,7 @@ function AppChatPage() {
 	}, []);
 
 	const messagesQuery = useChatMessages(chatId ?? null);
+	const pinnedDocumentQuery = useDocument(documentId ?? null);
 
 	useEffect(() => {
 		if (!chatId || seededChatIdRef.current === chatId || !messagesQuery.data) {
@@ -332,8 +335,15 @@ function AppChatPage() {
 				aria-label="Conversation"
 				className="flex-1 overflow-y-auto px-6 py-4"
 			>
-				{!documentId && chat.messages.length === 0 ? (
-					<EmptyState onPinDocument={openDocPicker} />
+				{chat.messages.length === 0 ? (
+					documentId ? (
+						<SuggestedQuestions
+							questions={pinnedDocumentQuery.data?.conv_questions ?? []}
+							onSend={handleSend}
+						/>
+					) : (
+						<EmptyState onPinDocument={openDocPicker} />
+					)
 				) : (
 					<MessageList
 						messages={chat.messages}

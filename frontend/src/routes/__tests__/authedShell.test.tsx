@@ -210,6 +210,7 @@ describe("/_authed layout — drawer + sheet a11y (below lg)", () => {
 			post_text: null,
 			column_order: null,
 			table_data: null,
+			conv_questions: null,
 		};
 		vi.stubGlobal(
 			"fetch",

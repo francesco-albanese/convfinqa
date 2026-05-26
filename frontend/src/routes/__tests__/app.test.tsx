@@ -115,6 +115,7 @@ function renderApp(initialPath: string) {
 type ChatsFetchOverrides = {
 	chatList?: unknown;
 	chatMessagesByChatId?: Record<string, unknown>;
+	documentById?: Record<string, unknown>;
 };
 
 const APP_TEST_USER = { user_id: "app-test-user", email: "app@test.com" };
@@ -127,6 +128,21 @@ function stubChatsFetch(overrides: ChatsFetchOverrides = {}) {
 			if (url === "/api/v1/me") {
 				return Promise.resolve(
 					new Response(JSON.stringify(APP_TEST_USER), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				);
+			}
+			if (url.startsWith("/api/v1/documents/")) {
+				const docId = decodeURIComponent(
+					url.slice("/api/v1/documents/".length).split("?")[0] ?? "",
+				);
+				const document = overrides.documentById?.[docId];
+				if (!document) {
+					return Promise.resolve(new Response("{}", { status: 404 }));
+				}
+				return Promise.resolve(
+					new Response(JSON.stringify(document), {
 						status: 200,
 						headers: { "Content-Type": "application/json" },
 					}),
@@ -382,5 +398,36 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		expect(
 			screen.queryByText("Revenue rose to $1.2B in 2009."),
 		).not.toBeInTheDocument();
+	});
+
+	it("shows suggested-question pills for a pinned empty chat, then hides them after sending", async () => {
+		const question = "what is the net cash from operating activities in 2009?";
+		stubChatsFetch({
+			documentById: {
+				"doc-1": {
+					id: "doc-1",
+					ticker: "JKHY",
+					year: 2009,
+					page: 28,
+					title: "JKHY 2009 annual report",
+					pre_text: "",
+					post_text: "",
+					table_data: null,
+					column_order: null,
+					conv_questions: [question, "what about in 2008?"],
+				},
+			},
+		});
+		const user = userEvent.setup();
+		renderApp("/app?documentId=doc-1");
+
+		const pill = await screen.findByRole("button", { name: question });
+		expect(pill).toBeInTheDocument();
+
+		await act(async () => {
+			await user.click(pill);
+		});
+
+		expect(screen.queryByTestId("suggested-questions")).not.toBeInTheDocument();
 	});
 });

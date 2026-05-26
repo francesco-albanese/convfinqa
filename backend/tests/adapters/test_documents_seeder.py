@@ -85,6 +85,62 @@ def test_iter_document_records_streams_train_and_dev_with_doc_payloads(
 
 
 @pytest.mark.unit
+def test_iter_document_records_stores_conv_questions_only(tmp_path: Path) -> None:
+    dataset: dict[str, list[dict[str, Any]]] = {
+        "train": [
+            {
+                "id": "Single_AAPL/2002/page_23.pdf-1",
+                "doc": {"pre_text": "", "post_text": "", "table": {}},
+                "dialogue": {
+                    "conv_questions": [
+                        "what is the net cash from operating activities in 2009?",
+                        "what about in 2008?",
+                    ],
+                    "conv_answers": ["206588", "181001"],
+                    "turn_program": ["206588", "181001"],
+                    "executed_answers": [206588.0, 181001.0],
+                },
+            }
+        ],
+        "dev": [],
+    }
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(json.dumps(dataset))
+
+    record = next(iter_document_records(dataset_path))
+
+    assert record.conv_questions == [
+        "what is the net cash from operating activities in 2009?",
+        "what about in 2008?",
+    ]
+    leaked = (record.conv_questions or []) + [
+        record.id,
+        str(record.table_data),
+    ]
+    for forbidden in ("206588", "181001"):
+        assert all(forbidden not in value for value in leaked)
+
+
+@pytest.mark.unit
+def test_iter_document_records_conv_questions_none_when_dialogue_missing(
+    tmp_path: Path,
+) -> None:
+    dataset: dict[str, list[dict[str, Any]]] = {
+        "train": [
+            {
+                "id": "Single_AAPL/2002/page_23.pdf-1",
+                "doc": {"pre_text": "", "post_text": "", "table": {}},
+            }
+        ],
+        "dev": [],
+    }
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(json.dumps(dataset))
+
+    assert next(iter_document_records(dataset_path)).conv_questions is None
+
+
+@pytest.mark.unit
 def test_iter_document_records_preserves_wire_column_order_for_integer_like_keys(
     tmp_path: Path,
 ) -> None:
@@ -246,3 +302,49 @@ async def test_seed_persists_column_order_for_integer_like_keys(
 
     assert row is not None
     assert row[0] == ["Year ended June 30, 2009", "2008", "2007"]
+
+
+async def test_seed_persists_conv_questions_only(
+    engine: AsyncEngine, database_url: str, tmp_path: Path
+) -> None:
+    await _wipe_documents(engine)
+    dataset: dict[str, list[dict[str, Any]]] = {
+        "train": [
+            {
+                "id": "Single_SEEDQ/2009/page_5.pdf-1",
+                "doc": {"pre_text": "", "post_text": "", "table": {}},
+                "dialogue": {
+                    "conv_questions": [
+                        "what is the net cash in 2009?",
+                        "what about in 2008?",
+                    ],
+                    "conv_answers": ["206588", "181001"],
+                    "turn_program": ["subtract(206588, 181001)"],
+                    "executed_answers": [25587.0],
+                },
+            }
+        ],
+        "dev": [],
+    }
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(json.dumps(dataset))
+
+    await seed(database_url, dataset_path, batch_size=10)
+
+    async with engine.connect() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT conv_questions FROM documents "
+                    "WHERE id = 'Single_SEEDQ/2009/page_5.pdf-1'"
+                )
+            )
+        ).first()
+
+    assert row is not None
+    assert row[0] == [
+        "what is the net cash in 2009?",
+        "what about in 2008?",
+    ]
+    for forbidden in ("206588", "181001", "subtract", "25587"):
+        assert all(forbidden not in question for question in row[0])

@@ -37,6 +37,7 @@ class Document:
     post_text: str | None
     table_data: dict[str, Any] | None
     column_order: tuple[str, ...] | None = None
+    conv_questions: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
