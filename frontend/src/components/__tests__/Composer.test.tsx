@@ -1,9 +1,30 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Composer } from "@/components/Composer";
+import { Composer, type ComposerHandle } from "@/components/Composer";
 
 describe("Composer", () => {
+	it("prefills the textarea via the setText handle and lets the user edit then send", async () => {
+		const user = userEvent.setup();
+		const onSend = vi.fn();
+		const ref = createRef<ComposerHandle>();
+		render(<Composer ref={ref} onSend={onSend} />);
+
+		const textarea = screen.getByRole("textbox", { name: /message/i });
+		act(() => {
+			ref.current?.setText("and what about in 2008?");
+		});
+		expect(textarea).toHaveValue("and what about in 2008?");
+
+		await user.type(textarea, " (in millions)");
+		await user.keyboard("{Meta>}{Enter}{/Meta}");
+
+		expect(onSend).toHaveBeenCalledExactlyOnceWith(
+			"and what about in 2008? (in millions)",
+		);
+	});
+
 	it("submits the trimmed message on Cmd+Enter", async () => {
 		const user = userEvent.setup();
 		const onSend = vi.fn();

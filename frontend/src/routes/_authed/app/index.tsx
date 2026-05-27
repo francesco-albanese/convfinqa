@@ -8,7 +8,7 @@ import type {
 } from "ai";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Composer } from "@/components/Composer";
+import { Composer, type ComposerHandle } from "@/components/Composer";
 import { EmptyState } from "@/components/EmptyState";
 import { MessageList } from "@/components/MessageList";
 import { ModelPicker } from "@/components/ModelPicker";
@@ -21,6 +21,7 @@ import {
 	registerChatResetControls,
 	resetConversation,
 } from "@/lib/chat/conversationReset";
+import { remainingSuggestions } from "@/lib/chat/remainingSuggestions";
 import {
 	type AppSearch,
 	AppSearchSchema,
@@ -282,6 +283,27 @@ function AppChatPage() {
 		void chat.sendMessage({ text });
 	};
 
+	const composerRef = useRef<ComposerHandle>(null);
+
+	const handleSelectSuggestion = useCallback((question: string) => {
+		composerRef.current?.setText(question);
+	}, []);
+
+	const suggestedQuestions = pinnedDocumentQuery.data?.conv_questions ?? [];
+
+	const followUpQuestions = useMemo(
+		() => remainingSuggestions(suggestedQuestions, chat.messages),
+		[suggestedQuestions, chat.messages],
+	);
+
+	const lastMessageIsAssistant = chat.messages.at(-1)?.role === "assistant";
+
+	const showFollowUps =
+		Boolean(documentId) &&
+		chat.status === "ready" &&
+		lastMessageIsAssistant &&
+		followUpQuestions.length > 0;
+
 	const [stoppedIds, setStoppedIds] = useState<ReadonlySet<string>>(
 		() => new Set<string>(),
 	);
@@ -360,19 +382,29 @@ function AppChatPage() {
 				{chat.messages.length === 0 ? (
 					documentId ? (
 						<SuggestedQuestions
-							questions={pinnedDocumentQuery.data?.conv_questions ?? []}
-							onSend={handleSend}
+							variant="hero"
+							questions={suggestedQuestions}
+							onSelect={handleSelectSuggestion}
 						/>
 					) : (
 						<EmptyState onPinDocument={openDocPicker} />
 					)
 				) : (
-					<MessageList
-						messages={chat.messages}
-						status={chat.status}
-						stoppedIds={stoppedIds}
-						citationsByMessageId={citationsByMessageId}
-					/>
+					<>
+						<MessageList
+							messages={chat.messages}
+							status={chat.status}
+							stoppedIds={stoppedIds}
+							citationsByMessageId={citationsByMessageId}
+						/>
+						{showFollowUps ? (
+							<SuggestedQuestions
+								variant="followup"
+								questions={followUpQuestions}
+								onSelect={handleSelectSuggestion}
+							/>
+						) : null}
+					</>
 				)}
 			</section>
 			<section className="flex flex-col gap-2 border-border border-t bg-background px-6 py-3">
@@ -392,7 +424,11 @@ function AppChatPage() {
 				<div className="flex items-center justify-end">
 					<ModelPicker />
 				</div>
-				<Composer onSend={handleSend} disabled={!documentId} />
+				<Composer
+					ref={composerRef}
+					onSend={handleSend}
+					disabled={!documentId}
+				/>
 			</section>
 		</main>
 	);

@@ -9,20 +9,31 @@ const QUESTIONS = [
 ];
 
 describe("SuggestedQuestions", () => {
-	it("sends the clicked question verbatim", async () => {
+	it("hands the clicked question verbatim to onSelect", async () => {
 		const user = userEvent.setup();
-		const onSend = vi.fn();
-		render(<SuggestedQuestions questions={QUESTIONS} onSend={onSend} />);
+		const onSelect = vi.fn();
+		render(<SuggestedQuestions questions={QUESTIONS} onSelect={onSelect} />);
 
 		await user.click(screen.getByRole("button", { name: QUESTIONS[1] }));
 
-		expect(onSend).toHaveBeenCalledTimes(1);
-		expect(onSend).toHaveBeenCalledWith(QUESTIONS[1]);
+		expect(onSelect).toHaveBeenCalledExactlyOnceWith(QUESTIONS[1]);
+	});
+
+	it("labels the follow-up variant 'try next'", () => {
+		render(
+			<SuggestedQuestions
+				questions={QUESTIONS}
+				onSelect={vi.fn()}
+				variant="followup"
+			/>,
+		);
+
+		expect(screen.getByText("try next")).toBeVisible();
 	});
 
 	it("renders nothing when there are no questions", () => {
 		const { container } = render(
-			<SuggestedQuestions questions={[]} onSend={vi.fn()} />,
+			<SuggestedQuestions questions={[]} onSelect={vi.fn()} />,
 		);
 
 		expect(container).toBeEmptyDOMElement();
