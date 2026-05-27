@@ -31,6 +31,12 @@ variable "langfuse_enabled" {
   default     = false
 }
 
+variable "gemini_enabled" {
+  description = "Whether to inject the manually managed Gemini API key SSM parameter into the ECS API task (required when llm_models offers a gemini/* model)."
+  type        = bool
+  default     = false
+}
+
 variable "ssm_kms_key_arn" {
   description = "Optional KMS key ARN used for SecureString SSM parameters; defaults to alias/aws/ssm."
   type        = string
