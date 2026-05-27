@@ -11,3 +11,7 @@ app_domain = "convfinqa-sandbox.francescoalbanese.dev"
 
 # Observability
 langfuse_enabled = true
+
+# LLM — requires the Gemini API key provisioned out-of-band (like the Langfuse
+# keys) as a SecureString SSM parameter at /convfinqa/sandbox/gemini_api_key.
+gemini_enabled = true

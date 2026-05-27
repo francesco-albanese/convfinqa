@@ -177,6 +177,9 @@ resource "aws_ecs_task_definition" "api" {
         local.langfuse_configured ? [
           { name = "LANGFUSE_PUBLIC_KEY", valueFrom = data.aws_ssm_parameter.langfuse_public_key[0].name },
           { name = "LANGFUSE_SECRET_KEY", valueFrom = data.aws_ssm_parameter.langfuse_secret_key[0].name },
+        ] : [],
+        local.gemini_configured ? [
+          { name = "GEMINI_API_KEY", valueFrom = data.aws_ssm_parameter.gemini_api_key[0].name },
         ] : []
       )
 

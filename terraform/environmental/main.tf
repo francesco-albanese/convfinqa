@@ -40,6 +40,7 @@ module "compute" {
   vpc_id                   = module.network.vpc_id
   database_url             = module.data.database_url
   langfuse_enabled         = var.langfuse_enabled
+  gemini_enabled           = var.gemini_enabled
   ssm_kms_key_arn          = var.ssm_kms_key_arn
 }
 

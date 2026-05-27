@@ -71,6 +71,12 @@ data "aws_ssm_parameter" "langfuse_secret_key" {
   name = "/convfinqa/${var.account_name}/langfuse_secret_key"
 }
 
+data "aws_ssm_parameter" "gemini_api_key" {
+  count = local.gemini_configured ? 1 : 0
+
+  name = "/convfinqa/${var.account_name}/gemini_api_key"
+}
+
 resource "aws_iam_policy" "ssm_read" {
   name        = "convfinqa-${var.account_name}-ssm-read"
   description = "Read access to all convfinqa SSM parameters for this environment"
