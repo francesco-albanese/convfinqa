@@ -24,6 +24,10 @@ inputs:
   container_overrides:
     description: 'JSON overrides object (containerOverrides)'
     required: true
+  container_name:
+    description: 'Name of the essential container whose exit code determines success. Runtime describe-tasks does not preserve task-definition order, so the container must be selected by name, not index.'
+    required: false
+    default: 'api'
   step_label:
     description: 'Human label used in log messages (e.g. Migration, Seeder)'
     required: false
@@ -66,7 +70,7 @@ runs:
         EXIT_CODE=$(aws ecs describe-tasks \
           --cluster "${{ inputs.cluster }}" \
           --tasks "${{ steps.run-task.outputs.task_arn }}" \
-          --query 'tasks[0].containers[0].exitCode' \
+          --query "tasks[0].containers[?name=='${{ inputs.container_name }}'].exitCode | [0]" \
           --output text)
         echo "${{ inputs.step_label }} container exit code: $EXIT_CODE"
         if [ "$EXIT_CODE" != "0" ]; then
