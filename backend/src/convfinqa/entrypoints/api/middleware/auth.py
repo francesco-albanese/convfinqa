@@ -32,7 +32,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: RequestResponseEndpoint,
     ) -> Response:
-        if request.url.path in _SKIP_PATHS:
+        if request.scope["path"] in _SKIP_PATHS:
             return await call_next(request)
 
         container = request.app.state.container
