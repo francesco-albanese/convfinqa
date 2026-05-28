@@ -22,14 +22,12 @@ type MessageBubbleProps = {
 	message: UIMessage;
 	showCursor?: boolean;
 	stopped?: boolean;
-	citations?: ReadonlyArray<CitationData>;
 };
 
 export function MessageBubble({
 	message,
 	showCursor,
 	stopped,
-	citations,
 }: MessageBubbleProps) {
 	const text = extractText(message);
 	const isUser = message.role === "user";
@@ -80,51 +78,32 @@ export function MessageBubble({
 							/>
 						);
 					}
+					if (isTextUIPart(part)) {
+						return (
+							<TextBlock
+								// biome-ignore lint/suspicious/noArrayIndexKey: text parts are ordered stream chunks from the UI message
+								key={`${message.id}-text-${idx}`}
+								text={part.text}
+							/>
+						);
+					}
+					const citation = getCitationData(part);
+					if (citation) {
+						return (
+							<div
+								// biome-ignore lint/suspicious/noArrayIndexKey: citation parts have no stable id in the AI SDK data part shape
+								key={`${message.id}-citation-${idx}`}
+								className="my-2"
+							>
+								<CitationChip
+									rowLabel={citation.rowLabel}
+									colLabel={citation.colLabel}
+								/>
+							</div>
+						);
+					}
 					return null;
 				})}
-				<Streamdown
-					controls={false}
-					disallowedElements={DISALLOWED_ELEMENTS}
-					urlTransform={safeUrlTransform}
-					components={{
-						p: ({ children }) => (
-							<p className="my-2 first:mt-0 last:mb-0">{children}</p>
-						),
-						ul: ({ children }) => (
-							<ul className="my-2 list-disc pl-5">{children}</ul>
-						),
-						ol: ({ children }) => (
-							<ol className="my-2 list-decimal pl-5">{children}</ol>
-						),
-						li: ({ children }) => <li className="my-1">{children}</li>,
-						strong: ({ children }) => (
-							<strong className="font-semibold">{children}</strong>
-						),
-						em: ({ children }) => <em className="italic">{children}</em>,
-						code: ({ children }) => (
-							<code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-								{children}
-							</code>
-						),
-						pre: ({ children }) => (
-							<pre className="my-2 overflow-x-auto rounded bg-muted p-3 font-mono text-xs">
-								{children}
-							</pre>
-						),
-						a: ({ href, children }) => (
-							<a
-								href={href}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-link underline-offset-2 hover:underline"
-							>
-								{children}
-							</a>
-						),
-					}}
-				>
-					{text}
-				</Streamdown>
 				{showCursor && (
 					<span
 						data-testid="streaming-cursor"
@@ -142,21 +121,59 @@ export function MessageBubble({
 						</span>
 					</div>
 				)}
-				{citations && citations.length > 0 && (
-					<div
-						data-testid="citation-chips"
-						className="mt-3 flex flex-wrap gap-1.5"
-					>
-						{citations.map((c) => (
-							<CitationChip
-								key={`${c.rowLabel}·${c.colLabel}`}
-								rowLabel={c.rowLabel}
-								colLabel={c.colLabel}
-							/>
-						))}
-					</div>
-				)}
 			</div>
+		</div>
+	);
+}
+
+function TextBlock({ text }: { text: string }) {
+	if (text.length === 0) return null;
+
+	return (
+		<div data-testid="assistant-text-part" className="my-3">
+			<Streamdown
+				controls={false}
+				disallowedElements={DISALLOWED_ELEMENTS}
+				urlTransform={safeUrlTransform}
+				components={{
+					p: ({ children }) => (
+						<p className="my-2 first:mt-0 last:mb-0">{children}</p>
+					),
+					ul: ({ children }) => (
+						<ul className="my-2 list-disc pl-5">{children}</ul>
+					),
+					ol: ({ children }) => (
+						<ol className="my-2 list-decimal pl-5">{children}</ol>
+					),
+					li: ({ children }) => <li className="my-1">{children}</li>,
+					strong: ({ children }) => (
+						<strong className="font-semibold">{children}</strong>
+					),
+					em: ({ children }) => <em className="italic">{children}</em>,
+					code: ({ children }) => (
+						<code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+							{children}
+						</code>
+					),
+					pre: ({ children }) => (
+						<pre className="my-2 overflow-x-auto rounded bg-muted p-3 font-mono text-xs">
+							{children}
+						</pre>
+					),
+					a: ({ href, children }) => (
+						<a
+							href={href}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-link underline-offset-2 hover:underline"
+						>
+							{children}
+						</a>
+					),
+				}}
+			>
+				{text}
+			</Streamdown>
 		</div>
 	);
 }
@@ -250,7 +267,27 @@ function ToolStepRow({ part, stepNumber }: ToolStepRowProps) {
 
 function extractText(message: UIMessage): string {
 	return message.parts
-		.filter((part): part is TextUIPart => part.type === "text")
+		.filter(isTextUIPart)
 		.map((part) => part.text)
 		.join("");
+}
+
+function isTextUIPart(part: UIMessage["parts"][number]): part is TextUIPart {
+	return part.type === "text";
+}
+
+function getCitationData(
+	part: UIMessage["parts"][number],
+): CitationData | null {
+	if (part.type !== "data-citation") return null;
+	const data = (part as { data?: unknown }).data;
+	if (!data || typeof data !== "object") return null;
+	const citation = data as Partial<CitationData>;
+	if (
+		typeof citation.rowLabel !== "string" ||
+		typeof citation.colLabel !== "string"
+	) {
+		return null;
+	}
+	return { rowLabel: citation.rowLabel, colLabel: citation.colLabel };
 }

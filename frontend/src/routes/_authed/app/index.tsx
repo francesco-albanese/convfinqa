@@ -26,8 +26,6 @@ import {
 	type AppSearch,
 	AppSearchSchema,
 	ChatDataPartSchema,
-	type CitationData,
-	CitationDataSchema,
 	ConversationDataSchema,
 	TitleDataSchema,
 } from "@/lib/chat/schemas";
@@ -37,7 +35,6 @@ import {
 	type ChatList,
 	type ChatMessage,
 	chatListQueryKey,
-	type StoredCitationPart,
 	useChatMessages,
 } from "@/lib/queries/chats";
 import { useDocument } from "@/lib/queries/documents";
@@ -63,15 +60,6 @@ function safeParseJson(raw: string): unknown {
 	} catch {
 		return raw;
 	}
-}
-
-function extractStoredCitations(
-	message: ChatMessage,
-): ReadonlyArray<CitationData> {
-	if (!message.parts) return [];
-	return message.parts.parts
-		.filter((p): p is StoredCitationPart => p.kind === "citation")
-		.map((p) => ({ rowLabel: p.row_label, colLabel: p.col_label }));
 }
 
 function toUIMessage(message: ChatMessage): UIMessage {
@@ -136,6 +124,11 @@ function toUIMessage(message: ChatMessage): UIMessage {
 				};
 			}
 			uiParts.push(toolPart);
+		} else if (p.kind === "citation") {
+			uiParts.push({
+				type: "data-citation",
+				data: { rowLabel: p.row_label, colLabel: p.col_label },
+			} as UIMessage["parts"][number]);
 		}
 		// tool_result parts are consumed via toolResults map — skip standalone
 	}
@@ -153,12 +146,6 @@ function AppChatPage() {
 	selectedModelRef.current = selectedModel;
 
 	const seededChatIdRef = useRef<string | null>(null);
-
-	const [citationsByMessageId, setCitationsByMessageId] = useState<
-		ReadonlyMap<string, ReadonlyArray<CitationData>>
-	>(() => new Map());
-
-	const chatMessagesRef = useRef<typeof chat.messages>([]);
 
 	const handleData = useCallback(
 		(part: unknown) => {
@@ -201,28 +188,6 @@ function AppChatPage() {
 				});
 				return;
 			}
-
-			if (partResult.data.type === "data-citation") {
-				const citationResult = CitationDataSchema.safeParse(
-					partResult.data.data,
-				);
-				if (!citationResult.success) return;
-				const messageId = findLastAssistantId(chatMessagesRef.current);
-				if (!messageId) return;
-				const citation = citationResult.data;
-				setCitationsByMessageId((prev) => {
-					const existing = prev.get(messageId) ?? [];
-					const alreadyPresent = existing.some(
-						(c) =>
-							c.rowLabel === citation.rowLabel &&
-							c.colLabel === citation.colLabel,
-					);
-					if (alreadyPresent) return prev;
-					const next = new Map(prev);
-					next.set(messageId, [...existing, citation]);
-					return next;
-				});
-			}
 		},
 		[chatId, navigate, queryClient, userId],
 	);
@@ -242,7 +207,6 @@ function AppChatPage() {
 
 	const chatRef = useRef(chat);
 	chatRef.current = chat;
-	chatMessagesRef.current = chat.messages;
 
 	useEffect(() => {
 		const controls = {
@@ -267,14 +231,6 @@ function AppChatPage() {
 		if (!chatId || seededChatIdRef.current === chatId || !messagesQuery.data) {
 			return;
 		}
-		const historical = new Map<string, ReadonlyArray<CitationData>>();
-		for (const msg of messagesQuery.data.items) {
-			const citations = extractStoredCitations(msg);
-			if (citations.length > 0) {
-				historical.set(msg.id, citations);
-			}
-		}
-		setCitationsByMessageId(historical);
 		chatRef.current.setMessages(messagesQuery.data.items.map(toUIMessage));
 		seededChatIdRef.current = chatId;
 	}, [chatId, messagesQuery.data]);
@@ -395,7 +351,6 @@ function AppChatPage() {
 							messages={chat.messages}
 							status={chat.status}
 							stoppedIds={stoppedIds}
-							citationsByMessageId={citationsByMessageId}
 						/>
 						{showFollowUps ? (
 							<SuggestedQuestions
