@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReasoningUIPart, UIMessage } from "ai";
+import type { DynamicToolUIPart, ReasoningUIPart, UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { MessageBubble } from "@/components/MessageBubble";
 
@@ -21,6 +21,27 @@ function makeAssistantWithReasoning(
 		role: "assistant",
 		parts: [...reasoningParts, { type: "text", text }],
 	};
+}
+
+function toolPart(toolCallId: string, output: string): DynamicToolUIPart {
+	return {
+		type: "dynamic-tool",
+		toolName: "divide",
+		toolCallId,
+		state: "output-available",
+		input: { a: "10", b: "2" },
+		output: { result: output },
+	};
+}
+
+function citationPart(
+	rowLabel: string,
+	colLabel: string,
+): UIMessage["parts"][number] {
+	return {
+		type: "data-citation",
+		data: { rowLabel, colLabel },
+	} as UIMessage["parts"][number];
 }
 
 describe("MessageBubble", () => {
@@ -182,5 +203,42 @@ describe("MessageBubble", () => {
 				screen.queryByRole("button", { name: /thinking/i }),
 			).not.toBeInTheDocument();
 		});
+	});
+
+	it("preserves assistant part order across tools, text, and citations", () => {
+		const message: UIMessage = {
+			id: "assistant-ordered",
+			role: "assistant",
+			parts: [
+				toolPart("call-1", "5"),
+				{ type: "text", text: "First answer segment." },
+				citationPart("long-term debt", "total"),
+				toolPart("call-2", "10"),
+				{ type: "text", text: "Second answer segment." },
+			],
+		};
+
+		render(<MessageBubble message={message} />);
+
+		const toolSteps = screen.getAllByTestId("tool-step");
+		expect(toolSteps).toHaveLength(2);
+		const firstTool = toolSteps[0] as HTMLElement;
+		const secondTool = toolSteps[1] as HTMLElement;
+		const firstText = screen.getByText("First answer segment.");
+		const citation = screen.getByTestId("citation-chip");
+		const secondText = screen.getByText("Second answer segment.");
+
+		expect(firstTool.compareDocumentPosition(firstText)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+		expect(firstText.compareDocumentPosition(citation)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+		expect(citation.compareDocumentPosition(secondTool)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+		expect(secondTool.compareDocumentPosition(secondText)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
 	});
 });

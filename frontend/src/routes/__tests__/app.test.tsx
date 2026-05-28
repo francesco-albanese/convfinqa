@@ -259,6 +259,59 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		).toBeInTheDocument();
 	});
 
+	it("replays persisted assistant parts in backend order", async () => {
+		stubChatsFetch({
+			chatMessagesByChatId: {
+				"conv-trace": {
+					items: [
+						{
+							id: "m1",
+							role: "assistant",
+							content: "ignored when parts are present",
+							created_at: "2026-05-14T08:00:01+00:00",
+							parts: {
+								schema_version: 1,
+								parts: [
+									{
+										kind: "tool_call",
+										call_id: "call-1",
+										name: "divide",
+										args: '{"a":"10","b":"2"}',
+									},
+									{
+										kind: "tool_result",
+										call_id: "call-1",
+										is_error: false,
+										result: '{"result":"5"}',
+									},
+									{ kind: "text", content: "Answer segment." },
+									{
+										kind: "citation",
+										row_label: "long-term debt",
+										col_label: "total",
+									},
+								],
+							},
+						},
+					],
+				},
+			},
+		});
+
+		renderApp("/app?chatId=conv-trace&documentId=doc-1");
+
+		const tool = await screen.findByTestId("tool-step");
+		const answer = await screen.findByText("Answer segment.");
+		const citation = await screen.findByTestId("citation-chip");
+
+		expect(tool.compareDocumentPosition(answer)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+		expect(answer.compareDocumentPosition(citation)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+	});
+
 	it("after Cmd+Enter, shows the user bubble, pulls chatId into the URL, and refreshes the chats query", async () => {
 		streamScript.conversationId = "conv-7";
 		streamScript.assistantText = "Revenue rose to $1.2B in 2009.";
