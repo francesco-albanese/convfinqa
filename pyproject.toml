@@ -23,6 +23,7 @@ dependencies = [
     "python-json-logger==4.1.0",
     "sqlalchemy[asyncio]>=2.0",
     "sqlglot>=26.0",
+    "starlette>=1.0.1",
     "typer>=0.23.1",
     "uvicorn>=0.46.0",
     "opentelemetry-instrumentation-fastapi>=0.62b1",

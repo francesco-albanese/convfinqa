@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 from fastapi import Depends, FastAPI, status
 from httpx import ASGITransport, AsyncClient
+from starlette.types import Message, Scope
 
 from convfinqa.config import Settings
 from convfinqa.container import for_testing
@@ -54,6 +55,8 @@ def _make_app(session: FakeSessionPort | None) -> FastAPI:
     @app.get("/readyz")
     async def readyz() -> dict[str, str]:
         return {"status": "ready"}
+
+    _ = (protected, healthz, readyz)
 
     settings = Settings()
     container = for_testing(
@@ -138,6 +141,38 @@ async def test_healthz_accessible_without_cookie(authed_client: AsyncClient) -> 
 async def test_readyz_accessible_without_cookie(authed_client: AsyncClient) -> None:
     response = await authed_client.get("/readyz")
     assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.asyncio
+async def test_malformed_host_cannot_make_protected_path_skip_auth() -> None:
+    app = _make_app(session=FakeSessionPort())
+    status_code: int | None = None
+
+    async def receive() -> Message:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: Message) -> None:
+        nonlocal status_code
+        if message["type"] == "http.response.start":
+            status_code = int(message["status"])
+
+    scope: Scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/protected",
+        "raw_path": b"/protected",
+        "query_string": b"",
+        "headers": [(b"host", b"example.com/healthz?x=")],
+        "client": ("127.0.0.1", 12345),
+        "server": ("testserver", 80),
+    }
+
+    await app(scope, receive, send)
+
+    assert status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio
