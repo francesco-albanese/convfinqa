@@ -14,7 +14,7 @@ output "database_url_ssm_name" {
 }
 
 output "database_url" {
-  description = "Plain postgresql:// URL for keepalive Lambda (pg8000 format, no driver prefix)"
+  description = "Plain postgresql:// URL for the BFF Lambda (pg8000 format, no driver prefix)"
   value       = "postgresql://convfinqa:${random_password.db.result}@${aws_rds_cluster.main.endpoint}:5432/convfinqa"
   sensitive   = true
 }

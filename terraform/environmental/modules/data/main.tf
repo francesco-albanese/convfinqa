@@ -30,6 +30,15 @@ resource "aws_rds_cluster_parameter_group" "pg_cron" {
     apply_method = "pending-reboot"
   }
 
+  # Close idle sessions server-side so the connection count can reach zero,
+  # the prerequisite for Aurora Serverless v2 to auto-pause to 0 ACU. The app
+  # pool reconnects transparently on next use via pool_pre_ping. Value is in ms.
+  parameter {
+    name         = "idle_session_timeout"
+    value        = "300000"
+    apply_method = "immediate"
+  }
+
   tags = {
     "franco:terraform_stack" = "convfinqa-data"
     "franco:environment"     = var.account_name
@@ -54,8 +63,9 @@ resource "aws_rds_cluster" "main" {
   deletion_protection             = false
 
   serverlessv2_scaling_configuration {
-    min_capacity = 0
-    max_capacity = 2
+    min_capacity             = 0
+    max_capacity             = 2
+    seconds_until_auto_pause = 300
   }
 
   tags = {
