@@ -43,13 +43,3 @@ module "compute" {
   gemini_enabled           = var.gemini_enabled
   ssm_kms_key_arn          = var.ssm_kms_key_arn
 }
-
-module "keepalive" {
-  source = "./modules/keepalive"
-
-  vpc_id            = module.network.vpc_id
-  public_subnet_ids = module.network.public_subnet_ids
-  aurora_sg_id      = module.network.aurora_sg_id
-  account_name      = var.account_name
-  database_url      = module.data.database_url
-}
