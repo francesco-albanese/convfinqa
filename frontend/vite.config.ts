@@ -9,6 +9,11 @@ const backendProxy = {
 	changeOrigin: true,
 };
 
+const authProxy = {
+	target: process.env.AUTH_PROXY_TARGET ?? "http://localhost:8000",
+	changeOrigin: true,
+};
+
 export default defineConfig({
 	plugins: [
 		tanstackRouter({
@@ -27,7 +32,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			"/api/v1": backendProxy,
-			"/api/auth": backendProxy,
+			"/api/auth": authProxy,
 			"/healthz": backendProxy,
 			"/readyz": backendProxy,
 		},

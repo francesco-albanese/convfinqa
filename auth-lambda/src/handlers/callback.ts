@@ -5,6 +5,7 @@ import type { Sql } from "postgres"
 import {
 	ACCESS_TOKEN_MAX_AGE,
 	COOKIE,
+	cookieAttrs,
 	REFRESH_TOKEN_MAX_AGE,
 } from "../lib/cookies.ts"
 import { getSql } from "../lib/db.ts"
@@ -24,8 +25,6 @@ type IdTokenPayload = {
 	sub: string
 	email: string
 }
-
-const COOKIE_ATTRS = "Path=/; HttpOnly; Secure; SameSite=Lax"
 
 export function buildApp(deps: Deps = {}): Hono {
 	const app = new Hono()
@@ -99,16 +98,19 @@ export function buildApp(deps: Deps = {}): Hono {
 		const headers = new Headers({ Location: "/app" })
 		headers.append(
 			"Set-Cookie",
-			`${COOKIE.PKCE_VERIFIER}=; Max-Age=0; ${COOKIE_ATTRS}`,
-		)
-		headers.append("Set-Cookie", `${COOKIE.STATE}=; Max-Age=0; ${COOKIE_ATTRS}`)
-		headers.append(
-			"Set-Cookie",
-			`${COOKIE.ACCESS_TOKEN}=${tokens.access_token}; Max-Age=${ACCESS_TOKEN_MAX_AGE}; ${COOKIE_ATTRS}`,
+			`${COOKIE.PKCE_VERIFIER}=; Max-Age=0; ${cookieAttrs()}`,
 		)
 		headers.append(
 			"Set-Cookie",
-			`${COOKIE.REFRESH_TOKEN}=${tokens.refresh_token}; Max-Age=${REFRESH_TOKEN_MAX_AGE}; ${COOKIE_ATTRS}`,
+			`${COOKIE.STATE}=; Max-Age=0; ${cookieAttrs()}`,
+		)
+		headers.append(
+			"Set-Cookie",
+			`${COOKIE.ACCESS_TOKEN}=${tokens.access_token}; Max-Age=${ACCESS_TOKEN_MAX_AGE}; ${cookieAttrs()}`,
+		)
+		headers.append(
+			"Set-Cookie",
+			`${COOKIE.REFRESH_TOKEN}=${tokens.refresh_token}; Max-Age=${REFRESH_TOKEN_MAX_AGE}; ${cookieAttrs()}`,
 		)
 
 		return new Response(null, { status: 302, headers })

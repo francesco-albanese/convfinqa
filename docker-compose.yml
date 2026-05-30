@@ -43,6 +43,27 @@ services:
     volumes:
       - ./data:/app/data:ro
 
+  auth:
+    build:
+      context: ./auth-lambda
+      dockerfile: Dockerfile
+    container_name: convfinqa-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: 8787
+      COOKIE_SECURE: "false"
+      DATABASE_URL: postgres://convfinqa:convfinqa@postgres:5432/convfinqa
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
+      COGNITO_CLIENT_SECRET: ${COGNITO_CLIENT_SECRET:-}
+      COGNITO_HOSTED_UI_BASE_URL: ${COGNITO_HOSTED_UI_BASE_URL:-}
+      COGNITO_TOKEN_URL: ${COGNITO_TOKEN_URL:-}
+      COGNITO_REVOKE_URL: ${COGNITO_REVOKE_URL:-}
+      CALLBACK_URL: http://localhost:5173/api/auth/callback
+
   frontend:
     build:
       context: ./frontend
@@ -54,6 +75,7 @@ services:
       - "5173:5173"
     environment:
       BACKEND_PROXY_TARGET: http://app:8000
+      AUTH_PROXY_TARGET: http://auth:8787
 
 volumes:
   convfinqa-postgres-data:

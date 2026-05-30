@@ -10,6 +10,7 @@ mkdirSync(OUT_DIR, { recursive: true })
 const entries = readdirSync(HANDLERS_DIR)
 	.filter((f) => f.endsWith(".ts"))
 	.map((f) => join(HANDLERS_DIR, f))
+entries.push("src/dev-server.ts")
 
 if (entries.length === 0) {
 	console.log("No handlers found in src/handlers/ — nothing to build.")
