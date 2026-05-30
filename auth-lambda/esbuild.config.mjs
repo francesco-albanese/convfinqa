@@ -10,7 +10,6 @@ mkdirSync(OUT_DIR, { recursive: true })
 const entries = readdirSync(HANDLERS_DIR)
 	.filter((f) => f.endsWith(".ts"))
 	.map((f) => join(HANDLERS_DIR, f))
-entries.push("src/dev-server.ts")
 
 if (entries.length === 0) {
 	console.log("No handlers found in src/handlers/ — nothing to build.")
@@ -25,6 +24,19 @@ await esbuild.build({
 	format: "esm",
 	outdir: OUT_DIR,
 	outExtension: { ".js": ".mjs" },
+	external: ["@aws-sdk/*"],
+	sourcemap: false,
+	minify: false,
+	logLevel: "info",
+})
+
+await esbuild.build({
+	entryPoints: ["src/dev-server.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: join(OUT_DIR, "dev-server.mjs"),
 	external: ["@aws-sdk/*"],
 	sourcemap: false,
 	minify: false,
