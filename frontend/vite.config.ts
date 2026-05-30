@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const backendProxy = {
-	target: "http://localhost:8000",
+	target: process.env.BACKEND_PROXY_TARGET ?? "http://localhost:8000",
 	changeOrigin: true,
 };
 

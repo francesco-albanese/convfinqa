@@ -43,5 +43,17 @@ services:
     volumes:
       - ./data:/app/data:ro
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: convfinqa-frontend
+    depends_on:
+      - app
+    ports:
+      - "5173:5173"
+    environment:
+      BACKEND_PROXY_TARGET: http://app:8000
+
 volumes:
   convfinqa-postgres-data:

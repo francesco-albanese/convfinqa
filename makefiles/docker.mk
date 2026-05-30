@@ -1,6 +1,6 @@
 .PHONY: up down aws-creds seed-docs
 
-up: ## Build and start the dockerised stack (Postgres + app, applies migrations + seeds documents)
+up: ## Build and start the dockerised stack (Postgres + app + frontend)
 	docker compose up -d --build
 
 down: ## Stop and remove the dockerised stack
