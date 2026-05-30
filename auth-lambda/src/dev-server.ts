@@ -5,6 +5,27 @@ import { buildApp as buildLoginApp } from "./handlers/login.ts"
 import { buildApp as buildLogoutApp } from "./handlers/logout.ts"
 import { buildApp as buildRefreshApp } from "./handlers/refresh.ts"
 
+const requiredEnv = [
+	"COGNITO_CLIENT_ID",
+	"COGNITO_CLIENT_SECRET",
+	"COGNITO_HOSTED_UI_BASE_URL",
+	"COGNITO_TOKEN_URL",
+	"COGNITO_REVOKE_URL",
+	"CALLBACK_URL",
+] as const
+
+function assertRequiredEnv(): void {
+	const { env: runtimeEnv } = process
+	const missing = requiredEnv.filter((key) => !runtimeEnv[key]?.trim())
+	if (missing.length > 0) {
+		throw new Error(
+			`Missing required auth dev server env: ${missing.join(", ")}`,
+		)
+	}
+}
+
+assertRequiredEnv()
+
 const apps = {
 	callback: buildCallbackApp(),
 	login: buildLoginApp(),
