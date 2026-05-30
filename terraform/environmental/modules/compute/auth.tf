@@ -66,8 +66,14 @@ resource "aws_cognito_user_pool_client" "app" {
 
   generate_secret = true
 
-  callback_urls = ["https://${var.app_domain}/api/auth/callback"]
-  logout_urls   = ["https://${var.app_domain}/"]
+  callback_urls = concat(
+    ["https://${var.app_domain}/api/auth/callback"],
+    var.extra_cognito_callback_urls,
+  )
+  logout_urls = concat(
+    ["https://${var.app_domain}/"],
+    var.extra_cognito_logout_urls,
+  )
 
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]

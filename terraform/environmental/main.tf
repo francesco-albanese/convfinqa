@@ -32,14 +32,16 @@ module "edge" {
 module "compute" {
   source = "./modules/compute"
 
-  account_name             = var.account_name
-  app_domain               = var.app_domain
-  cognito_hosted_ui_prefix = var.cognito_hosted_ui_prefix
-  public_subnet_ids        = module.network.public_subnet_ids
-  ecs_sg_id                = module.network.ecs_sg_id
-  vpc_id                   = module.network.vpc_id
-  database_url             = module.data.database_url
-  langfuse_enabled         = var.langfuse_enabled
-  gemini_enabled           = var.gemini_enabled
-  ssm_kms_key_arn          = var.ssm_kms_key_arn
+  account_name                = var.account_name
+  app_domain                  = var.app_domain
+  cognito_hosted_ui_prefix    = var.cognito_hosted_ui_prefix
+  extra_cognito_callback_urls = var.extra_cognito_callback_urls
+  extra_cognito_logout_urls   = var.extra_cognito_logout_urls
+  public_subnet_ids           = module.network.public_subnet_ids
+  ecs_sg_id                   = module.network.ecs_sg_id
+  vpc_id                      = module.network.vpc_id
+  database_url                = module.data.database_url
+  langfuse_enabled            = var.langfuse_enabled
+  gemini_enabled              = var.gemini_enabled
+  ssm_kms_key_arn             = var.ssm_kms_key_arn
 }

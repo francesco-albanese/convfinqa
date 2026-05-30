@@ -13,6 +13,18 @@ variable "app_domain" {
   type        = string
 }
 
+variable "extra_cognito_callback_urls" {
+  description = "Additional Cognito OAuth callback URLs for non-production local development."
+  type        = list(string)
+  default     = []
+}
+
+variable "extra_cognito_logout_urls" {
+  description = "Additional Cognito OAuth logout URLs for non-production local development."
+  type        = list(string)
+  default     = []
+}
+
 variable "bedrock_region" {
   description = "AWS region where the Bedrock LLM endpoint is hosted."
   type        = string
