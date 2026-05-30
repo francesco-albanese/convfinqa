@@ -59,6 +59,17 @@ describe("GET /api/auth/login", () => {
 		expect(stateCookie).toContain("HttpOnly")
 	})
 
+	it("can omit secure cookie attributes for local HTTP development", async () => {
+		process.env.COOKIE_SECURE = "false"
+		const app = buildApp()
+
+		const res = await app.request("/login")
+
+		const setCookies = res.headers.getSetCookie()
+		expect(setCookies.every((c) => !c.includes("Secure"))).toBe(true)
+		delete process.env.COOKIE_SECURE
+	})
+
 	it("generates unique state per request (no collision)", async () => {
 		const app = buildApp()
 

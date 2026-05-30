@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import { Hono } from "hono"
 import { handle } from "hono/aws-lambda"
-import { COOKIE, COOKIE_ATTRS, PKCE_MAX_AGE } from "../lib/cookies.ts"
+import { COOKIE, cookieAttrs, PKCE_MAX_AGE } from "../lib/cookies.ts"
 
 export function buildApp(): Hono {
 	const app = new Hono()
@@ -31,11 +31,11 @@ export function buildApp(): Hono {
 		})
 		headers.append(
 			"Set-Cookie",
-			`${COOKIE.PKCE_VERIFIER}=${codeVerifier}; Max-Age=${PKCE_MAX_AGE}; ${COOKIE_ATTRS}`,
+			`${COOKIE.PKCE_VERIFIER}=${codeVerifier}; Max-Age=${PKCE_MAX_AGE}; ${cookieAttrs()}`,
 		)
 		headers.append(
 			"Set-Cookie",
-			`${COOKIE.STATE}=${state}; Max-Age=${PKCE_MAX_AGE}; ${COOKIE_ATTRS}`,
+			`${COOKIE.STATE}=${state}; Max-Age=${PKCE_MAX_AGE}; ${cookieAttrs()}`,
 		)
 
 		return new Response(null, { status: 302, headers })

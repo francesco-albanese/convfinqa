@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
+import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
 import { Sidebar } from "@/components/Sidebar";
@@ -155,6 +156,10 @@ function AuthedLayout() {
 		closeRightPanelSheet();
 		openDocPicker();
 	}, []);
+
+	if (status === "loading") {
+		return <AuthLoadingShell />;
+	}
 
 	if (status !== "authed") {
 		return null;

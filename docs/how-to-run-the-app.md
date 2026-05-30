@@ -39,7 +39,7 @@ The host flow does not need this — `make run` reads credentials from your live
 cp .env.example .env
 ```
 
-Edit `.env` if you want a different `LLM_MODEL`, `DATABASE_URL`, or `SYSTEM_PROMPT`. Defaults work against compose's Postgres on the host loopback.
+Edit the environment file with sandbox Cognito values before running the container flow: `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET`, `COGNITO_HOSTED_UI_BASE_URL`, `COGNITO_TOKEN_URL`, and `COGNITO_REVOKE_URL`. The auth and API containers fail fast when these are missing. Other defaults work against compose's Postgres on the host loopback.
 
 ## 3. Install Python dependencies
 

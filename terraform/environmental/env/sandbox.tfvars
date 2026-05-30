@@ -9,6 +9,9 @@ cognito_hosted_ui_prefix = "convfinqa-sandbox"
 # Domain
 app_domain = "convfinqa-sandbox.francescoalbanese.dev"
 
+extra_cognito_callback_urls = ["http://localhost:5173/api/auth/callback"]
+extra_cognito_logout_urls   = ["http://localhost:5173/"]
+
 # Observability
 langfuse_enabled = true
 

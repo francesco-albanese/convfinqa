@@ -36,6 +36,18 @@ variable "app_domain" {
   type        = string
 }
 
+variable "extra_cognito_callback_urls" {
+  description = "Additional Cognito OAuth callback URLs for non-production local development."
+  type        = list(string)
+  default     = []
+}
+
+variable "extra_cognito_logout_urls" {
+  description = "Additional Cognito OAuth logout URLs for non-production local development."
+  type        = list(string)
+  default     = []
+}
+
 variable "parent_zone_name" {
   description = "Name of the Route53 hosted zone in shared-services that will receive ACM validation CNAMEs (e.g. francescoalbanese.dev)"
   type        = string

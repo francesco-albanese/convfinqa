@@ -1,14 +1,11 @@
 import { Hono } from "hono"
 import { handle } from "hono/aws-lambda"
 import { getCookie } from "hono/cookie"
-import { COOKIE } from "../lib/cookies.ts"
+import { COOKIE, cookieAttrs } from "../lib/cookies.ts"
 
 type Deps = {
 	fetchFn?: typeof fetch
 }
-
-const COOKIE_ATTRS = "Path=/; HttpOnly; Secure; SameSite=Lax"
-const CLEAR_COOKIE = `Max-Age=0; ${COOKIE_ATTRS}`
 
 export function buildApp(deps: Deps = {}): Hono {
 	const app = new Hono()
@@ -38,8 +35,14 @@ export function buildApp(deps: Deps = {}): Hono {
 		}
 
 		const headers = new Headers({ Location: "/" })
-		headers.append("Set-Cookie", `${COOKIE.ACCESS_TOKEN}=; ${CLEAR_COOKIE}`)
-		headers.append("Set-Cookie", `${COOKIE.REFRESH_TOKEN}=; ${CLEAR_COOKIE}`)
+		headers.append(
+			"Set-Cookie",
+			`${COOKIE.ACCESS_TOKEN}=; Max-Age=0; ${cookieAttrs()}`,
+		)
+		headers.append(
+			"Set-Cookie",
+			`${COOKIE.REFRESH_TOKEN}=; Max-Age=0; ${cookieAttrs()}`,
+		)
 
 		return new Response(null, { status: 302, headers })
 	})

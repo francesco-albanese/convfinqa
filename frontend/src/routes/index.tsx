@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 export const Route = createFileRoute("/")({
@@ -18,5 +19,5 @@ function RootRedirect() {
 		}
 	}, [status, navigate]);
 
-	return null;
+	return status === "loading" ? <AuthLoadingShell /> : null;
 }

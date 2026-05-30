@@ -54,3 +54,7 @@
 # - github.repo
 
 sync.remote: "git@github.com:francesco-albanese/convfinqa.git"
+
+export.auto: false
+
+export.git-add: false

@@ -58,6 +58,19 @@ function stubFetch(meStatus: 200 | 401) {
 	);
 }
 
+function stubPendingSessionFetch() {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn().mockImplementation((input: RequestInfo | URL) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "/api/v1/me") {
+				return new Promise<Response>(() => {});
+			}
+			return Promise.resolve(new Response(null, { status: 404 }));
+		}),
+	);
+}
+
 function renderAt(initialPath: string) {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
@@ -117,6 +130,14 @@ describe("route guards — anonymous vs authed", () => {
 		expect(router.state.location.pathname).toBe("/app");
 	});
 
+	it("renders the app shell skeleton while /app auth is resolving", async () => {
+		stubPendingSessionFetch();
+		renderAt("/app");
+
+		expect(await screen.findByTestId("auth-loading-shell")).toBeInTheDocument();
+		expect(screen.getByRole("status")).toHaveTextContent(/loading session/i);
+	});
+
 	it("redirects an unauthenticated visitor from / to /sign-in", async () => {
 		const { router } = renderAt("/");
 
@@ -138,5 +159,12 @@ describe("route guards — anonymous vs authed", () => {
 			},
 			{ timeout: 3000 },
 		);
+	});
+
+	it("renders the app shell skeleton while root auth is resolving", async () => {
+		stubPendingSessionFetch();
+		renderAt("/");
+
+		expect(await screen.findByTestId("auth-loading-shell")).toBeInTheDocument();
 	});
 });

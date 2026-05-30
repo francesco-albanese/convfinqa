@@ -8,4 +8,9 @@ export const COOKIE = {
 export const ACCESS_TOKEN_MAX_AGE = 60 * 60
 export const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60
 export const PKCE_MAX_AGE = 600
-export const COOKIE_ATTRS = "Path=/; HttpOnly; Secure; SameSite=Lax"
+
+export function cookieAttrs(): string {
+	const secure = process.env.COOKIE_SECURE
+	const secureAttr = secure === "false" ? "" : " Secure;"
+	return `Path=/; HttpOnly;${secureAttr} SameSite=Lax`
+}

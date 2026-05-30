@@ -4,6 +4,7 @@ import { getCookie } from "hono/cookie"
 import {
 	ACCESS_TOKEN_MAX_AGE,
 	COOKIE,
+	cookieAttrs,
 	REFRESH_TOKEN_MAX_AGE,
 } from "../lib/cookies.ts"
 
@@ -16,8 +17,6 @@ type RefreshResponse = {
 	id_token?: string
 	refresh_token?: string
 }
-
-const COOKIE_ATTRS = "Path=/; HttpOnly; Secure; SameSite=Lax"
 
 export function buildApp(deps: Deps = {}): Hono {
 	const app = new Hono()
@@ -60,12 +59,12 @@ export function buildApp(deps: Deps = {}): Hono {
 		const headers = new Headers()
 		headers.append(
 			"Set-Cookie",
-			`${COOKIE.ACCESS_TOKEN}=${tokens.access_token}; Max-Age=${ACCESS_TOKEN_MAX_AGE}; ${COOKIE_ATTRS}`,
+			`${COOKIE.ACCESS_TOKEN}=${tokens.access_token}; Max-Age=${ACCESS_TOKEN_MAX_AGE}; ${cookieAttrs()}`,
 		)
 		if (tokens.refresh_token) {
 			headers.append(
 				"Set-Cookie",
-				`${COOKIE.REFRESH_TOKEN}=${tokens.refresh_token}; Max-Age=${REFRESH_TOKEN_MAX_AGE}; ${COOKIE_ATTRS}`,
+				`${COOKIE.REFRESH_TOKEN}=${tokens.refresh_token}; Max-Age=${REFRESH_TOKEN_MAX_AGE}; ${cookieAttrs()}`,
 			)
 		}
 

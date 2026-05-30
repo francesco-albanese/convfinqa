@@ -5,7 +5,12 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const backendProxy = {
-	target: "http://localhost:8000",
+	target: process.env.BACKEND_PROXY_TARGET ?? "http://localhost:8000",
+	changeOrigin: true,
+};
+
+const authProxy = {
+	target: process.env.AUTH_PROXY_TARGET ?? "http://localhost:8000",
 	changeOrigin: true,
 };
 
@@ -27,7 +32,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			"/api/v1": backendProxy,
-			"/api/auth": backendProxy,
+			"/api/auth": authProxy,
 			"/healthz": backendProxy,
 			"/readyz": backendProxy,
 		},

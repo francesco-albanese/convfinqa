@@ -29,3 +29,16 @@ await esbuild.build({
 	minify: false,
 	logLevel: "info",
 })
+
+await esbuild.build({
+	entryPoints: ["src/dev-server.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: join(OUT_DIR, "dev-server.mjs"),
+	external: ["@aws-sdk/*"],
+	sourcemap: false,
+	minify: false,
+	logLevel: "info",
+})
