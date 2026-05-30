@@ -144,6 +144,7 @@ function AppChatPage() {
 	const selectedModel = useSelectedModel();
 	const selectedModelRef = useRef(selectedModel);
 	selectedModelRef.current = selectedModel;
+	const lastSubmittedTextRef = useRef<string>("");
 
 	const seededChatIdRef = useRef<string | null>(null);
 
@@ -167,6 +168,36 @@ function AppChatPage() {
 					}),
 					replace: true,
 				});
+				if (userId && documentId) {
+					const key = chatListQueryKey(userId);
+					const existing =
+						queryClient.getQueryData<ChatList>(key) ??
+						({ items: [] } as ChatList);
+					if (
+						!existing.items.some(
+							(item) => item.id === dataResult.data.conversationId,
+						)
+					) {
+						queryClient.setQueryData<ChatList>(key, {
+							...existing,
+							items: [
+								{
+									id: dataResult.data.conversationId,
+									document: {
+										id: documentId,
+										ticker: null,
+										year: null,
+										title: documentId,
+									},
+									last_message_preview: lastSubmittedTextRef.current,
+									last_message_at: new Date().toISOString(),
+									title: null,
+								},
+								...existing.items,
+							],
+						});
+					}
+				}
 				return;
 			}
 
@@ -189,11 +220,11 @@ function AppChatPage() {
 				return;
 			}
 		},
-		[chatId, navigate, queryClient, userId],
+		[chatId, documentId, navigate, queryClient, userId],
 	);
 
 	const handleFinish = useCallback(() => {
-		void queryClient.invalidateQueries({ queryKey: ["chats"] });
+		void queryClient.refetchQueries({ queryKey: ["chats"], type: "active" });
 	}, [queryClient]);
 
 	const chat = useConvfinqaChat({
@@ -236,6 +267,7 @@ function AppChatPage() {
 	}, [chatId, messagesQuery.data]);
 
 	const handleSend = (text: string) => {
+		lastSubmittedTextRef.current = text;
 		void chat.sendMessage({ text });
 	};
 

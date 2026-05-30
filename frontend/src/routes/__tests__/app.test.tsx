@@ -96,7 +96,7 @@ function renderApp(initialPath: string) {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
 	});
-	const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+	const refetch = vi.spyOn(queryClient, "refetchQueries");
 	const router = createRouter({
 		routeTree,
 		history: createMemoryHistory({ initialEntries: [initialPath] }),
@@ -109,7 +109,7 @@ function renderApp(initialPath: string) {
 			</QueryClientProvider>
 		</AuthProvider>,
 	);
-	return { ...utils, router, queryClient, invalidate };
+	return { ...utils, router, queryClient, refetch };
 }
 
 type ChatsFetchOverrides = {
@@ -316,7 +316,7 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		streamScript.conversationId = "conv-7";
 		streamScript.assistantText = "Revenue rose to $1.2B in 2009.";
 		const user = userEvent.setup();
-		const { router, invalidate } = renderApp("/app?documentId=doc-1");
+		const { router, refetch } = renderApp("/app?documentId=doc-1");
 		const textarea = await screen.findByLabelText("Message");
 		await user.click(textarea);
 		await user.type(textarea, "what was the revenue in 2009?");
@@ -333,7 +333,10 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 			});
 		});
 		await waitFor(() => {
-			expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chats"] });
+			expect(refetch).toHaveBeenCalledWith({
+				queryKey: ["chats"],
+				type: "active",
+			});
 		});
 	});
 

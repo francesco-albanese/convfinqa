@@ -3,6 +3,7 @@ name: frontend
 on:
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: frontend-${{ github.ref }}
@@ -78,8 +79,8 @@ jobs:
         working-directory: frontend
         run: pnpm build
 
-  frontend-e2e:
-    name: frontend-e2e
+  frontend-browser-integration:
+    name: frontend-browser-integration
     needs: changes
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -165,9 +166,9 @@ jobs:
           curl --retry-connrefused --retry 30 --retry-delay 1 --fail \
             http://localhost:8000/healthz
 
-      - name: Run end-to-end tests
+      - name: Run browser integration tests
         working-directory: frontend
-        run: pnpm e2e
+        run: pnpm browser:integration
 
       - name: Stop backend
         if: always()
@@ -180,7 +181,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: browser-integration-playwright-report
           path: frontend/playwright-report
           if-no-files-found: ignore
           retention-days: 7
@@ -191,5 +192,43 @@ jobs:
         with:
           name: backend-log
           path: backend.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend-live-e2e-sandbox:
+    name: frontend-live-e2e-sandbox
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+          package_json_file: frontend/package.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm e2e:install
+
+      - name: Run live sandbox e2e smoke
+        working-directory: frontend
+        run: pnpm e2e:live:sandbox
+
+      - name: Upload live e2e Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-e2e-playwright-report
+          path: frontend/playwright-report
           if-no-files-found: ignore
           retention-days: 7

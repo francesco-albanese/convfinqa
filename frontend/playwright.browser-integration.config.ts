@@ -5,14 +5,14 @@ const PREVIEW_PORT = 4173;
 const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
 
 const testDir = defineBddConfig({
-	features: ["tests/e2e/features/**/*.feature"],
-	steps: ["tests/e2e/steps/**/*.ts"],
-	outputDir: "tests/e2e/.features-gen",
+	features: ["tests/browser-integration/features/**/*.feature"],
+	steps: ["tests/browser-integration/steps/**/*.ts"],
+	outputDir: "tests/browser-integration/.features-gen",
 });
 
 export default defineConfig({
 	testDir,
-	fullyParallel: true,
+	fullyParallel: false,
 	forbidOnly: Boolean(process.env.CI),
 	retries: process.env.CI ? 2 : 0,
 	reporter: [["html", { open: "never" }]],

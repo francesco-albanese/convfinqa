@@ -19,12 +19,11 @@ type SidebarSummary = {
 
 const conversations = new Map<string, SidebarSummary>();
 const deletedConversationIds = new Set<string>();
-let routesReady = false;
+const routedPages = new WeakSet<Page>();
 
 Before(() => {
 	conversations.clear();
 	deletedConversationIds.clear();
-	routesReady = false;
 });
 
 function listBody(): { items: SidebarSummary[] } {
@@ -35,8 +34,8 @@ function listBody(): { items: SidebarSummary[] } {
 }
 
 async function ensureRoutes(page: Page): Promise<void> {
-	if (routesReady) return;
-	routesReady = true;
+	if (routedPages.has(page)) return;
+	routedPages.add(page);
 
 	await page.route(
 		(url) => /^\/api\/v1\/chats\/[^/]+$/.test(url.pathname),
@@ -93,9 +92,9 @@ function seedConversation(chatId: string, documentId: string): void {
 Given(
 	"I am signed in viewing a pinned conversation {string} on document {string}",
 	async ({ page }, chatId: string, documentId: string) => {
+		await seedAuthedSession(page);
 		await ensureRoutes(page);
 		seedConversation(chatId, documentId);
-		await seedAuthedSession(page);
 		await page.goto(
 			`/app?documentId=${encodeURIComponent(documentId)}&chatId=${chatId}`,
 		);
@@ -106,9 +105,9 @@ Given(
 Given(
 	"I am signed in with a sidebar conversation {string} on document {string}",
 	async ({ page }, chatId: string, documentId: string) => {
+		await seedAuthedSession(page);
 		await ensureRoutes(page);
 		seedConversation(chatId, documentId);
-		await seedAuthedSession(page);
 		await page.goto("/app");
 		await expect(page.getByTestId("authed-shell")).toBeVisible();
 	},

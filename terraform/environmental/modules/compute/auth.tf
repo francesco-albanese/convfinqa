@@ -78,7 +78,10 @@ resource "aws_cognito_user_pool_client" "app" {
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   allowed_oauth_flows_user_pool_client = true
-  supported_identity_providers         = [aws_cognito_identity_provider.google.provider_name]
+  supported_identity_providers = concat(
+    [aws_cognito_identity_provider.google.provider_name],
+    local.cognito_native_auth_enabled ? ["COGNITO"] : [],
+  )
 
   enable_token_revocation       = true
   prevent_user_existence_errors = "ENABLED"
@@ -122,5 +125,53 @@ resource "aws_ssm_parameter" "cognito_client_secret" {
 
   tags = {
     Name = "convfinqa-cognito-client-secret"
+  }
+}
+
+resource "random_password" "e2e" {
+  count            = local.cognito_native_auth_enabled ? 1 : 0
+  length           = 24
+  special          = true
+  override_special = "!@#$%^&*()-_=+[]{}"
+}
+
+resource "aws_cognito_user" "e2e" {
+  count        = local.cognito_native_auth_enabled ? 1 : 0
+  user_pool_id = aws_cognito_user_pool.main.id
+  username     = local.e2e_email
+  # The provider's `password` argument maps to a permanent Cognito password.
+  # Do not switch this to a temporary AdminCreateUser flow; Playwright must not
+  # hit a first-login password-reset challenge.
+  password = random_password.e2e[0].result
+  enabled  = true
+
+  message_action = "SUPPRESS"
+
+  attributes = {
+    email          = local.e2e_email
+    email_verified = "true"
+  }
+}
+
+resource "aws_ssm_parameter" "e2e_email" {
+  count = local.cognito_native_auth_enabled ? 1 : 0
+  name  = "/convfinqa/${var.account_name}/e2e_email"
+  type  = "String"
+  value = local.e2e_email
+
+  tags = {
+    Name = "convfinqa-e2e-email"
+  }
+}
+
+resource "aws_ssm_parameter" "e2e_password" {
+  count  = local.cognito_native_auth_enabled ? 1 : 0
+  name   = "/convfinqa/${var.account_name}/e2e_password"
+  type   = "SecureString"
+  value  = random_password.e2e[0].result
+  key_id = local.secure_string_kms_key_arn
+
+  tags = {
+    Name = "convfinqa-e2e-password"
   }
 }

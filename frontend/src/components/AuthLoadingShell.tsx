@@ -4,7 +4,7 @@ export function AuthLoadingShell() {
 	return (
 		<div
 			data-testid="auth-loading-shell"
-			className="authed-grid h-screen w-screen overflow-hidden bg-background text-foreground"
+			className="authed-grid h-screen w-screen overflow-hidden bg-background text-foreground motion-safe:animate-pulse motion-reduce:animate-none"
 			style={{ "--sb-w": "280px" } as CSSProperties}
 		>
 			<aside className="hidden h-full border-border border-r bg-card lg:block">

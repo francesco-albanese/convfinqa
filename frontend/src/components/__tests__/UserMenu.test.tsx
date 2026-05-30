@@ -14,6 +14,7 @@ function renderUserMenu(
 			email={props.email ?? null}
 			collapsed={props.collapsed ?? false}
 			onSignOut={onSignOut}
+			signingOut={props.signingOut}
 		/>,
 	);
 	return { onSignOut };
@@ -91,6 +92,18 @@ describe("UserMenu", () => {
 		);
 
 		expect(onSignOut).toHaveBeenCalledTimes(1);
+	});
+
+	it("disables the sign out item while signing out", async () => {
+		const user = userEvent.setup();
+		const { onSignOut } = renderUserMenu({ signingOut: true });
+
+		await user.click(screen.getByRole("button", { name: /open user menu/i }));
+		const item = await screen.findByRole("menuitem", { name: /signing out/i });
+
+		expect(item).toHaveAttribute("aria-disabled", "true");
+		await user.click(item);
+		expect(onSignOut).not.toHaveBeenCalled();
 	});
 
 	it("hides the userId label when collapsed but keeps the avatar accessible", () => {

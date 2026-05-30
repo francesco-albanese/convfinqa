@@ -5,6 +5,7 @@ account_name = "sandbox"
 
 # Cognito
 cognito_hosted_ui_prefix = "convfinqa-sandbox"
+e2e_user_email           = "e2e+sandbox@francescoalbanese.dev"
 
 # Domain
 app_domain = "convfinqa-sandbox.francescoalbanese.dev"

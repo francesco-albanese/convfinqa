@@ -205,7 +205,10 @@ class SqlAlchemyConversationRepository:
         async with self._session_factory() as session:
             await session.execute(
                 update(ConversationOrm)
-                .where(ConversationOrm.id == conversation_id)
+                .where(
+                    ConversationOrm.id == conversation_id,
+                    (ConversationOrm.title.is_(None)) | (ConversationOrm.title == ""),
+                )
                 .values(title=title)
             )
             await session.commit()

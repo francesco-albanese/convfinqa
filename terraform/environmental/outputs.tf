@@ -47,3 +47,13 @@ output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID — set as CLOUDFRONT_DISTRIBUTION_ID GitHub Actions variable"
   value       = module.edge.cloudfront_distribution_id
 }
+
+output "e2e_email_ssm_name" {
+  description = "SSM parameter name containing E2E_EMAIL for non-production live e2e."
+  value       = module.compute.e2e_email_ssm_name
+}
+
+output "e2e_password_ssm_name" {
+  description = "SSM SecureString parameter name containing E2E_PASSWORD for non-production live e2e."
+  value       = module.compute.e2e_password_ssm_name
+}

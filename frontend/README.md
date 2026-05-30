@@ -32,5 +32,36 @@ hand-edit it.
 If you ever need to regenerate it explicitly without a full build, run
 `pnpm dev` once — the plugin watches `src/routes/**` and writes the file.
 
-Routes, theme tokens, shadcn/ui, Vitest, and Playwright land in subsequent
-foundation tasks (see beads epic `convfinqa-0hu`).
+## Browser Integration Tests
+
+The route-intercepted Playwright BDD suite is browser integration coverage, not
+end-to-end coverage:
+
+```bash
+pnpm browser:integration
+```
+
+These tests may mock product systems with Playwright routes.
+
+## Live End-to-End Tests
+
+Live end-to-end tests use the real product path and must not route-intercept:
+
+```bash
+E2E_BASE_URL=https://convfinqa-sandbox.francescoalbanese.dev \
+E2E_EMAIL="$(aws ssm get-parameter --name /convfinqa/sandbox/e2e_email --query Parameter.Value --output text)" \
+E2E_PASSWORD="$(aws ssm get-parameter --with-decryption --name /convfinqa/sandbox/e2e_password --query Parameter.Value --output text)" \
+pnpm e2e:live:sandbox
+```
+
+The GitHub `frontend-live-e2e-sandbox` job is `workflow_dispatch` only. Run it
+after deploying sandbox so the smoke proves the current live deployment, not
+whatever happened to be deployed before a pull request.
+
+`E2E_DOCUMENT_ID` is optional and defaults to the seeded smoke Document. The
+Docker end-to-end has a separate Playwright config so local no-mock coverage can
+grow without expanding the sandbox smoke suite:
+
+```bash
+E2E_EMAIL=... E2E_PASSWORD=... pnpm e2e:docker
+```

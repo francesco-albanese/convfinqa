@@ -123,7 +123,6 @@ class SendMessageUseCase:
         model: str | None = None,
     ) -> AsyncGenerator[StreamEvent]:
         resolved_model = model or self._llm_model
-        is_new_conversation = conversation_id is None
         async with self._observability.start_as_current_observation(
             as_type="agent",
             name="send_message",
@@ -169,7 +168,7 @@ class SendMessageUseCase:
                 yield MessageStarted(message_id=assistant_id)
 
                 title_task: asyncio.Task[str | None] | None = None
-                if is_new_conversation:
+                if self._should_generate_title(conversation):
                     title_task = asyncio.create_task(
                         generate_title(self._llm, user_text, document, resolved_model)
                     )
@@ -332,6 +331,14 @@ class SendMessageUseCase:
                 },
             )
             return None
+
+    @staticmethod
+    def _should_generate_title(conversation: Conversation) -> bool:
+        title = getattr(conversation, "title", None)
+        messages = getattr(conversation, "messages", ())
+        return not (title or "").strip() and not any(
+            message.role == Role.USER for message in messages
+        )
 
     @staticmethod
     async def _cancel_title_task(title_task: asyncio.Task[str | None] | None) -> None:

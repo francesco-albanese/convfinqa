@@ -20,15 +20,17 @@ function summary(
 }
 
 describe("groupByDocument", () => {
-	it("groups conversations by document and sorts groups by document.title ascending", () => {
+	it("groups conversations by document and sorts groups by newest child conversation", () => {
 		const items: ChatSummary[] = [
 			summary({
 				id: "c-beta-1",
 				document: { id: "doc-beta", ticker: "BB", year: 2025, title: "Beta" },
+				last_message_at: "2026-05-14T09:00:00+00:00",
 			}),
 			summary({
 				id: "c-alpha-1",
 				document: { id: "doc-alpha", ticker: "AA", year: 2024, title: "Alpha" },
+				last_message_at: "2026-05-15T09:00:00+00:00",
 			}),
 		];
 
@@ -72,7 +74,7 @@ describe("groupByDocument", () => {
 		]);
 	});
 
-	it("breaks document title ties deterministically using document.id", () => {
+	it("breaks newest timestamp ties deterministically using document.id", () => {
 		const items: ChatSummary[] = [
 			summary({
 				id: "c-z",
@@ -89,7 +91,7 @@ describe("groupByDocument", () => {
 		expect(groups.map((g) => g.document.id)).toEqual(["doc-a", "doc-z"]);
 	});
 
-	it("handles null titles without crashing and sorts them first (empty key)", () => {
+	it("handles null titles without crashing", () => {
 		const items: ChatSummary[] = [
 			summary({
 				id: "c-named",
@@ -104,8 +106,8 @@ describe("groupByDocument", () => {
 		const groups = groupByDocument(items);
 
 		expect(groups.map((g) => g.document.id)).toEqual([
-			"doc-unnamed",
 			"doc-named",
+			"doc-unnamed",
 		]);
 	});
 });

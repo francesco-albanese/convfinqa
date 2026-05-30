@@ -93,6 +93,7 @@ class _FakeConversation:
     user_id: str = "user-1"
     document_id: str = "doc-1"
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    title: str | None = "Existing title"
     messages: tuple = field(default_factory=tuple)
 
 
