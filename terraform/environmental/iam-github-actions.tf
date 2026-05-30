@@ -77,6 +77,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "iam:TagRole",
       "iam:UntagRole",
       "iam:ListRolePolicies",
+      "iam:ListInstanceProfilesForRole",
       "iam:PutRolePolicy",
       "iam:DeleteRolePolicy",
       "iam:ListAttachedRolePolicies",
