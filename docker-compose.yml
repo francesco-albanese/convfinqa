@@ -33,7 +33,7 @@ services:
       API_HOST: 0.0.0.0
       DATABASE_URL: postgresql+asyncpg://convfinqa:convfinqa@postgres:5432/convfinqa
       LLM_MODEL: ${LLM_MODEL:-bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       AWS_REGION: ${AWS_REGION:-eu-west-2}
       COGNITO_REGION: ${COGNITO_REGION:-eu-west-2}
       COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}
