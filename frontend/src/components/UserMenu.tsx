@@ -21,6 +21,7 @@ type UserMenuProps = {
 	email: string | null;
 	collapsed: boolean;
 	onSignOut: () => void;
+	signingOut?: boolean;
 };
 
 function initialsFor(label: string): string {
@@ -32,6 +33,7 @@ export function UserMenu({
 	email,
 	collapsed,
 	onSignOut,
+	signingOut = false,
 }: UserMenuProps) {
 	const displayName = email ?? userId;
 	const initials = initialsFor(displayName);
@@ -96,7 +98,18 @@ export function UserMenu({
 					</DropdownMenuSubContent>
 				</DropdownMenuSub>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={onSignOut}>Sign out</DropdownMenuItem>
+				<DropdownMenuItem
+					disabled={signingOut}
+					onSelect={(event) => {
+						if (signingOut) {
+							event.preventDefault();
+							return;
+						}
+						onSignOut();
+					}}
+				>
+					{signingOut ? "Signing out..." : "Sign out"}
+				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

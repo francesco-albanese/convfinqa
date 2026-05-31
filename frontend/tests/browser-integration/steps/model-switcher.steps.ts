@@ -53,6 +53,7 @@ async function mockChatStream(page: Page): Promise<void> {
 Given(
 	"a backend offering models {string}, {string} defaulting to {string}",
 	async ({ page }, first: string, second: string, fallback: string) => {
+		await seedAuthedSession(page);
 		await mockModels(page, [first, second], fallback);
 		await mockChatStream(page);
 	},

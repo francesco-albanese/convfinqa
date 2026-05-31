@@ -26,14 +26,11 @@ type SidebarSummary = {
 
 const sidebarSummaries = new Map<string, SidebarSummary>();
 const persistedMessages = new Map<string, PersistedMessage[]>();
-let chatRouted = false;
-let messagesRouted = false;
+const routedPages = new WeakSet<Page>();
 
 Before(() => {
 	sidebarSummaries.clear();
 	persistedMessages.clear();
-	chatRouted = false;
-	messagesRouted = false;
 });
 
 function summaryListBody(): { items: SidebarSummary[] } {
@@ -44,41 +41,38 @@ function summaryListBody(): { items: SidebarSummary[] } {
 }
 
 async function ensureChatsRoutes(page: Page): Promise<void> {
-	if (!chatRouted) {
-		await page.route(
-			(url) => url.pathname === "/api/v1/chats",
-			async (route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(summaryListBody()),
-				});
-			},
-		);
-		chatRouted = true;
-	}
-	if (!messagesRouted) {
-		await page.route(
-			(url) => /^\/api\/v1\/chats\/[^/]+\/messages$/.test(url.pathname),
-			async (route, request) => {
-				const path = new URL(request.url()).pathname;
-				const match = path.match(/^\/api\/v1\/chats\/([^/]+)\/messages$/);
-				const chatId = match ? decodeURIComponent(match[1] ?? "") : "";
-				const items = persistedMessages.get(chatId) ?? [];
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ items }),
-				});
-			},
-		);
-		messagesRouted = true;
-	}
+	if (routedPages.has(page)) return;
+	routedPages.add(page);
+	await page.route(
+		(url) => url.pathname === "/api/v1/chats",
+		async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(summaryListBody()),
+			});
+		},
+	);
+	await page.route(
+		(url) => /^\/api\/v1\/chats\/[^/]+\/messages$/.test(url.pathname),
+		async (route, request) => {
+			const path = new URL(request.url()).pathname;
+			const match = path.match(/^\/api\/v1\/chats\/([^/]+)\/messages$/);
+			const chatId = match ? decodeURIComponent(match[1] ?? "") : "";
+			const items = persistedMessages.get(chatId) ?? [];
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ items }),
+			});
+		},
+	);
 }
 
 Given(
 	"a stubbed backend with a conversation {string} persisting these messages:",
 	async ({ page }, chatId: string, table: DataTable) => {
+		await seedAuthedSession(page);
 		await ensureChatsRoutes(page);
 		const rows = table.hashes();
 		const messages: PersistedMessage[] = rows.map((row, index) => ({
@@ -94,6 +88,7 @@ Given(
 Given(
 	"the conversation {string} is pinned to document {string} titled {string}",
 	async ({ page }, chatId: string, documentId: string, title: string) => {
+		await seedAuthedSession(page);
 		await ensureChatsRoutes(page);
 		const lastUser = (persistedMessages.get(chatId) ?? [])
 			.filter((message) => message.role === "user")
@@ -114,8 +109,8 @@ Given(
 );
 
 Given("I open the app at {string}", async ({ page }, path: string) => {
-	await ensureChatsRoutes(page);
 	await seedAuthedSession(page);
+	await ensureChatsRoutes(page);
 	await page.goto(path);
 	await expect(page.getByTestId("authed-shell")).toBeVisible();
 });
@@ -129,23 +124,41 @@ Given(
 		documentId: string,
 		title: string,
 	) => {
+		await seedAuthedSession(page);
 		await ensureChatsRoutes(page);
+		sidebarSummaries.set(chatId, {
+			id: chatId,
+			document: {
+				id: documentId,
+				ticker: title.split(" ")[0] ?? null,
+				year: Number.parseInt(title.split(" ")[1] ?? "", 10) || null,
+				title,
+			},
+			title: null,
+			last_message_preview: preview.slice(0, 80),
+			last_message_at: new Date().toISOString(),
+		});
 		await page.route(
 			(url) => url.pathname === "/api/v1/chat/stream",
 			async (route) => {
-				sidebarSummaries.set(chatId, {
-					id: chatId,
-					document: {
-						id: documentId,
-						ticker: title.split(" ")[0] ?? null,
-						year: Number.parseInt(title.split(" ")[1] ?? "", 10) || null,
-						title,
+				const body = [
+					`data: ${JSON.stringify({ type: "start", messageId: "msg-resume" })}\n\n`,
+					`data: ${JSON.stringify({ type: "data-conversation", data: { conversationId: chatId } })}\n\n`,
+					`data: ${JSON.stringify({ type: "text-start", id: "msg-resume" })}\n\n`,
+					`data: ${JSON.stringify({ type: "text-delta", id: "msg-resume", delta: "ok" })}\n\n`,
+					`data: ${JSON.stringify({ type: "text-end", id: "msg-resume" })}\n\n`,
+					`data: ${JSON.stringify({ type: "finish" })}\n\n`,
+					"data: [DONE]\n\n",
+				].join("");
+				await route.fulfill({
+					status: 200,
+					headers: {
+						"content-type": "text/event-stream",
+						"cache-control": "no-cache",
+						"x-vercel-ai-ui-message-stream": "v1",
 					},
-					title: null,
-					last_message_preview: preview.slice(0, 80),
-					last_message_at: new Date().toISOString(),
+					body,
 				});
-				await route.fallback();
 			},
 		);
 	},

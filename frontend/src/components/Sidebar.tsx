@@ -14,6 +14,7 @@ type SidebarProps = {
 	onSelectChat: (chatId: string, documentId: string) => void;
 	onDeleteChat: (chatId: string) => void;
 	onSignOut: () => void;
+	signingOut?: boolean;
 };
 
 export function Sidebar({
@@ -26,6 +27,7 @@ export function Sidebar({
 	onSelectChat,
 	onDeleteChat,
 	onSignOut,
+	signingOut = false,
 }: SidebarProps) {
 	const searchId = useId();
 	const [query, setQuery] = useState("");
@@ -125,6 +127,7 @@ export function Sidebar({
 					email={email}
 					collapsed={collapsed}
 					onSignOut={onSignOut}
+					signingOut={signingOut}
 				/>
 			</div>
 		</nav>

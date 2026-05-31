@@ -48,6 +48,12 @@ variable "extra_cognito_logout_urls" {
   default     = []
 }
 
+variable "e2e_user_email" {
+  description = "Dedicated Cognito-native user email for non-production end-to-end tests. Leave empty to derive one from account_name."
+  type        = string
+  default     = ""
+}
+
 variable "parent_zone_name" {
   description = "Name of the Route53 hosted zone in shared-services that will receive ACM validation CNAMEs (e.g. francescoalbanese.dev)"
   type        = string

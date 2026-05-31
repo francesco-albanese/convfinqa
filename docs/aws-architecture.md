@@ -2,7 +2,7 @@
 
 Canonical reference for how the convfinqa portfolio app is deployed to AWS: stack choice, decision lineage, runtime flows, disqualified alternatives, operational runbook. Designed to be re-read on demand by both the author and AI agents that touch infrastructure.
 
-- **Status**: design approved, not yet implemented
+- **Status**: implemented in Terraform; sandbox apply/verification is still required for new infrastructure changes
 - **Project**: convfinqa portfolio
 - **Reference repo**: `../francescoalbanese-dev-infra`
 - **Diagrams**: see [`aws-architecture.html`](./aws-architecture.html) for rendered Mermaid sequence/flow diagrams (top-level architecture, sign-up/sign-in flows, streaming chat, Aurora cold-start, lifecycle, CI/CD job graph).
@@ -15,7 +15,7 @@ The convfinqa app is a streaming LLM-powered financial QA SPA. It runs on AWS wi
 
 ### The stack in one paragraph
 
-A React/Vite SPA served from **S3 behind a single CloudFront distribution**. The same CloudFront domain (`app.convfinqa.francescoalbanese.dev`) routes `/api/v1/*` to a **FastAPI service on ECS Express Mode** (Fargate-backed, auto-wired ALB) and `/api/auth/*` to a **TypeScript Lambda BFF** that handles the Cognito + Google OAuth flow and sets HTTPOnly + Secure cookies. Persistence is **Aurora Serverless v2 (Postgres-compatible) scaled to 0 ACU when idle**; cache, rate-limit, and idempotency live in the same Aurora cluster as Postgres tables. Secrets are in **SSM Parameter Store**. DNS records are written by convfinqa terraform via a cross-account provider into the parent `francescoalbanese.dev` zone owned by `../francescoalbanese-dev-infra`. Everything is one Terraform stack split into modules so that `terraform destroy -target=module.compute` drops the monthly cost to ~$1-2 when not actively shown.
+A React/Vite SPA served from **S3 behind a single CloudFront distribution**. The same CloudFront domain (for example `convfinqa-sandbox.francescoalbanese.dev` in sandbox) routes `/api/v1/*` to a **FastAPI service on ECS Express Mode** (Fargate-backed, auto-wired ALB) and `/api/auth/*` to a **TypeScript Lambda BFF** that handles the Cognito + Google OAuth flow and sets HTTPOnly + Secure cookies. Persistence is **Aurora Serverless v2 (Postgres-compatible) scaled to 0 ACU when idle**; cache, rate-limit, and idempotency live in the same Aurora cluster as Postgres tables. Secrets are in **SSM Parameter Store**. DNS records are written by convfinqa terraform via a cross-account provider into the parent `francescoalbanese.dev` zone owned by `../francescoalbanese-dev-infra`. Everything is one Terraform stack split into modules so that `terraform destroy -target=module.compute` drops the monthly cost to ~$1-2 when not actively shown.
 
 ### Cost at a glance
 
@@ -41,7 +41,7 @@ A React/Vite SPA served from **S3 behind a single CloudFront distribution**. The
 
 Single-domain CloudFront edge fans out to three origins by path. HTTPOnly cookies set by the Lambda BFF travel automatically to the FastAPI origin because both share the same hostname.
 
-1. The browser hits a single hostname (`app.convfinqa.francescoalbanese.dev`). CloudFront terminates TLS using a SAN ACM cert.
+1. The browser hits a single environment hostname such as `convfinqa-sandbox.francescoalbanese.dev`. CloudFront terminates TLS using a SAN ACM cert.
 2. CloudFront routes by path: `/*` goes to a private S3 bucket via Origin Access Control (the SPA bundle), `/api/auth/*` goes to a Lambda Function URL (TypeScript BFF for auth), `/api/v1/*` goes to an ALB auto-wired by ECS Express Mode.
 3. The ALB forwards to a Fargate task running FastAPI + uvicorn (the convfinqa container).
 4. FastAPI reads/writes Aurora Serverless v2 (Postgres-compatible). Aurora hosts the business tables (users, conversations, messages, documents) *and* the cache/rate-limit/idempotency tables.
@@ -118,8 +118,8 @@ Every load-bearing choice with its one-line lineage (the punchline), what we cho
 
 **Components**
 - **S3 bucket**: `convfinqa-site-<account_id>`, versioned, encrypted SSE-S3, public access blocked, accessed only via CloudFront OAC.
-- **CloudFront distribution**: aliases `app.convfinqa.francescoalbanese.dev` + `convfinqa.francescoalbanese.dev`; PriceClass_100 (NA + EU edges only).
-- **ACM cert**: us-east-1 (CloudFront requirement), single SAN over both names, DNS-validated.
+- **CloudFront distribution**: alias `var.app_domain` for the active environment; PriceClass_100 (NA + EU edges only).
+- **ACM cert**: us-east-1 (CloudFront requirement), DNS-validated for `var.app_domain`.
 - **Cache policies**: 1-year immutable for `/_assets/*` and `/assets/*` (hashed); 5-min TTL for `/` and `/index.html`.
 - **SPA routing**: 403 and 404 from S3 are rewritten to `/index.html` with HTTP 200 — the canonical SPA pattern.
 - **Security headers policy**: HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin.
@@ -139,11 +139,11 @@ Every load-bearing choice with its one-line lineage (the punchline), what we cho
 
 **Lineage:** Single CloudFront domain with path-based routing keeps HTTPOnly cookies same-origin — no CORS, no cross-subdomain cookie loss. Rejected ALB's built-in Cognito auth because its opaque session cookie cannot expose the raw Cognito tokens the BFF needs.
 
-**Chose:** One hostname (`app.convfinqa.francescoalbanese.dev`), three CloudFront behaviors fan out to three origins. Auth and API share the cookie jar because they share the domain.
+**Chose:** One hostname (`<app-domain>`), three CloudFront behaviors fan out to three origins. Auth and API share the cookie jar because they share the domain.
 
 **Why same-origin matters**
 
-The Lambda BFF sets `Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax` on `app.convfinqa.francescoalbanese.dev`. Because `/api/v1/*` lives on the same domain, the browser attaches that cookie automatically on every backend call. No CORS preflight, no `document.cookie` exposure, no cross-subdomain refresh handshake.
+The Lambda BFF sets `Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax` on `<app-domain>`. Because `/api/v1/*` lives on the same domain, the browser attaches that cookie automatically on every backend call. No CORS preflight, no `document.cookie` exposure, no cross-subdomain refresh handshake.
 
 **Why not ALB's built-in Cognito authentication**
 
@@ -186,10 +186,16 @@ ALB can authenticate users against a Cognito User Pool natively (it sets `AWSELB
 /convfinqa/<env>/cognito_user_pool_id
 /convfinqa/<env>/cognito_client_id
 /convfinqa/<env>/cognito_client_secret
+/convfinqa/<env>/e2e_email              (non-production only)
+/convfinqa/<env>/e2e_password           (non-production only, SecureString)
 /convfinqa/<env>/system_prompt_override   (optional)
 ```
 
 ECS task role + Lambda execution role get scoped `ssm:GetParameters` on `arn:aws:ssm:<region>:<account>:parameter/convfinqa/<env>/*` and `kms:Decrypt` on the AWS-managed key for SSM.
+
+Live e2e runners read `E2E_EMAIL` and `E2E_PASSWORD` from those non-production
+parameters with `aws ssm get-parameter`; Terraform outputs only the parameter
+names, never the secret value.
 
 Upgrade path: move to Secrets Manager when DB credential rotation becomes a real requirement (post-portfolio).
 
@@ -202,14 +208,14 @@ Upgrade path: move to Secrets Manager when DB credential rotation becomes a real
 **Chose:**
 - Parent zone `francescoalbanese.dev` stays in the shared-services account, as a *data source* in the dev-infra repo (it was originally created by a prior mTLS project).
 - **No new hosted zone in the convfinqa account.** All records live in the parent zone.
-- ACM cert in `us-east-1`: single SAN over `app.convfinqa.francescoalbanese.dev` + `convfinqa.francescoalbanese.dev`. DNS-validated.
-- convfinqa terraform declares an `aws.shared_services` provider alias that assumes a scoped IAM role with `route53:ChangeResourceRecordSets` on records matching `*.convfinqa.francescoalbanese.dev` only.
-- convfinqa terraform creates: ACM validation CNAMEs, alias `A` + `AAAA` records for `app.convfinqa.francescoalbanese.dev` → CloudFront.
+- ACM cert in `us-east-1`: DNS-validated for `var.app_domain`.
+- convfinqa terraform declares an `aws.shared_services` provider alias that assumes a scoped IAM role with `route53:ChangeResourceRecordSets` on the project environment records only.
+- convfinqa terraform creates: ACM validation CNAMEs, alias `A` + `AAAA` records for `<app-domain>` → CloudFront.
 - dev-infra is untouched after the one-time IAM role creation.
 
 **Cognito redirect URI**
 
-`https://app.convfinqa.francescoalbanese.dev/api/auth/callback` — handled by the BFF Lambda. Must be configured in both the Cognito User Pool and the Google OAuth client.
+`https://<app-domain>/api/auth/callback` — handled by the BFF Lambda. Must be configured in both the Cognito User Pool and the Google OAuth client.
 
 ### 3.8 Tear-down ergonomics decision
 
@@ -405,7 +411,7 @@ Each flow includes a sequence diagram and a numbered text equivalent. Every inte
 
 ### 4.1 Sign-up flow (first-time user)
 
-1. User browses to `app.convfinqa.francescoalbanese.dev`. SPA loads from S3 via CloudFront.
+1. User browses to `<app-domain>`. SPA loads from S3 via CloudFront.
 2. User clicks "Login with Google". SPA navigates to `/api/auth/login`.
 3. BFF builds the Cognito hosted-UI URL with `state` and `PKCE` code challenge, returns 302 redirect.
 4. Cognito hosted UI redirects the browser to Google's OAuth screen.
@@ -416,7 +422,7 @@ Each flow includes a sequence diagram and a numbered text equivalent. Every inte
 9. BFF callback exchanges the code for tokens (access, refresh, id) via Cognito's token endpoint.
 10. BFF runs the **defensive UPSERT**: `INSERT INTO users (cognito_sub, email) ... ON CONFLICT (cognito_sub) DO NOTHING`. In the happy path, this no-ops (the trigger already created the row); if the trigger failed, this saves the user from being locked out.
 11. BFF returns 302 to `/app` with two `Set-Cookie` headers: `access_token` (1h TTL) and `refresh_token` (30d TTL), both `HttpOnly; Secure; SameSite=Lax; Path=/`.
-12. Browser stores cookies. Every subsequent request to `app.convfinqa.francescoalbanese.dev` automatically includes them.
+12. Browser stores cookies. Every subsequent request to `<app-domain>` automatically includes them.
 
 ### 4.2 Sign-in flow (returning user)
 
@@ -555,10 +561,10 @@ Verification checks once the stack is applied, plus the three lifecycle levers.
 
 ### End-to-end verification checks
 
-1. `dig app.convfinqa.francescoalbanese.dev +short` returns CloudFront IPs.
-2. `curl -I https://app.convfinqa.francescoalbanese.dev/` returns 200 with HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy.
+1. `dig <app-domain> +short` returns CloudFront IPs.
+2. `curl -I https://<app-domain>/` returns 200 with HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy.
 3. Visiting the URL in a browser loads the SPA bundle.
-4. `curl -i https://app.convfinqa.francescoalbanese.dev/api/v1/healthz` returns 200.
+4. `curl -i https://<app-domain>/api/v1/healthz` returns 200.
 5. A streamed chat round-trip works: open the app, send a message, observe `text/event-stream` frames in browser DevTools Network tab, response renders incrementally.
 6. Aurora cold-start: leave the app idle 25h, click Send, verify the SPA "waking up" loader appears and the response completes within 30s.
 7. Keep-alive working: CloudWatch metric `ServerlessDatabaseCapacity` shows non-zero values at ~20h intervals.
@@ -599,7 +605,7 @@ Verification checks once the stack is applied, plus the three lifecycle levers.
 | **pg_cron** | Postgres extension that schedules SQL as cron jobs inside the database itself. Aurora supports it natively. We use it for nightly TTL sweeps on cache/rate-limit tables. |
 | **PKCE** | Proof Key for Code Exchange. The OAuth code flow extension used by public clients (our SPA → Cognito) to prevent code interception. |
 | **Post-Confirmation Lambda Trigger** | Cognito User Pool trigger that fires once when a user is confirmed (after Google federation completes). Used to create the matching `users` row in Postgres. |
-| **SAN cert** | Subject Alternative Name certificate. A single ACM cert covering multiple DNS names (here: `app.convfinqa.francescoalbanese.dev` + `convfinqa.francescoalbanese.dev`). |
+| **SAN cert** | Subject Alternative Name certificate. Terraform currently validates the environment `var.app_domain`. |
 | **SnapStart** | Lambda feature that snapshots the JVM/Python init state for faster cold starts. GA for Python in 2024. |
 | **SSE** | Server-Sent Events. The HTTP response streaming model used for chat tokens: `Content-Type: text/event-stream`, one frame per token. |
 | **SSM Parameter Store** | AWS Systems Manager Parameter Store. KMS-encrypted key-value store; free tier sufficient for our secrets. |

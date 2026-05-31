@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 export const Route = createFileRoute("/_anonymous/sign-in")({
@@ -7,6 +9,16 @@ export const Route = createFileRoute("/_anonymous/sign-in")({
 
 function SignInPage() {
 	const { signIn } = useAuth();
+	const [redirecting, setRedirecting] = useState(false);
+
+	if (redirecting) {
+		return <AuthLoadingShell />;
+	}
+
+	const handleSignIn = () => {
+		setRedirecting(true);
+		window.setTimeout(signIn, 0);
+	};
 
 	return (
 		<main className="min-h-screen w-screen bg-background text-foreground">
@@ -74,7 +86,8 @@ function SignInPage() {
 
 						<button
 							type="button"
-							onClick={signIn}
+							onClick={handleSignIn}
+							disabled={redirecting}
 							className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-input font-medium text-foreground text-sm hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
 						>
 							<GoogleGlyph />

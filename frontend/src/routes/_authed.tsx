@@ -5,7 +5,7 @@ import {
 	useSearch,
 } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 import { DocPicker } from "@/components/DocPicker";
 import { RightPanel } from "@/components/RightPanel";
@@ -60,6 +60,7 @@ function AuthedLayout() {
 			: null;
 	const deleteConversation = useDeleteConversation();
 	const { userId, email, status, signOut } = useAuth();
+	const [signingOut, setSigningOut] = useState(false);
 	const isBelowLg = useIsBelowLg();
 	const sidebarShellRef = useRef<HTMLElement>(null);
 	const rightPanelShellRef = useRef<HTMLElement>(null);
@@ -110,8 +111,12 @@ function AuthedLayout() {
 	}, [navigate, closeOverlays]);
 
 	const handleSignOut = useCallback(() => {
-		signOut();
-	}, [signOut]);
+		if (signingOut) return;
+		setSigningOut(true);
+		void signOut().catch(() => {
+			setSigningOut(false);
+		});
+	}, [signOut, signingOut]);
 
 	const handlePickDocumentSelect = useCallback(
 		(id: string) => {
@@ -157,7 +162,7 @@ function AuthedLayout() {
 		openDocPicker();
 	}, []);
 
-	if (status === "loading") {
+	if (status === "loading" || signingOut) {
 		return <AuthLoadingShell />;
 	}
 
@@ -209,6 +214,7 @@ function AuthedLayout() {
 					onSelectChat={handleSelectChat}
 					onDeleteChat={handleDeleteChat}
 					onSignOut={handleSignOut}
+					signingOut={signingOut}
 				/>
 			</aside>
 			{drawerOpen ? (

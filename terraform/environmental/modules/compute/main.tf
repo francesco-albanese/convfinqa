@@ -10,10 +10,12 @@ data "aws_ec2_managed_prefix_list" "cloudfront" {
 }
 
 locals {
-  langfuse_configured       = var.langfuse_enabled
-  gemini_configured         = var.gemini_enabled
-  secure_string_kms_key_arn = coalesce(var.ssm_kms_key_arn, data.aws_kms_key.ssm.arn)
-  ssm_decrypt_kms_key_arns  = tolist(toset([data.aws_kms_key.ssm.arn, local.secure_string_kms_key_arn]))
+  cognito_native_auth_enabled = var.account_name != "production"
+  e2e_email                   = var.e2e_user_email != "" ? var.e2e_user_email : "e2e+${var.account_name}@francescoalbanese.dev"
+  langfuse_configured         = var.langfuse_enabled
+  gemini_configured           = var.gemini_enabled
+  secure_string_kms_key_arn   = coalesce(var.ssm_kms_key_arn, data.aws_kms_key.ssm.arn)
+  ssm_decrypt_kms_key_arns    = tolist(toset([data.aws_kms_key.ssm.arn, local.secure_string_kms_key_arn]))
 
   cloudwatch_agent_config = {
     traces = {

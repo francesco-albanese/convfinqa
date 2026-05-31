@@ -69,6 +69,7 @@ async function stubDocumentsBackend(page: Page): Promise<void> {
 
 async function pinDocumentViaUrl(page: Page): Promise<void> {
 	await seedAuthedSession(page);
+	await stubDocumentsBackend(page);
 	await page.goto(`/app?documentId=${encodeURIComponent(JKHY_DOCUMENT_ID)}`);
 	await expect(page.getByTestId("right-panel")).toBeVisible();
 	await expect(page.getByTestId("doc-table")).toBeVisible();
@@ -77,6 +78,7 @@ async function pinDocumentViaUrl(page: Page): Promise<void> {
 Given(
 	"a stubbed backend with the JKHY 2009 page-28-3 document seeded",
 	async ({ page }) => {
+		await seedAuthedSession(page);
 		await stubDocumentsBackend(page);
 	},
 );

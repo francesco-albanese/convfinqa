@@ -70,6 +70,15 @@ One typed payload produced by the Agent Loop and consumed by the SSE encoder. To
 **UI Message Stream**:
 The on-the-wire SSE format consumed by the frontend. Vercel AI SDK "UI Message Stream v1" framing (`type: text-delta` / `type: finish` / `type: data-*`). The Agent Loop's domain Stream Events are translated into UI Message Stream parts in `entrypoints/api/sse.py` and nowhere else.
 
+**End-to-end test**:
+A test of the live deployed product exactly as a user experiences it: real browser, real deployed app, real auth, real data stores, real LLM integration, real streaming, and real persistence. No mocks, stubs, fakes, or route interception are allowed anywhere in an End-to-end test. Lower-level tests that replace any product system with a fake must use another name, such as integration test or component test.
+
+**Sandbox smoke end-to-end test**:
+The cost-bounded End-to-end test suite that runs against the live sandbox deployment by default. It covers only the smallest critical user path needed to prove the deployed product is working.
+
+**Local Docker end-to-end test**:
+The broader no-mock End-to-end test suite used during development against the Docker-composed app stack. It still uses real product systems, but the deployment target is local rather than sandbox.
+
 **Sensitive payload**:
 Data the backend produces but MUST NOT cross the SSE boundary to browsers. Today: the system prompt, the Anthropic reasoning signature, internal connection strings, and any raw tool error message that quotes server state (file paths, SQL execution plans). Tool input args and tool output values themselves are NOT sensitive — they're the point of the reasoning trace.
 

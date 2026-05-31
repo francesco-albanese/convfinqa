@@ -23,6 +23,16 @@ output "cognito_hosted_ui_base_url" {
   value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.id}.amazoncognito.com"
 }
 
+output "e2e_email_ssm_name" {
+  description = "SSM parameter name containing the non-production e2e email, or null in production."
+  value       = try(one(aws_ssm_parameter.e2e_email[*].name), null)
+}
+
+output "e2e_password_ssm_name" {
+  description = "SSM SecureString parameter name containing the non-production e2e password, or null in production."
+  value       = try(one(aws_ssm_parameter.e2e_password[*].name), null)
+}
+
 output "ssm_read_policy_arn" {
   description = "ARN of the IAM policy granting read access to all /convfinqa/{env}/* SSM parameters."
   value       = aws_iam_policy.ssm_read.arn

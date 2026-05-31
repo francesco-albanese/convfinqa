@@ -5,8 +5,8 @@ export type ChatDocumentGroup = {
 	conversations: ChatSummary[];
 };
 
-function titleSortKey(document: ChatDocument): string {
-	return document.title ?? "";
+function newestTimestamp(group: ChatDocumentGroup): string {
+	return group.conversations[0]?.last_message_at ?? "";
 }
 
 export function groupByDocument(items: ChatSummary[]): ChatDocumentGroup[] {
@@ -33,12 +33,12 @@ export function groupByDocument(items: ChatSummary[]): ChatDocumentGroup[] {
 	}
 
 	groups.sort((a, b) => {
-		const titleA = titleSortKey(a.document);
-		const titleB = titleSortKey(b.document);
-		if (titleA === titleB) {
-			return a.document.id < b.document.id ? -1 : 1;
+		const newestA = newestTimestamp(a);
+		const newestB = newestTimestamp(b);
+		if (newestA !== newestB) {
+			return newestA < newestB ? 1 : -1;
 		}
-		return titleA < titleB ? -1 : 1;
+		return a.document.id < b.document.id ? -1 : 1;
 	});
 
 	return groups;

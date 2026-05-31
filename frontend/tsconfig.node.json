@@ -26,7 +26,10 @@
   "include": [
     "vite.config.ts",
     "vitest.config.ts",
-    "playwright.config.ts",
-    "tests/e2e/**/*.ts"
+    "playwright.browser-integration.config.ts",
+    "playwright.docker-e2e.config.ts",
+    "playwright.live.config.ts",
+    "tests/browser-integration/**/*.ts",
+    "tests/live/**/*.ts"
   ]
 }

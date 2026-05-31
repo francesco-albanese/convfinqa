@@ -17,7 +17,7 @@ dist-ssr
 .vite/
 
 # Playwright + playwright-bdd
-tests/e2e/.features-gen/
+tests/**/.features-gen/
 playwright-report/
 test-results/
 

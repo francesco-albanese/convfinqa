@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { createBdd } from "playwright-bdd";
+import { seedAuthedSession } from "./_authedSession";
 
 const { Given, When, Then } = createBdd();
 
@@ -97,6 +98,7 @@ Given(
 	"a stubbed backend with 20 deterministic documents seeded",
 	async ({ page }) => {
 		expect(SEEDED_DOCS.length).toBeGreaterThanOrEqual(20);
+		await seedAuthedSession(page);
 		await stubSeededDocumentList(page);
 	},
 );

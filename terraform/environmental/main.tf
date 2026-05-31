@@ -35,6 +35,7 @@ module "compute" {
   account_name                = var.account_name
   app_domain                  = var.app_domain
   cognito_hosted_ui_prefix    = var.cognito_hosted_ui_prefix
+  e2e_user_email              = var.e2e_user_email
   extra_cognito_callback_urls = var.extra_cognito_callback_urls
   extra_cognito_logout_urls   = var.extra_cognito_logout_urls
   public_subnet_ids           = module.network.public_subnet_ids

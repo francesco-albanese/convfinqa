@@ -74,6 +74,7 @@ services:
     container_name: convfinqa-frontend
     depends_on:
       - app
+      - auth
     ports:
       - "5173:5173"
     environment:

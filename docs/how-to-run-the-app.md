@@ -132,3 +132,20 @@ make test
 > **What this runs:** `make test-unit` then `make test-integration` (pytest with the `unit` / `integration` markers).
 
 Tests spin up a Postgres testcontainer and run `alembic upgrade head` against it — no need to point them at the docker-compose database.
+
+## No-mock Docker end-to-end smoke
+
+Start the Docker stack, then run the live Playwright smoke against the local
+frontend. This still uses real Cognito Hosted UI auth and the real LLM/provider
+path, so `E2E_EMAIL` and `E2E_PASSWORD` must come from the dedicated
+non-production e2e user.
+
+```bash
+make up
+cd frontend
+E2E_EMAIL=... E2E_PASSWORD=... pnpm e2e:docker
+```
+
+Do not use route interception or fake product systems in this suite. The Docker
+entry point has its own Playwright config so broader local no-mock scenarios can
+be added without expanding the cost-bounded sandbox smoke suite.

@@ -4,9 +4,8 @@ import {
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { routeTree } from "@/routeTree.gen";
 
@@ -39,6 +38,11 @@ beforeEach(() => {
 			return Promise.resolve(new Response(null, { status: 401 }));
 		}),
 	);
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 });
 
 function captureLocationHref() {
@@ -89,14 +93,21 @@ describe("/sign-in route", () => {
 
 	it("redirects to the BFF login when 'Continue with Google' is clicked", async () => {
 		const captured = captureLocationHref();
-		const user = userEvent.setup();
+		let redirect: (() => void) | undefined;
 		renderSignInRoute();
 		await screen.findByRole("heading", { name: /welcome back/i });
+		vi.spyOn(window, "setTimeout").mockImplementation((handler) => {
+			redirect = typeof handler === "function" ? () => handler() : undefined;
+			return 1;
+		});
 
-		await user.click(
+		fireEvent.click(
 			screen.getByRole("button", { name: /continue with google/i }),
 		);
 
+		expect(screen.getByTestId("auth-loading-shell")).toBeInTheDocument();
+		expect(captured.get()).toBe("");
+		redirect?.();
 		expect(captured.get()).toBe("/api/auth/login");
 	});
 });

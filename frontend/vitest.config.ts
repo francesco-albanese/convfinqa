@@ -9,7 +9,7 @@ export default mergeConfig(
 			setupFiles: ["./src/test/setup.ts"],
 			css: true,
 			restoreMocks: true,
-			include: ["src/**/*.{test,spec}.{ts,tsx}"],
+			include: ["src/**/*.{test,spec}.{ts,tsx}", "tests/**/*.vitest.ts"],
 		},
 	}),
 );

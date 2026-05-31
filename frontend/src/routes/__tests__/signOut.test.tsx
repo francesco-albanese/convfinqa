@@ -93,4 +93,39 @@ describe("/_authed — sign out", () => {
 			await screen.findByRole("heading", { name: /welcome back/i }),
 		).toBeInTheDocument();
 	});
+
+	it("shows pending feedback while the logout request is in flight", async () => {
+		let finishLogout: (() => void) | undefined;
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((input: RequestInfo | URL) => {
+				const url = typeof input === "string" ? input : input.toString();
+				if (url === "/api/v1/me") {
+					return Promise.resolve(
+						new Response(JSON.stringify(TEST_USER), {
+							status: 200,
+							headers: { "Content-Type": "application/json" },
+						}),
+					);
+				}
+				if (url.includes("/api/auth/logout")) {
+					return new Promise<Response>((resolve) => {
+						finishLogout = () => resolve(new Response(null, { status: 200 }));
+					});
+				}
+				return Promise.resolve(new Response(null, { status: 200 }));
+			}),
+		);
+		const user = userEvent.setup();
+		renderAt("/app");
+
+		await screen.findByTestId("authed-shell", undefined, { timeout: 3000 });
+		await user.click(screen.getByTestId("user-menu-trigger"));
+		await user.click(
+			await screen.findByRole("menuitem", { name: /sign out/i }),
+		);
+
+		expect(screen.getByTestId("auth-loading-shell")).toBeInTheDocument();
+		finishLogout?.();
+	});
 });

@@ -9,6 +9,7 @@ import pytest
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.use_cases.send_message import (
     ConversationResolved,
+    ConversationTitle,
     DocumentIdRequiredError,
     DocumentNotFoundError,
     SendMessageUseCase,
@@ -59,6 +60,19 @@ class _FakeConvRepo:
     async def append_message(self, conversation_id: str, message: Message) -> None:
         self.messages_by_conv.setdefault(conversation_id, []).append(message)
 
+    async def set_title(self, conversation_id: str, title: str) -> None:
+        conv = self.conversations[conversation_id]
+        if conv.title:
+            return
+        self.conversations[conversation_id] = Conversation(
+            id=conv.id,
+            user_id=conv.user_id,
+            document_id=conv.document_id,
+            created_at=conv.created_at,
+            messages=conv.messages,
+            title=title,
+        )
+
     async def list_for_user(self, user_id: str) -> tuple[ConversationSummary, ...]:
         del user_id
         return ()
@@ -94,6 +108,7 @@ class _AlwaysAcquireLock:
 @dataclass(slots=True)
 class _FakeLLM:
     deltas: tuple[str, ...] = ("ok",)
+    title_deltas: tuple[str, ...] = ("Title",)
     seen_systems: list[str] = field(default_factory=list[str])
 
     async def stream(
@@ -107,6 +122,10 @@ class _FakeLLM:
         environment: str | None = None,
         model: str | None = None,
     ) -> AsyncIterator[LLMChunk]:
+        if generation_name == "title-generation":
+            for d in self.title_deltas:
+                yield LLMChunk(text=d)
+            return
         self.seen_systems.append(system)
         del messages, tools, model
         for d in self.deltas:
@@ -238,3 +257,70 @@ async def test_new_conversation_emits_resolved_event_and_persists_document_id() 
         m for m in convs.messages_by_conv["conv_created"] if m.role == Role.USER
     ]
     assert [m.content for m in user_msgs] == ["hi"]
+
+
+@pytest.mark.asyncio
+async def test_existing_empty_conversation_generates_title_once_from_first_question() -> (
+    None
+):
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    llm = _FakeLLM(deltas=("answer",), title_deltas=("Cash ", "flow"))
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id="alice",
+        document_id="doc-1",
+        created_at=datetime.now(UTC),
+        title=None,
+    )
+    use_case = _build_use_case(convs, docs, llm)
+
+    titles: list[str] = []
+    async for event in use_case.stream(
+        user_id="alice",
+        conversation_id="conv_existing",
+        user_text="what was cash flow?",
+    ):
+        if isinstance(event, ConversationTitle):
+            titles.append(event.title)
+
+    assert titles == ["Cash flow"]
+    assert convs.conversations["conv_existing"].title == "Cash flow"
+
+
+@pytest.mark.asyncio
+async def test_existing_conversation_with_prior_user_message_does_not_regenerate_title() -> (
+    None
+):
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    llm = _FakeLLM(deltas=("answer",), title_deltas=("Replacement",))
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id="alice",
+        document_id="doc-1",
+        created_at=datetime.now(UTC),
+        messages=(
+            Message(
+                id="msg-user-1",
+                conversation_id="conv_existing",
+                role=Role.USER,
+                content="first question",
+                created_at=datetime.now(UTC),
+            ),
+        ),
+        title=None,
+    )
+    use_case = _build_use_case(convs, docs, llm)
+
+    titles: list[str] = []
+    async for event in use_case.stream(
+        user_id="alice",
+        conversation_id="conv_existing",
+        user_text="follow up?",
+    ):
+        if isinstance(event, ConversationTitle):
+            titles.append(event.title)
+
+    assert titles == []
+    assert convs.conversations["conv_existing"].title is None

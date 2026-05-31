@@ -26,6 +26,7 @@ __pycache__/
 .coverage.*
 htmlcov/
 coverage.xml
+frontend/tests/live/.auth/
 
 
 
