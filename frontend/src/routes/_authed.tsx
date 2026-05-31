@@ -113,7 +113,9 @@ function AuthedLayout() {
 	const handleSignOut = useCallback(() => {
 		if (signingOut) return;
 		setSigningOut(true);
-		void signOut();
+		void signOut().catch(() => {
+			setSigningOut(false);
+		});
 	}, [signOut, signingOut]);
 
 	const handlePickDocumentSelect = useCallback(
