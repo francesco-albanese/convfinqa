@@ -22,6 +22,7 @@ _USER_UUID = uuid.UUID(SEEDED_USER_UUID)
 _TOKEN_VALID = "valid-token"
 _TOKEN_EXPIRED = "expired-token"
 _TOKEN_NO_DB_USER = "no-db-user-token"
+_TOKEN_VERIFY_BLOWUP = "verify-blowup-token"
 _UNAUTHORIZED_TYPE = "https://convfinqa.local/problems/unauthorized"
 
 
@@ -32,6 +33,8 @@ class FakeSessionPort:
     async def verify_access_token(self, token: str) -> ValidatedClaims:
         if token == _TOKEN_EXPIRED:
             raise SessionVerificationError("Token expired")
+        if token == _TOKEN_VERIFY_BLOWUP:
+            raise RuntimeError("jwks lookup failed")
         if token == _TOKEN_NO_DB_USER:
             return ValidatedClaims(sub="unknown-sub", exp=9999999999, user_id=None)
         return ValidatedClaims(sub="test-sub", exp=9999999999, user_id=self.user_id)
@@ -116,6 +119,17 @@ async def test_expired_token_returns_401(authed_client: AsyncClient) -> None:
 async def test_token_without_db_user_returns_401(authed_client: AsyncClient) -> None:
     response = await authed_client.get(
         "/protected", cookies={"access_token": _TOKEN_NO_DB_USER}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["type"] == _UNAUTHORIZED_TYPE
+
+
+@pytest.mark.asyncio
+async def test_unexpected_verification_error_returns_401(
+    authed_client: AsyncClient,
+) -> None:
+    response = await authed_client.get(
+        "/protected", cookies={"access_token": _TOKEN_VERIFY_BLOWUP}
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json()["type"] == _UNAUTHORIZED_TYPE

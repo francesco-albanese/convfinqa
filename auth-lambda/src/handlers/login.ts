@@ -24,6 +24,7 @@ export function buildApp(): Hono {
 			state,
 			code_challenge: codeChallenge,
 			code_challenge_method: "S256",
+			scope: "openid email profile",
 		})
 
 		const headers = new Headers({
