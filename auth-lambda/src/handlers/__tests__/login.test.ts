@@ -24,6 +24,9 @@ describe("GET /api/auth/login", () => {
 		expect(location).toContain(`client_id=${CLIENT_ID}`)
 		expect(location).toContain("response_type=code")
 		expect(location).toContain("code_challenge_method=S256")
+		expect(new URL(location).searchParams.get("scope")).toBe(
+			"openid email profile",
+		)
 		expect(location).toMatch(/code_challenge=[A-Za-z0-9_-]+/)
 		expect(location).toMatch(/state=[A-Za-z0-9_-]+/)
 		expect(location).toContain(encodeURIComponent(CALLBACK_URL))

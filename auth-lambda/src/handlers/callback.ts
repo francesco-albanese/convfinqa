@@ -23,7 +23,7 @@ type TokenResponse = {
 
 type IdTokenPayload = {
 	sub: string
-	email: string
+	email?: string
 }
 
 export function buildApp(deps: Deps = {}): Hono {
@@ -80,6 +80,9 @@ export function buildApp(deps: Deps = {}): Hono {
 		const idPayload = JSON.parse(
 			Buffer.from(payloadB64, "base64url").toString(),
 		) as IdTokenPayload
+		if (!idPayload.sub || !idPayload.email) {
+			return c.text("Token payload missing required identity claims", 500)
+		}
 
 		const sql = deps.sql ?? getSql()
 		try {
@@ -93,6 +96,7 @@ export function buildApp(deps: Deps = {}): Hono {
 				sub: idPayload.sub,
 				err: err instanceof Error ? err.message : String(err),
 			})
+			return c.text("User persistence failed", 500)
 		}
 
 		const headers = new Headers({ Location: "/app" })

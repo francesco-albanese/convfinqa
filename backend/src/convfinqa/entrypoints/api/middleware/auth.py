@@ -1,9 +1,14 @@
+import logging
+
 from fastapi import status
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from convfinqa.domain.ports.session import SessionVerificationError
+from convfinqa.logging import get_logger
+
+logger = get_logger("convfinqa.auth")
 
 _SKIP_PATHS = frozenset({"/healthz", "/readyz"})
 # /docs, /openapi.json, /redoc are intentionally NOT in _SKIP_PATHS:
@@ -46,6 +51,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
         try:
             claims = await container.session.verify_access_token(token)
         except SessionVerificationError:
+            return _unauthorized()
+        except Exception as exc:
+            logger.log(
+                logging.WARNING,
+                "auth_verification_failed",
+                extra={
+                    "exc_type": exc.__class__.__name__,
+                    "exc_message": str(exc) or exc.__class__.__name__,
+                    "route": request.url.path,
+                    "method": request.method,
+                    "status": status.HTTP_401_UNAUTHORIZED,
+                },
+            )
             return _unauthorized()
 
         if claims.user_id is None:

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     llm_models: list[str] = Field(
         default=[
             "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
-            "gemini/gemini-2.5-flash",
+            "gemini/gemini-3.5-flash",
         ]
     )
     system_prompt: str = Field(
