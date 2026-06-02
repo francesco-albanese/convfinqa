@@ -33,6 +33,10 @@ from convfinqa.application.agent.wire import (
     history_to_wire,
     new_message_id,
 )
+from convfinqa.application.domain_boundary import (
+    DomainBoundaryAction,
+    DomainBoundaryPolicy,
+)
 from convfinqa.application.parts_schema import build_envelope
 from convfinqa.application.prompts.system_prompt import build_system_prompt
 from convfinqa.application.prompts.tool_docs import build_tool_docs
@@ -113,6 +117,7 @@ class SendMessageUseCase:
         self._observability = observability
         self._llm_model = llm_model
         self._environment = environment
+        self._domain_boundary = DomainBoundaryPolicy()
 
     async def stream(
         self,
@@ -166,6 +171,20 @@ class SendMessageUseCase:
 
                 assistant_id = new_message_id()
                 yield MessageStarted(message_id=assistant_id)
+
+                boundary_decision = self._domain_boundary.decide(user_text, document)
+                if (
+                    boundary_decision.action
+                    == DomainBoundaryAction.RESPOND_WITH_POLICY_MESSAGE
+                ):
+                    span.set_output(boundary_decision.response or "")
+                    async for event in self._respond_without_model(
+                        conversation.id,
+                        assistant_id,
+                        boundary_decision.response or "",
+                    ):
+                        yield event
+                    return
 
                 title_task: asyncio.Task[str | None] | None = None
                 if self._should_generate_title(conversation):
@@ -373,6 +392,21 @@ class SendMessageUseCase:
         if document is None:
             raise DocumentNotFoundError(document_id)
         return document
+
+    async def _respond_without_model(
+        self, conversation_id: str, message_id: str, content: str
+    ) -> AsyncGenerator[StreamEvent]:
+        parts_in_order: list[dict[str, Any]] = [{"kind": "text", "content": content}]
+        yield TextDelta(text=content)
+        finished_at = await self._persist_assistant(
+            conversation_id,
+            message_id,
+            content,
+            StopReason.END_TURN,
+            parts_in_order,
+            {},
+        )
+        yield Finish(stop_reason=StopReason.END_TURN, usage=None, created_at=finished_at)
 
     async def _persist_assistant(
         self,

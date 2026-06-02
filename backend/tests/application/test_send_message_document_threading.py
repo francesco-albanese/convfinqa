@@ -209,7 +209,7 @@ async def test_existing_conversation_ignores_body_document_id_and_uses_stored_on
     events = use_case.stream(
         user_id=USER_ID,
         conversation_id="conv_existing",
-        user_text="hi",
+        user_text="What does the stored document say?",
         document_id="ignored-doc",
     )
     async for _ in events:
@@ -249,7 +249,7 @@ async def test_new_conversation_emits_resolved_event_and_persists_document_id() 
     events = use_case.stream(
         user_id=USER_ID,
         conversation_id=None,
-        user_text="hi",
+        user_text="How did revenue change?",
         document_id="doc-1",
     )
     async for event in events:
@@ -264,7 +264,7 @@ async def test_new_conversation_emits_resolved_event_and_persists_document_id() 
     user_msgs = [
         m for m in convs.messages_by_conv["conv_created"] if m.role == Role.USER
     ]
-    assert [m.content for m in user_msgs] == ["hi"]
+    assert [m.content for m in user_msgs] == ["How did revenue change?"]
 
 
 @pytest.mark.asyncio
@@ -281,11 +281,59 @@ async def test_direct_user_prompt_injection_stays_out_of_system_prompt() -> None
         user_text=attack,
         document_id="doc-1",
     )
-    async for _ in events:
-        pass
+    text: list[str] = []
+    async for event in events:
+        if isinstance(event, TextDelta):
+            text.append(event.text)
 
-    assert attack not in llm.seen_systems[0]
-    assert llm.seen_messages[0][-1]["content"] == attack
+    assert not llm.seen_systems
+    assert "pinned financial document" in "".join(text)
+
+
+@pytest.mark.asyncio
+async def test_domain_boundary_allows_pinned_document_questions_to_reach_llm() -> None:
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    llm = _FakeLLM(deltas=("document answer",))
+    use_case = _build_use_case(convs, docs, llm)
+
+    text: list[str] = []
+    async for event in use_case.stream(
+        user_id=USER_ID,
+        conversation_id=None,
+        user_text="How did revenue change in the pinned document?",
+        document_id="doc-1",
+    ):
+        if isinstance(event, TextDelta):
+            text.append(event.text)
+
+    assert llm.seen_messages[0][-1]["content"] == (
+        "How did revenue change in the pinned document?"
+    )
+    assert "".join(text) == "document answer"
+
+
+@pytest.mark.asyncio
+async def test_domain_boundary_answers_safe_app_capability_without_llm() -> None:
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    llm = _FakeLLM()
+    use_case = _build_use_case(convs, docs, llm)
+
+    text: list[str] = []
+    async for event in use_case.stream(
+        user_id=USER_ID,
+        conversation_id=None,
+        user_text="What can you do?",
+        document_id="doc-1",
+    ):
+        if isinstance(event, TextDelta):
+            text.append(event.text)
+
+    response = "".join(text)
+    assert not llm.seen_messages
+    assert "pinned financial document" in response
+    assert "exact tool schemas" in response
 
 
 @pytest.mark.asyncio
