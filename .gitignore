@@ -60,3 +60,6 @@ auth-lambda/dist/
 terraform/environmental/modules/**/*.zip
 terraform/environmental/modules/**/.build/
 terraform/environmental/modules/keepalive/build/
+
+# Ralph runtime
+.ralph
