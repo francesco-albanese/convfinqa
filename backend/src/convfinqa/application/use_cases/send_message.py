@@ -158,15 +158,6 @@ class SendMessageUseCase:
                     yield ConcurrentRequest(conversation_id=conversation.id)
                     return
 
-                user_msg = Message(
-                    id=new_message_id(),
-                    conversation_id=conversation.id,
-                    role=Role.USER,
-                    content=user_text,
-                    created_at=datetime.now(UTC),
-                )
-                await self._conversations.append_message(conversation.id, user_msg)
-
                 yield ConversationResolved(conversation_id=conversation.id)
 
                 assistant_id = new_message_id()
@@ -185,6 +176,15 @@ class SendMessageUseCase:
                     ):
                         yield event
                     return
+
+                user_msg = Message(
+                    id=new_message_id(),
+                    conversation_id=conversation.id,
+                    role=Role.USER,
+                    content=user_text,
+                    created_at=datetime.now(UTC),
+                )
+                await self._conversations.append_message(conversation.id, user_msg)
 
                 title_task: asyncio.Task[str | None] | None = None
                 if self._should_generate_title(conversation):
