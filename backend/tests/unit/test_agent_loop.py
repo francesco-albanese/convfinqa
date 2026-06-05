@@ -195,7 +195,7 @@ async def _collect_stream(use_case: Any, user_id: uuid.UUID) -> list[Any]:
     async for event in use_case.stream(
         user_id=user_id,
         conversation_id="conv-1",
-        user_text="hello",
+        user_text="How did revenue change in the pinned document?",
     ):
         events.append(event)
     return events
