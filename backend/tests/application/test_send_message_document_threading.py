@@ -249,7 +249,7 @@ async def test_new_conversation_emits_resolved_event_and_persists_document_id() 
     events = use_case.stream(
         user_id=USER_ID,
         conversation_id=None,
-        user_text="How did revenue change?",
+        user_text="How did revenue change in the pinned document?",
         document_id="doc-1",
     )
     async for event in events:
@@ -264,7 +264,9 @@ async def test_new_conversation_emits_resolved_event_and_persists_document_id() 
     user_msgs = [
         m for m in convs.messages_by_conv["conv_created"] if m.role == Role.USER
     ]
-    assert [m.content for m in user_msgs] == ["How did revenue change?"]
+    assert [m.content for m in user_msgs] == [
+        "How did revenue change in the pinned document?"
+    ]
 
 
 @pytest.mark.asyncio
@@ -406,7 +408,7 @@ async def test_existing_empty_conversation_generates_title_once_from_first_quest
     async for event in use_case.stream(
         user_id=USER_ID,
         conversation_id="conv_existing",
-        user_text="what was cash flow?",
+        user_text="what was cash flow in the pinned document?",
     ):
         if isinstance(event, ConversationTitle):
             titles.append(event.title)

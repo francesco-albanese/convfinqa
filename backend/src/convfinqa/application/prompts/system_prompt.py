@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from html import escape
 
 from convfinqa.domain.entities import Document
 
@@ -54,14 +55,15 @@ def _trusted_policy(framing: str) -> str:
 
 
 def _untrusted_document_context(document: Document) -> str:
-    pre = document.pre_text or ""
-    post = document.post_text or ""
-    title = document.title or document.id
+    pre = _escape_untrusted_text(document.pre_text or "")
+    post = _escape_untrusted_text(document.post_text or "")
+    title = _escape_untrusted_text(document.title or document.id)
+    ticker = _escape_untrusted_text(document.ticker or "N/A")
 
     return (
         f"{UNTRUSTED_METADATA_START}\n"
         f"Title: {title}\n"
-        f"Ticker: {document.ticker or 'N/A'}\n"
+        f"Ticker: {ticker}\n"
         f"Year: {document.year if document.year is not None else 'N/A'}\n"
         f"Page: {document.page if document.page is not None else 'N/A'}\n"
         "Table row labels: not inlined; query through the Lookup tool.\n"
@@ -71,3 +73,7 @@ def _untrusted_document_context(document: Document) -> str:
         f"{UNTRUSTED_PRE_TEXT_START}\n{pre}\n{UNTRUSTED_PRE_TEXT_END}\n\n"
         f"{UNTRUSTED_POST_TEXT_START}\n{post}\n{UNTRUSTED_POST_TEXT_END}"
     )
+
+
+def _escape_untrusted_text(value: str) -> str:
+    return escape(value, quote=True)

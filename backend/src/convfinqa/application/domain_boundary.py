@@ -4,50 +4,13 @@ from enum import StrEnum
 
 from convfinqa.domain.entities import Document
 
-DOCUMENT_GROUNDED_TERMS = (
+DOCUMENT_REFERENCE_TERMS = (
     "document",
     "filing",
     "report",
     "table",
     "row",
     "column",
-    "revenue",
-    "sales",
-    "income",
-    "expense",
-    "expenses",
-    "cash",
-    "flow",
-    "asset",
-    "assets",
-    "liability",
-    "liabilities",
-    "equity",
-    "debt",
-    "margin",
-    "profit",
-    "loss",
-    "earnings",
-    "dividend",
-    "tax",
-    "capital",
-    "inventory",
-    "receivable",
-    "payable",
-    "operating",
-    "investing",
-    "financing",
-    "year",
-    "period",
-    "quarter",
-    "balance",
-    "statement",
-    "calculate",
-    "compare",
-    "change",
-    "ratio",
-    "percentage",
-    "percent",
 )
 APP_CAPABILITY_PATTERNS = (
     re.compile(r"\bwhat can (you|this app|convfinqa) do\b"),
@@ -167,9 +130,11 @@ def _is_document_grounded(text: str, document: Document) -> bool:
         for term in (document.id, document.ticker, document.title, document.year)
         if term not in (None, "") and len(str(term).strip()) >= 2
     }
-    return any(_contains_term(text, term) for term in DOCUMENT_GROUNDED_TERMS) or any(
-        _contains_term(text, term) for term in document_terms
+    has_document_metadata = any(_contains_term(text, term) for term in document_terms)
+    has_document_reference = any(
+        _contains_term(text, term) for term in DOCUMENT_REFERENCE_TERMS
     )
+    return has_document_metadata or has_document_reference
 
 
 def _contains_term(text: str, term: str) -> bool:
