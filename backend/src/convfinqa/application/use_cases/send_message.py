@@ -114,6 +114,7 @@ class SendMessageUseCase:
         observability: ObservabilityPort,
         llm_model: str,
         environment: str,
+        prompt_injection_detector: PromptInjectionDetector | None = None,
     ) -> None:
         self._llm = llm
         self._conversations = conversations
@@ -124,7 +125,9 @@ class SendMessageUseCase:
         self._llm_model = llm_model
         self._environment = environment
         self._domain_boundary = DomainBoundaryPolicy()
-        self._prompt_injection_detector = PromptInjectionDetector()
+        self._prompt_injection_detector = (
+            prompt_injection_detector or PromptInjectionDetector()
+        )
 
     async def stream(
         self,
@@ -170,10 +173,30 @@ class SendMessageUseCase:
                 assistant_id = new_message_id()
                 yield MessageStarted(message_id=assistant_id)
 
-                injection_decision = self._prompt_injection_detector.decide(
-                    user_text,
-                    PromptInjectionSurface.USER_TEXT,
-                )
+                try:
+                    injection_decision = self._prompt_injection_detector.decide(
+                        user_text,
+                        PromptInjectionSurface.USER_TEXT,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    span.set_error()
+                    logger.log(
+                        logging.WARNING,
+                        "prompt_injection_detector_failed",
+                        extra={
+                            "exc_type": exc.__class__.__name__,
+                            "exc_message": str(exc) or exc.__class__.__name__,
+                            "conversation_id": conversation.id,
+                        },
+                    )
+                    span.set_output(PROMPT_INJECTION_REFUSAL)
+                    async for event in self._respond_without_model(
+                        conversation.id,
+                        assistant_id,
+                        PROMPT_INJECTION_REFUSAL,
+                    ):
+                        yield event
+                    return
                 if injection_decision.action == PromptInjectionAction.BLOCK:
                     span.set_output(PROMPT_INJECTION_REFUSAL)
                     async for event in self._respond_without_model(
