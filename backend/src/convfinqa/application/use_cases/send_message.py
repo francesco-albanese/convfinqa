@@ -38,6 +38,12 @@ from convfinqa.application.domain_boundary import (
     DomainBoundaryPolicy,
 )
 from convfinqa.application.parts_schema import build_envelope
+from convfinqa.application.prompt_injection_detector import (
+    PROMPT_INJECTION_REFUSAL,
+    PromptInjectionAction,
+    PromptInjectionDetector,
+    PromptInjectionSurface,
+)
 from convfinqa.application.prompts.system_prompt import build_system_prompt
 from convfinqa.application.prompts.tool_docs import build_tool_docs
 from convfinqa.application.use_cases.title_generation import generate_title
@@ -108,6 +114,7 @@ class SendMessageUseCase:
         observability: ObservabilityPort,
         llm_model: str,
         environment: str,
+        prompt_injection_detector: PromptInjectionDetector | None = None,
     ) -> None:
         self._llm = llm
         self._conversations = conversations
@@ -118,6 +125,9 @@ class SendMessageUseCase:
         self._llm_model = llm_model
         self._environment = environment
         self._domain_boundary = DomainBoundaryPolicy()
+        self._prompt_injection_detector = (
+            prompt_injection_detector or PromptInjectionDetector()
+        )
 
     async def stream(
         self,
@@ -162,6 +172,40 @@ class SendMessageUseCase:
 
                 assistant_id = new_message_id()
                 yield MessageStarted(message_id=assistant_id)
+
+                try:
+                    injection_decision = self._prompt_injection_detector.decide(
+                        user_text,
+                        PromptInjectionSurface.USER_TEXT,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    span.set_error()
+                    logger.log(
+                        logging.WARNING,
+                        "prompt_injection_detector_failed",
+                        extra={
+                            "exc_type": exc.__class__.__name__,
+                            "exc_message": str(exc) or exc.__class__.__name__,
+                            "conversation_id": conversation.id,
+                        },
+                    )
+                    span.set_output(PROMPT_INJECTION_REFUSAL)
+                    async for event in self._respond_without_model(
+                        conversation.id,
+                        assistant_id,
+                        PROMPT_INJECTION_REFUSAL,
+                    ):
+                        yield event
+                    return
+                if injection_decision.action == PromptInjectionAction.BLOCK:
+                    span.set_output(PROMPT_INJECTION_REFUSAL)
+                    async for event in self._respond_without_model(
+                        conversation.id,
+                        assistant_id,
+                        PROMPT_INJECTION_REFUSAL,
+                    ):
+                        yield event
+                    return
 
                 boundary_decision = self._domain_boundary.decide(user_text, document)
                 if (
