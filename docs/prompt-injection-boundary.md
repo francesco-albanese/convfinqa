@@ -26,6 +26,8 @@ The initial blocking families are direct instruction override, system/developer 
 
 The detector can scan raw user text, prior turns, Document metadata, Document narrative, Table labels, Table values, and forged tool-result-shaped text. In this slice, `SendMessageUseCase` enforces blocking decisions only for the current user turn before persistence and before any LLM call. Document, prior-turn, Table, and tool-result surfaces are covered by regression tests and exposed through the typed API for later slices.
 
+`application/agent/tool_policy_gate.py` now checks model-emitted tool calls at the replay boundary before execution. The gate allows known Math tools only with their exact argument schemas, and allows `sql_query` only when its JSON args contain a single SQL string scoped to the pinned Document's per-call `cells` table. SQL policy rejects catalog/schema probing, `SELECT *`, unscoped broad table reads, comments, semicolon chains, DDL/DML, unknown tables or columns, cross-user/cross-document identifiers, malformed args, unknown tools, and forged tool-result-shaped arguments. Blocked tool calls fail closed with a generic `{"error": "tool call blocked"}` result that is safe for the user SSE stream and for the provider's next iteration.
+
 ## Regression Harness
 
 The initial harness is local and deterministic. It covers:
@@ -34,6 +36,8 @@ The initial harness is local and deterministic. It covers:
 - direct user prompt injection being refused before an LLM call;
 - encoded, zero-width, typoglycemia, multilingual, fake-role, refusal-suppression, and safety-label prompt-injection decisions;
 - prior-turn, Document metadata, Document narrative, Table-label, Table-value, and forged-tool-result detector surfaces;
+- valid `sql_query` and Math calls continuing to execute through replay;
+- blocked SQL, malformed args, unknown tools, and forged tool-result-shaped arguments returning sanitized tool errors;
 - off-domain, unrelated code, current stock-price, role-change, and cross-document turns being refused by the domain policy;
 - pinned-Document financial questions proceeding through the existing Agent loop;
 - safe app-capability questions receiving a constrained local response;
@@ -49,7 +53,7 @@ This slice blocks obvious domain-boundary violations and high-confidence user-tu
 
 The model can still ignore boundary instructions for turns that pass the domain policy and detector. Later slices must add tool gating, output guarding, and operational signals.
 
-The Lookup tool still exposes table contents to the model during tool use. Future ToolPolicyGate work must validate model-emitted tool calls before execution and treat all returned table text as untrusted observations.
+The Lookup tool still exposes table contents to the model during allowed tool use. The ToolPolicyGate restricts queries to the per-call `cells` table, but it does not prove semantic relevance beyond row/column scoping and identifier checks. Returned table text remains an untrusted observation for later output guarding.
 
 Streaming output is not guarded yet. Unsafe partial output can still cross the SSE boundary until OutputGuard lands.
 
@@ -59,7 +63,6 @@ Detector matching will miss paraphrases, mixed-language payloads outside the sma
 
 ## Follow-Up Slices
 
-- `convfinqa-vmf.4`: tool policy gate.
 - `convfinqa-vmf.5`: output guard for leakage and rendering.
 - `convfinqa-vmf.6`: security signals and suspicious-attempt hooks.
 - `convfinqa-vmf.7`: opt-in live provider regression campaign.
