@@ -37,6 +37,7 @@ from convfinqa.application.domain_boundary import (
     DomainBoundaryAction,
     DomainBoundaryPolicy,
 )
+from convfinqa.application.output_guard import StreamingOutputGuard
 from convfinqa.application.parts_schema import build_envelope
 from convfinqa.application.prompt_injection_detector import (
     PROMPT_INJECTION_REFUSAL,
@@ -245,11 +246,13 @@ class SendMessageUseCase:
                 usage: Usage | None = None
                 stop_reason = StopReason.END_TURN
                 errored = False
+                output_blocked = False
 
                 try:
                     for iteration in range(ITERATION_CAP):
                         state = IterationState()
                         assistant_thinking_blocks: list[dict[str, Any]] = []
+                        output_guard = StreamingOutputGuard()
 
                         async for event in process_llm_chunks(
                             self._llm.stream(
@@ -268,10 +271,14 @@ class SendMessageUseCase:
                             current_text_buffer,
                             reasoning_signatures,
                             assistant_thinking_blocks,
+                            output_guard,
                         ):
                             yield event
 
                         usage = state.usage
+                        if output_guard.blocked:
+                            output_blocked = True
+                            break
 
                         if state.current_reasoning_id:
                             parts_in_order.append(
@@ -358,6 +365,15 @@ class SendMessageUseCase:
 
                     if errored:
                         yield ErrorEvent(detail=UPSTREAM_LLM_PUBLIC_DETAIL)
+                        return
+
+                    if output_blocked:
+                        span.set_output("".join(text_chunks))
+                        yield Finish(
+                            stop_reason=stop_reason,
+                            usage=usage,
+                            created_at=finished_at,
+                        )
                         return
 
                     if title_task is not None:
@@ -450,7 +466,9 @@ class SendMessageUseCase:
             parts_in_order,
             {},
         )
-        yield Finish(stop_reason=StopReason.END_TURN, usage=None, created_at=finished_at)
+        yield Finish(
+            stop_reason=StopReason.END_TURN, usage=None, created_at=finished_at
+        )
 
     async def _persist_assistant(
         self,

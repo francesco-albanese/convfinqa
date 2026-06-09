@@ -13,6 +13,7 @@ from convfinqa.application.agent.stream_events import (
     ToolCallArgsDelta,
     ToolCallStart,
 )
+from convfinqa.application.output_guard import StreamingOutputGuard
 from convfinqa.domain.ports.llm import LLMChunk
 
 
@@ -24,7 +25,9 @@ async def process_llm_chunks(
     current_text_buffer: list[str],
     reasoning_signatures: dict[str, str],
     assistant_thinking_blocks: list[dict[str, Any]],
+    output_guard: StreamingOutputGuard | None = None,
 ) -> AsyncGenerator[StreamEvent]:
+    guard = output_guard or StreamingOutputGuard()
     async for chunk in chunks:
         if chunk.reasoning_event == "start":
             if current_text_buffer:
@@ -38,16 +41,14 @@ async def process_llm_chunks(
             yield ReasoningStart(id=state.current_reasoning_id)
 
         elif (
-            chunk.reasoning_event == "delta"
-            and state.current_reasoning_id is not None
+            chunk.reasoning_event == "delta" and state.current_reasoning_id is not None
         ):
             state.reasoning_buffer.append(chunk.reasoning_text)
-            yield ReasoningDelta(id=state.current_reasoning_id, text=chunk.reasoning_text)
+            yield ReasoningDelta(
+                id=state.current_reasoning_id, text=chunk.reasoning_text
+            )
 
-        elif (
-            chunk.reasoning_event == "end"
-            and state.current_reasoning_id is not None
-        ):
+        elif chunk.reasoning_event == "end" and state.current_reasoning_id is not None:
             reasoning_text = "".join(state.reasoning_buffer)
             completed_id = state.current_reasoning_id
             sig = chunk.reasoning_signature
@@ -66,9 +67,11 @@ async def process_llm_chunks(
             yield ReasoningEnd(id=completed_id)
 
         if chunk.text:
-            text_chunks.append(chunk.text)
-            current_text_buffer.append(chunk.text)
-            yield TextDelta(text=chunk.text)
+            result = guard.accept(chunk.text)
+            if result.text:
+                text_chunks.append(result.text)
+                current_text_buffer.append(result.text)
+                yield TextDelta(text=result.text)
 
         if chunk.tool_call_event == "start" and chunk.tool_call_id:
             state.tool_calls[chunk.tool_call_id] = {
@@ -101,3 +104,9 @@ async def process_llm_chunks(
 
         if chunk.usage:
             state.usage = chunk.usage
+
+    result = guard.flush()
+    if result.text:
+        text_chunks.append(result.text)
+        current_text_buffer.append(result.text)
+        yield TextDelta(text=result.text)
