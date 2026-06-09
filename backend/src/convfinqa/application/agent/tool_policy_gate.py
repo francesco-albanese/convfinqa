@@ -144,5 +144,62 @@ def _validate_sql_policy(sql: str) -> None:
         raise ValueError("query must reference cells columns")
     if not referenced_columns.issubset(_ALLOWED_SQL_COLUMNS):
         raise ValueError("query references non-cells columns")
-    if not referenced_columns.intersection({"row_label", "col_label"}):
-        raise ValueError("query must be scoped by row_label or col_label")
+    _validate_literal_scope(statement)
+
+
+def _validate_literal_scope(statement: exp.Select) -> None:
+    for child in statement.walk():  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        if isinstance(child, exp.Or | exp.Subquery | exp.Like | exp.Is):
+            raise ValueError("query scope must use literal equality or finite IN")
+        if isinstance(child, exp.Select) and child is not statement:
+            raise ValueError("subqueries are not allowed")
+        if isinstance(child, exp.EQ | exp.In) and _is_self_contained_truth_expression(
+            child
+        ):
+            raise ValueError("self-contained truth predicates are not allowed")
+
+    if not any(_is_scoped_equality(node) for node in statement.find_all(exp.EQ)):
+        if not any(_is_scoped_in(node) for node in statement.find_all(exp.In)):
+            raise ValueError("query must be scoped by literal row_label or col_label")
+
+
+def _is_scoped_equality(node: exp.EQ) -> bool:
+    left = node.args.get("this")
+    right = node.args.get("expression")
+    return (_is_scope_column(left) and isinstance(right, exp.Literal)) or (
+        _is_scope_column(right) and isinstance(left, exp.Literal)
+    )
+
+
+def _is_self_contained_truth_expression(node: exp.EQ | exp.In) -> bool:
+    if isinstance(node, exp.EQ):
+        left = node.args.get("this")
+        right = node.args.get("expression")
+        if isinstance(left, exp.Literal) and isinstance(right, exp.Literal):
+            return True
+        return (
+            isinstance(left, exp.Column)
+            and isinstance(right, exp.Column)
+            and left.name == right.name
+        )
+
+    subject = node.args.get("this")
+    expressions = node.args.get("expressions")
+    return isinstance(subject, exp.Literal) and isinstance(expressions, list)
+
+
+def _is_scoped_in(node: exp.In) -> bool:
+    subject = node.args.get("this")
+    expressions = node.args.get("expressions")
+    if not isinstance(expressions, list):
+        return False
+    typed_expressions = cast("list[object]", expressions)
+    return (
+        _is_scope_column(subject)
+        and bool(typed_expressions)
+        and all(isinstance(item, exp.Literal) for item in typed_expressions)
+    )
+
+
+def _is_scope_column(node: object) -> bool:
+    return isinstance(node, exp.Column) and node.name in {"row_label", "col_label"}

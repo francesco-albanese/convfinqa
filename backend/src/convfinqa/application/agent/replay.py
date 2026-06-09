@@ -4,7 +4,13 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from convfinqa.application.agent.sql.citation_extractor import extract_citations
-from convfinqa.application.agent.stream_events import Citation, ToolResult
+from convfinqa.application.agent.stream_events import (
+    Citation,
+    StreamEvent,
+    ToolCallArgsComplete,
+    ToolCallStart,
+    ToolResult,
+)
 from convfinqa.application.agent.tool_executor import execute_tool
 from convfinqa.application.agent.tool_policy_gate import (
     BLOCKED_TOOL_ERROR,
@@ -28,7 +34,7 @@ async def execute_and_replay_tools(
     document: Document,
     seen_citations: set[tuple[str, str]],
     observability: ObservabilityPort,
-) -> AsyncGenerator[ToolResult | Citation]:
+) -> AsyncGenerator[StreamEvent]:
     tool_use_blocks: list[dict[str, Any]] = []
     tool_results_for_wire: list[dict[str, Any]] = []
 
@@ -39,17 +45,25 @@ async def execute_and_replay_tools(
 
         if policy_decision.blocked:
             async with observability.start_as_current_observation(
-                as_type="tool", name=tool_name, input=safe_json_loads(raw_args)
+                as_type="tool",
+                name=tool_name,
+                input={"blocked": True, "reason": policy_decision.reason},
             ) as span:
                 result_str = json.dumps({"error": BLOCKED_TOOL_ERROR})
                 span.set_output(result_str)
                 span.set_error()
             is_error = True
+            stored_args = json.dumps({"blocked": True})
+            wire_input: object = {"blocked": True}
         else:
+            yield ToolCallStart(call_id=call_id, name=tool_name)
+            yield ToolCallArgsComplete(call_id=call_id, args=raw_args)
             tool = TOOL_REGISTRY[tool_name]
             if tool.name == "sql_query":
                 tool = build_sql_query_tool(document)
             result_str, is_error = await execute_tool(tool, raw_args, observability)
+            stored_args = raw_args
+            wire_input = safe_json_loads(raw_args)
 
         yield ToolResult(call_id=call_id, result=result_str, is_error=is_error)
 
@@ -58,7 +72,7 @@ async def execute_and_replay_tools(
                 "kind": "tool_call",
                 "call_id": call_id,
                 "name": tool_name,
-                "args": raw_args,
+                "args": stored_args,
             }
         )
         parts_in_order.append(
@@ -110,7 +124,7 @@ async def execute_and_replay_tools(
                 "type": "tool_use",
                 "id": call_id,
                 "name": tool_name,
-                "input": safe_json_loads(raw_args),
+                "input": wire_input,
             }
         )
         tool_results_for_wire.append(

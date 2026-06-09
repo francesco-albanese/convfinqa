@@ -208,7 +208,9 @@ async def test_gemini_model_does_not_pass_thinking_param() -> None:
 
 
 @pytest.mark.asyncio
-async def test_anthropic_model_omits_thinking_when_max_tokens_cannot_fit_budget() -> None:
+async def test_anthropic_model_omits_thinking_when_max_tokens_cannot_fit_budget() -> (
+    None
+):
     chunks: list[_FakeChunk] = [
         _FakeChunk(choices=[_FakeChoice(_FakeDelta(content="hi"))]),
     ]

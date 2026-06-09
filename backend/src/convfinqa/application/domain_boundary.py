@@ -24,19 +24,29 @@ PROTECTED_INTERNAL_PATTERNS = (
     re.compile(r"\binternal (policy|policies|instructions|rules)\b"),
 )
 ROLE_CHANGE_PATTERNS = (
-    re.compile(r"\b(ignore|override|disregard|forget) (all )?(previous|prior|above) instructions\b"),
+    re.compile(
+        r"\b(ignore|override|disregard|forget) (all )?(previous|prior|above) instructions\b"
+    ),
     re.compile(r"\bact as\b"),
     re.compile(r"\bpretend (you are|to be)\b"),
     re.compile(r"\byou are now\b"),
     re.compile(r"\breveal (the )?(system|hidden|developer) prompt\b"),
 )
 CURRENT_PRICE_PATTERNS = (
-    re.compile(r"\b(current|live|today'?s|latest|real[- ]time)\b.*\b(stock|share) price\b"),
-    re.compile(r"\b(stock|share) price\b.*\b(current|live|today'?s|latest|real[- ]time)\b"),
+    re.compile(
+        r"\b(current|live|today'?s|latest|real[- ]time)\b.*\b(stock|share) price\b"
+    ),
+    re.compile(
+        r"\b(stock|share) price\b.*\b(current|live|today'?s|latest|real[- ]time)\b"
+    ),
 )
 CROSS_DOCUMENT_PATTERNS = (
-    re.compile(r"\b(other|another|different|all|every) (document|filing|report|conversation)s?\b"),
-    re.compile(r"\bcompare\b.*\b(other|another|different|all|every) (document|filing|report)s?\b"),
+    re.compile(
+        r"\b(other|another|different|all|every) (document|filing|report|conversation)s?\b"
+    ),
+    re.compile(
+        r"\bcompare\b.*\b(other|another|different|all|every) (document|filing|report)s?\b"
+    ),
     re.compile(r"\bnot (the )?pinned document\b"),
 )
 CODE_REQUEST_PATTERNS = (
@@ -44,7 +54,9 @@ CODE_REQUEST_PATTERNS = (
         r"\b(write|generate|create|debug|fix|refactor) "
         r"(some |a |an )?(code|python|javascript|typescript|java|sql)\b"
     ),
-    re.compile(r"\b(code|python|javascript|typescript|java) (snippet|script|function|program)\b"),
+    re.compile(
+        r"\b(code|python|javascript|typescript|java) (snippet|script|function|program)\b"
+    ),
 )
 
 REFUSAL = (

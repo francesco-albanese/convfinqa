@@ -20,7 +20,9 @@ def validate_select(sql: str) -> None:
     statement: Any = statements[0]
 
     if not isinstance(statement, exp.Select):
-        raise ValueError(f"only SELECT statements are allowed, got: {type(statement).__name__}")
+        raise ValueError(
+            f"only SELECT statements are allowed, got: {type(statement).__name__}"
+        )
 
     _reject_dml_in_ast(statement)
 
@@ -42,4 +44,6 @@ _FORBIDDEN_NODE_TYPES = (
 def _reject_dml_in_ast(node: exp.Select) -> None:
     for child in node.walk():  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
         if isinstance(child, _FORBIDDEN_NODE_TYPES):
-            raise ValueError(f"forbidden statement type in query: {type(child).__name__}")
+            raise ValueError(
+                f"forbidden statement type in query: {type(child).__name__}"
+            )

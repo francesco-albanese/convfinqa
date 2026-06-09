@@ -213,7 +213,11 @@ def test_discriminated_union_parses_tool_result_kind() -> None:
 
 
 def test_citation_part_valid() -> None:
-    part = CitationPart(kind="citation", row_label="net cash from operations", col_label="Year ended June 30, 2009")
+    part = CitationPart(
+        kind="citation",
+        row_label="net cash from operations",
+        col_label="Year ended June 30, 2009",
+    )
     assert part.kind == "citation"
     assert part.row_label == "net cash from operations"
     assert part.col_label == "Year ended June 30, 2009"

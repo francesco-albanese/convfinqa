@@ -73,6 +73,13 @@ def test_normalizes_currency_commas_quotes_and_prose(model: str, gold: str) -> N
     assert score_answer(model, gold).passed is True
 
 
+def test_scores_final_figure_in_conversational_answer() -> None:
+    result = score_answer("Revenue moved from 100 to 118, so 18%.", "18%")
+
+    assert result.passed is True
+    assert result.score == 1.0
+
+
 @pytest.mark.parametrize(
     "model",
     ["no numeric answer", "", "not available"],

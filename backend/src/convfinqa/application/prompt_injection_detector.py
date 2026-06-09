@@ -146,9 +146,7 @@ BLOCKING_RULES = (
         family=PromptInjectionFamily.MULTILINGUAL_OVERRIDE,
         reason="non_english_override",
         patterns=(
-            re.compile(
-                r"\bignora (le )?(istruzioni|regole) (precedenti|precedente)\b"
-            ),
+            re.compile(r"\bignora (le )?(istruzioni|regole) (precedenti|precedente)\b"),
             re.compile(r"\bignore (les )?(instructions|regles) precedentes\b"),
             re.compile(
                 r"\bignora (las )?(instrucciones|reglas) (anteriores|previas)\b"
@@ -220,7 +218,9 @@ class PromptInjectionDetector:
     def decide_document(self, document: Document) -> PromptInjectionDecision:
         return self.decide_many(_document_inputs(document))
 
-    def decide_prior_turns(self, messages: Iterable[Message]) -> PromptInjectionDecision:
+    def decide_prior_turns(
+        self, messages: Iterable[Message]
+    ) -> PromptInjectionDecision:
         return self.decide_many(
             PromptInjectionInput(
                 text=message.content,

@@ -42,6 +42,7 @@ _NUMBER_RE = re.compile(
 
 def _parse_answer(answer: str) -> _ParsedAnswer | None:
     normalized = answer.strip().strip("\"'").replace("$", "")
+    parsed: _ParsedAnswer | None = None
     for match in _NUMBER_RE.finditer(normalized):
         raw_number = match.group("number")
         if raw_number in {"", "+", "-", ".", "+.", "-."}:
@@ -57,12 +58,12 @@ def _parse_answer(answer: str) -> _ParsedAnswer | None:
             value = Decimal(cleaned)
         except InvalidOperation:
             continue
-        return _ParsedAnswer(
+        parsed = _ParsedAnswer(
             value=value,
             is_percent=bool(match.group("percent")),
             decimals=_decimal_places(raw_number),
         )
-    return None
+    return parsed
 
 
 def _decimal_places(raw_number: str) -> int:

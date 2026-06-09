@@ -57,6 +57,14 @@ def test_allows_all_periods_for_one_row() -> None:
         "SELECT value_num FROM cells -- hidden policy probe\nWHERE row_label='x'",
         "SELECT document_id FROM cells WHERE row_label='x'",
         "SELECT value_num FROM documents WHERE row_label='x'",
+        "SELECT value_num FROM cells WHERE row_label LIKE '%'",
+        "SELECT value_num FROM cells WHERE row_label IS NOT NULL",
+        "SELECT value_num FROM cells WHERE row_label='Revenue' AND 1=1",
+        "SELECT value_num FROM cells WHERE row_label='Revenue' AND row_label=row_label",
+        "SELECT value_num FROM cells WHERE row_label='Revenue' AND col_label=col_label",
+        "SELECT value_num FROM cells WHERE row_label='Revenue' AND 1 IN (1)",
+        "SELECT value_num FROM cells WHERE row_label='x' OR 1=1",
+        "SELECT value_num FROM cells WHERE row_label IN (SELECT row_label FROM cells)",
     ],
 )
 def test_blocks_unsafe_sql(sql: str) -> None:

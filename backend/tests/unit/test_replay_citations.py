@@ -1,13 +1,22 @@
 """Tests for Citation event behavior in execute_and_replay_tools."""
 
 import json
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import Any
 
 import pytest
 
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.agent.replay import execute_and_replay_tools
-from convfinqa.application.agent.stream_events import Citation, ToolResult
+from convfinqa.application.agent.stream_events import Citation, StreamEvent, ToolResult
+from convfinqa.application.agent.tool_policy_gate import ToolPolicyReason
 from convfinqa.domain.entities import Document
+
+ToolCalls = dict[str, dict[str, Any]]
+MessageParts = list[dict[str, Any]]
+WireMessages = list[dict[str, Any]]
+SeenCitations = set[tuple[str, str]]
 
 
 def _doc_with_table() -> Document:
@@ -38,9 +47,29 @@ def _empty_doc() -> Document:
     )
 
 
-def _make_tool_call(call_id: str, name: str, args: dict) -> dict:
+def _make_tool_call(call_id: str, name: str, args: dict[str, object]) -> ToolCalls:
     raw = json.dumps(args)
     return {call_id: {"name": name, "args": raw, "args_chunks": [raw]}}
+
+
+class RecordingObservability(NoOpLangfuseClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.inputs: list[dict[str, Any]] = []
+
+    @asynccontextmanager
+    async def start_as_current_observation(
+        self,
+        as_type: str,
+        name: str,
+        input: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[Any]:
+        if input is not None:
+            self.inputs.append(input)
+        async with super().start_as_current_observation(
+            as_type=as_type, name=name, input=input
+        ) as span:
+            yield span
 
 
 @pytest.mark.asyncio
@@ -49,11 +78,11 @@ async def test_sql_query_with_matching_rows_yields_citation() -> None:
     sql = "SELECT value_num FROM cells WHERE row_label='net cash from operations' AND col_label='Year ended June 30, 2009'"
     tool_calls = _make_tool_call("c1", "sql_query", {"sql": sql})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
         tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
     ):
@@ -71,11 +100,11 @@ async def test_sql_query_with_zero_rows_yields_no_citation() -> None:
     sql = "SELECT value_num FROM cells WHERE row_label='nonexistent row' AND col_label='Year ended June 30, 2009'"
     tool_calls = _make_tool_call("c1", "sql_query", {"sql": sql})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
         tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
     ):
@@ -99,11 +128,11 @@ async def test_duplicate_citations_within_turn_are_deduplicated() -> None:
         "c2": {"name": "sql_query", "args": raw, "args_chunks": [raw]},
     }
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
         tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
     ):
@@ -119,9 +148,9 @@ async def test_citation_part_added_to_parts_in_order() -> None:
     sql = "SELECT value_num FROM cells WHERE row_label='net cash from operations' AND col_label='Year ended June 30, 2009'"
     tool_calls = _make_tool_call("c1", "sql_query", {"sql": sql})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
     async for _ in execute_and_replay_tools(
         tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
@@ -137,14 +166,15 @@ async def test_citation_part_added_to_parts_in_order() -> None:
 @pytest.mark.asyncio
 async def test_policy_blocked_sql_query_returns_sanitized_error() -> None:
     tool_calls = _make_tool_call("c1", "sql_query", {"sql": "SELECT * FROM cells"})
+    observability = RecordingObservability()
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
-        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+        tool_calls, [], parts, wire, _doc_with_table(), seen, observability
     ):
         events.append(event)
 
@@ -155,6 +185,9 @@ async def test_policy_blocked_sql_query_returns_sanitized_error() -> None:
     assert "SELECT *" not in tool_results[0].result
     assert not [e for e in events if isinstance(e, Citation)]
     assert json.loads(parts[1]["result"]) == {"error": "tool call blocked"}
+    assert observability.inputs == [
+        {"blocked": True, "reason": ToolPolicyReason.UNSAFE_SQL}
+    ]
 
 
 @pytest.mark.asyncio
@@ -165,9 +198,9 @@ async def test_policy_blocked_tool_call_still_replays_to_wire_as_tool_result() -
         {"sql": "SELECT value_num FROM cells; SELECT value_num FROM cells"},
     )
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
     async for _ in execute_and_replay_tools(
         tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
@@ -185,11 +218,11 @@ async def test_policy_blocked_tool_call_still_replays_to_wire_as_tool_result() -
 async def test_policy_allows_math_tool_execution() -> None:
     tool_calls = _make_tool_call("c1", "subtract", {"a": "206588", "b": "181001"})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
         tool_calls, [], parts, wire, _empty_doc(), seen, NoOpLangfuseClient()
     ):

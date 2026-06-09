@@ -1,6 +1,8 @@
 import uuid
 
-from convfinqa.application.use_cases.send_message import ConversationNotFoundError
+from convfinqa.application.use_cases.send_message_support import (
+    ConversationNotFoundError,
+)
 from convfinqa.domain.ports.repository import ConversationRepository
 
 __all__ = ["ConversationNotFoundError", "DeleteConversationUseCase"]
