@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
+from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.application.output_guard import OUTPUT_GUARD_REFUSAL
 from convfinqa.application.prompt_injection_detector import (
     PromptInjectionDecision,
@@ -30,6 +31,7 @@ from convfinqa.domain.entities import (
 )
 from convfinqa.domain.ports.llm import LLMChunk, LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
     DocumentRepository,
@@ -156,6 +158,17 @@ class _FailingPromptInjectionDetector(PromptInjectionDetector):
         raise RuntimeError("detector unavailable")
 
 
+@dataclass(slots=True)
+class _CountingPromptProvider:
+    calls: list[tuple[str, str, dict[str, object]]] = field(
+        default_factory=list[tuple[str, str, dict[str, object]]]
+    )
+
+    def compile(self, name: str, label: str, variables: Mapping[str, object]) -> str:
+        self.calls.append((name, label, dict(variables)))
+        return "compiled prompt"
+
+
 def _document(doc_id: str = "doc-1") -> Document:
     return Document(
         id=doc_id,
@@ -174,13 +187,14 @@ def _build_use_case(
     docs: _FakeDocRepo,
     llm: _FakeLLM,
     prompt_injection_detector: PromptInjectionDetector | None = None,
+    prompt_provider: PromptProviderPort | None = None,
 ) -> SendMessageUseCase:
     return SendMessageUseCase(
         llm=cast(LLMPort, llm),
         conversations=cast(ConversationRepository, convs),
         documents=cast(DocumentRepository, docs),
         locks=cast(ConversationLockPort, _AlwaysAcquireLock()),
-        system_prompt_framing="framing",
+        prompt_provider=prompt_provider or LocalFilePromptProvider(),
         observability=NoOpLangfuseClient(),  # type: ignore[arg-type]
         llm_model="test-model",
         environment="test",
@@ -490,6 +504,66 @@ async def test_existing_empty_conversation_generates_title_once_from_first_quest
 
     assert titles == ["Cash flow"]
     assert convs.conversations["conv_existing"].title == "Cash flow"
+
+
+@pytest.mark.asyncio
+async def test_prompt_provider_compiles_once_across_agent_loop_iterations() -> None:
+    class _ToolLoopLLM(_FakeLLM):
+        async def stream(
+            self,
+            messages: Sequence[dict[str, Any]],
+            system: str,
+            tools: Any = None,
+            generation_name: str | None = None,
+            trace_user_id: str | None = None,
+            session_id: str | None = None,
+            environment: str | None = None,
+            model: str | None = None,
+        ) -> AsyncIterator[LLMChunk]:
+            self.seen_systems.append(system)
+            self.seen_messages.append(list(messages))
+            del tools, generation_name, trace_user_id, session_id, environment, model
+            yield LLMChunk(
+                tool_call_event="start",
+                tool_call_id="c1",
+                tool_call_name="add",
+            )
+            yield LLMChunk(
+                tool_call_event="delta",
+                tool_call_id="c1",
+                tool_call_delta='{"a":"1","b":"2"}',
+            )
+            yield LLMChunk(tool_call_event="complete", tool_call_id="c1")
+            yield LLMChunk(finish_reason_tool_use=True)
+
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    llm = _ToolLoopLLM()
+    provider = _CountingPromptProvider()
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id=USER_ID_STR,
+        document_id="doc-1",
+        created_at=datetime.now(UTC),
+        title="Existing title",
+    )
+    use_case = _build_use_case(convs, docs, llm, prompt_provider=provider)
+
+    async for _ in use_case.stream(
+        user_id=USER_ID,
+        conversation_id="conv_existing",
+        user_text="what was revenue in the pinned document?",
+    ):
+        pass
+
+    assert len(provider.calls) == 1
+    name, label, variables = provider.calls[0]
+    assert (name, label) == ("convfinqa-system", "production")
+    assert {"title", "ticker", "year", "pre_text", "post_text", "tool_docs"}.issubset(
+        variables
+    )
+    assert len(llm.seen_systems) == 10
+    assert set(llm.seen_systems) == {"compiled prompt"}
 
 
 @pytest.mark.asyncio

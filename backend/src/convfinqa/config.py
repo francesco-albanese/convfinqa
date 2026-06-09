@@ -21,12 +21,6 @@ class Settings(BaseSettings):
             "gemini/gemini-3.5-flash",
         ]
     )
-    system_prompt: str = Field(
-        default=(
-            "You are ConvFinQA, a financial assistant. "
-            "Be concise and cite figures when given."
-        )
-    )
     database_url: str = Field(
         default="postgresql+asyncpg://convfinqa:convfinqa@localhost:5432/convfinqa"
     )

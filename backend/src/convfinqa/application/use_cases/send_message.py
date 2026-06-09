@@ -45,13 +45,14 @@ from convfinqa.application.prompt_injection_detector import (
     PromptInjectionDetector,
     PromptInjectionSurface,
 )
-from convfinqa.application.prompts.system_prompt import build_system_prompt
+from convfinqa.application.prompts.system_prompt import build_system_prompt_variables
 from convfinqa.application.prompts.tool_docs import build_tool_docs
 from convfinqa.application.use_cases.title_generation import generate_title
 from convfinqa.domain.entities import Conversation, Document, Message
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.observability import ObservabilityPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
     DocumentRepository,
@@ -111,7 +112,7 @@ class SendMessageUseCase:
         conversations: ConversationRepository,
         documents: DocumentRepository,
         locks: ConversationLockPort,
-        system_prompt_framing: str,
+        prompt_provider: PromptProviderPort,
         observability: ObservabilityPort,
         llm_model: str,
         environment: str,
@@ -121,7 +122,7 @@ class SendMessageUseCase:
         self._conversations = conversations
         self._documents = documents
         self._locks = locks
-        self._framing = system_prompt_framing
+        self._prompt_provider = prompt_provider
         self._observability = observability
         self._llm_model = llm_model
         self._environment = environment
@@ -154,10 +155,10 @@ class SendMessageUseCase:
                     metadata={"document_id": document.id, "llm_model": resolved_model},
                     tags=[f"environment:{self._environment}"],
                 )
-                system_prompt = (
-                    build_system_prompt(self._framing, document)
-                    + "\n\n"
-                    + build_tool_docs()
+                system_prompt = self._prompt_provider.compile(
+                    "convfinqa-system",
+                    "production",
+                    build_system_prompt_variables(document, build_tool_docs()),
                 )
                 tool_specs = build_tool_specs()
             except Exception:

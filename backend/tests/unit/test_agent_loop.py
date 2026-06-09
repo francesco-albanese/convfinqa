@@ -203,6 +203,7 @@ async def _collect_stream(use_case: Any, user_id: uuid.UUID) -> list[Any]:
 
 def _make_use_case(llm: Any) -> Any:
     from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
+    from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
     from convfinqa.application.use_cases.send_message import SendMessageUseCase
 
     return SendMessageUseCase(
@@ -210,7 +211,7 @@ def _make_use_case(llm: Any) -> Any:
         conversations=_FakeConversationRepo(),  # type: ignore[arg-type]
         documents=_FakeDocumentRepo(),  # type: ignore[arg-type]
         locks=_FakeLock(),  # type: ignore[arg-type]
-        system_prompt_framing="You are a helpful assistant.",
+        prompt_provider=LocalFilePromptProvider(),
         observability=NoOpLangfuseClient(),  # type: ignore[arg-type]
         llm_model="test-model",
         environment="test",
