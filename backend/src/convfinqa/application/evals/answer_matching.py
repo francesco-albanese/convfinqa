@@ -42,8 +42,16 @@ _NUMBER_RE = re.compile(
 
 def _parse_answer(answer: str) -> _ParsedAnswer | None:
     normalized = answer.strip().strip("\"'").replace("$", "")
+    prefix = normalized.split("(", 1)[0].strip()
+    prefix_answer = _parse_last_number(prefix)
+    if prefix_answer is not None:
+        return prefix_answer
+    return _parse_last_number(normalized)
+
+
+def _parse_last_number(text: str) -> _ParsedAnswer | None:
     parsed: _ParsedAnswer | None = None
-    for match in _NUMBER_RE.finditer(normalized):
+    for match in _NUMBER_RE.finditer(text):
         raw_number = match.group("number")
         if raw_number in {"", "+", "-", ".", "+.", "-."}:
             continue

@@ -80,6 +80,13 @@ def test_scores_final_figure_in_conversational_answer() -> None:
     assert result.score == 1.0
 
 
+def test_scores_answer_figure_before_parenthetical_calculation() -> None:
+    result = score_answer("The answer is 18% (computed from 118 - 100).", "18%")
+
+    assert result.passed is True
+    assert result.score == 1.0
+
+
 @pytest.mark.parametrize(
     "model",
     ["no numeric answer", "", "not available"],

@@ -14,6 +14,7 @@ from convfinqa.application.agent.stream_events import (
 from convfinqa.application.agent.tool_executor import execute_tool
 from convfinqa.application.agent.tool_policy_gate import (
     BLOCKED_TOOL_ERROR,
+    BLOCKED_TOOL_NAME,
     ToolPolicyGate,
 )
 from convfinqa.application.agent.tools import TOOL_REGISTRY, build_sql_query_tool
@@ -46,13 +47,14 @@ async def execute_and_replay_tools(
         if policy_decision.blocked:
             async with observability.start_as_current_observation(
                 as_type="tool",
-                name=tool_name,
+                name=BLOCKED_TOOL_NAME,
                 input={"blocked": True, "reason": policy_decision.reason},
             ) as span:
                 result_str = json.dumps({"error": BLOCKED_TOOL_ERROR})
                 span.set_output(result_str)
                 span.set_error()
             is_error = True
+            stored_name = BLOCKED_TOOL_NAME
             stored_args = json.dumps({"blocked": True})
             wire_input: object = {"blocked": True}
         else:
@@ -62,6 +64,7 @@ async def execute_and_replay_tools(
             if tool.name == "sql_query":
                 tool = build_sql_query_tool(document)
             result_str, is_error = await execute_tool(tool, raw_args, observability)
+            stored_name = tool_name
             stored_args = raw_args
             wire_input = safe_json_loads(raw_args)
 
@@ -71,7 +74,7 @@ async def execute_and_replay_tools(
             {
                 "kind": "tool_call",
                 "call_id": call_id,
-                "name": tool_name,
+                "name": stored_name,
                 "args": stored_args,
             }
         )
@@ -123,7 +126,7 @@ async def execute_and_replay_tools(
             {
                 "type": "tool_use",
                 "id": call_id,
-                "name": tool_name,
+                "name": stored_name,
                 "input": wire_input,
             }
         )

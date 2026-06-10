@@ -11,6 +11,7 @@ from convfinqa.application.agent.sql.validator import validate_select
 from convfinqa.application.agent.tools import TOOL_REGISTRY
 
 BLOCKED_TOOL_ERROR = "tool call blocked"
+BLOCKED_TOOL_NAME = "blocked_tool_call"
 
 
 class ToolPolicyAction(StrEnum):
