@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
           package_json_file: frontend/package.json
@@ -120,7 +120,7 @@ jobs:
       - name: Apply database migrations
         run: uv run alembic upgrade head
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
           package_json_file: frontend/package.json
@@ -207,7 +207,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
           package_json_file: frontend/package.json
