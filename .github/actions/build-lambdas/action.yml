@@ -22,7 +22,7 @@ runs:
       run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
     - name: Cache pnpm store (auth-lambda)
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
         key: ${{ runner.os }}-pnpm-store-auth-lambda-${{ hashFiles('auth-lambda/pnpm-lock.yaml') }}
