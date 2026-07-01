@@ -97,6 +97,7 @@ def build_use_cases(
     prompt_provider: PromptProviderPort,
     settings: Settings,
     observability: ObservabilityPort,
+    system_prompt_label: str = "production",
 ) -> tuple[
     SendMessageUseCase,
     ListDocumentsUseCase,
@@ -114,6 +115,7 @@ def build_use_cases(
         observability=observability,
         llm_model=settings.llm_model,
         environment=settings.environment,
+        system_prompt_label=system_prompt_label,
     )
     list_documents = ListDocumentsUseCase(documents=documents_port)
     get_document = GetDocumentUseCase(documents=documents_port)

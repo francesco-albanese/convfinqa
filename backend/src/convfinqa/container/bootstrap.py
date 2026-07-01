@@ -27,7 +27,9 @@ from convfinqa.logging import get_logger
 _log = get_logger(__name__)
 
 
-def bootstrap_application(settings: Settings) -> Container:
+def bootstrap_application(
+    settings: Settings, system_prompt_label: str = "production"
+) -> Container:
     init_tracer_provider(settings)
     observability = init_langfuse(settings)
     engine = create_engine(settings.database_url)
@@ -64,6 +66,7 @@ def bootstrap_application(settings: Settings) -> Container:
         prompt_provider,
         settings,
         observability,
+        system_prompt_label=system_prompt_label,
     )
     cache, rate_limit = build_pg_adapters(session_factory)
     return Container(

@@ -185,12 +185,12 @@ def document(doc_id: str = "doc-1") -> Document:
 def build_use_case(
     convs: FakeConvRepo,
     docs: FakeDocRepo,
-    llm: FakeLLM,
+    llm: LLMPort,
     prompt_injection_detector: PromptInjectionDetector | None = None,
     prompt_provider: PromptProviderPort | None = None,
 ) -> SendMessageUseCase:
     return SendMessageUseCase(
-        llm=cast(LLMPort, llm),
+        llm=llm,
         conversations=cast(ConversationRepository, convs),
         documents=cast(DocumentRepository, docs),
         locks=cast(ConversationLockPort, AlwaysAcquireLock()),
