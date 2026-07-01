@@ -3,6 +3,8 @@ from collections.abc import Mapping
 from functools import cache
 from importlib import resources
 
+from convfinqa.domain.ports.prompts import CompiledPrompt
+
 _SAFE_CATALOG_SEGMENT = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
@@ -12,9 +14,9 @@ class LocalFilePromptProvider:
 
     async def compile(
         self, name: str, label: str, variables: Mapping[str, object]
-    ) -> str:
+    ) -> CompiledPrompt:
         template = _load_template(self._package, name, label)
-        return compile_prompt_template(template, variables)
+        return CompiledPrompt(text=compile_prompt_template(template, variables))
 
 
 @cache

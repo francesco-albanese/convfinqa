@@ -34,7 +34,7 @@ from convfinqa.application.use_cases.send_message_support import (
 )
 from convfinqa.application.use_cases.title_generation import generate_title
 from convfinqa.domain.entities import Message
-from convfinqa.domain.ports.llm import LLMPort
+from convfinqa.domain.ports.llm import LLMPort, PromptRef
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.ports.prompts import PromptProviderPort
@@ -102,10 +102,20 @@ class SendMessageUseCase:
                     metadata={"document_id": document.id, "llm_model": resolved_model},
                     tags=[f"environment:{self._environment}"],
                 )
-                system_prompt = await self._prompt_provider.compile(
+                compiled_prompt = await self._prompt_provider.compile(
                     "convfinqa-system",
                     "production",
                     build_system_prompt_variables(document, build_tool_docs()),
+                )
+                system_prompt = compiled_prompt.text
+                prompt_ref = (
+                    PromptRef(
+                        name="convfinqa-system",
+                        label="production",
+                        version=compiled_prompt.version,
+                    )
+                    if compiled_prompt.version is not None
+                    else None
                 )
                 tool_specs = build_tool_specs()
             except Exception:
@@ -174,6 +184,7 @@ class SendMessageUseCase:
                         conversation_id=conversation.id,
                         environment=self._environment,
                         model=resolved_model,
+                        prompt_ref=prompt_ref,
                     ):
                         yield event
                 except GeneratorExit:

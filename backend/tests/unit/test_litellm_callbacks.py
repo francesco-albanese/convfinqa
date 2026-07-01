@@ -140,6 +140,113 @@ def test_attach_cost_noops_without_usage() -> None:
 
 
 @pytest.mark.unit
+def test_link_prompt_updates_current_generation_with_refetched_version() -> None:
+    from convfinqa.adapters.llm.litellm_adapter import (
+        PROMPT_LINK_CACHE_TTL_SECONDS,
+        _link_prompt_to_current_generation,
+    )
+
+    fetched_prompt = MagicMock()
+    langfuse_client = MagicMock()
+    langfuse_client.get_prompt.return_value = fetched_prompt
+
+    with patch("langfuse.get_client", return_value=langfuse_client):
+        _link_prompt_to_current_generation(
+            kwargs={
+                "model": "bedrock/claude-haiku",
+                "metadata": {
+                    "prompt_name": "convfinqa-system",
+                    "prompt_version": 3,
+                    "prompt_label": "production",
+                },
+            },
+            response=MagicMock(),
+            start_time=None,
+            end_time=None,
+        )
+
+    langfuse_client.get_prompt.assert_called_once_with(
+        "convfinqa-system",
+        version=3,
+        cache_ttl_seconds=PROMPT_LINK_CACHE_TTL_SECONDS,
+    )
+    langfuse_client.update_current_generation.assert_called_once_with(
+        prompt=fetched_prompt
+    )
+
+
+@pytest.mark.unit
+def test_link_prompt_noops_without_prompt_metadata() -> None:
+    from convfinqa.adapters.llm.litellm_adapter import (
+        _link_prompt_to_current_generation,
+    )
+
+    with patch("langfuse.get_client") as get_client:
+        _link_prompt_to_current_generation(
+            kwargs={"model": "bedrock/claude-haiku"},
+            response=MagicMock(),
+            start_time=None,
+            end_time=None,
+        )
+
+    get_client.assert_not_called()
+
+
+@pytest.mark.unit
+def test_link_prompt_falls_back_silently_when_refetch_fails() -> None:
+    from convfinqa.adapters.llm.litellm_adapter import (
+        _link_prompt_to_current_generation,
+    )
+
+    langfuse_client = MagicMock()
+    langfuse_client.get_prompt.side_effect = RuntimeError("langfuse unavailable")
+
+    with patch("langfuse.get_client", return_value=langfuse_client):
+        _link_prompt_to_current_generation(
+            kwargs={
+                "metadata": {"prompt_name": "convfinqa-system", "prompt_version": 3}
+            },
+            response=MagicMock(),
+            start_time=None,
+            end_time=None,
+        )
+
+    langfuse_client.update_current_generation.assert_not_called()
+
+
+@pytest.mark.unit
+async def test_open_stream_passes_prompt_ref_in_metadata() -> None:
+    from unittest.mock import AsyncMock
+
+    from convfinqa.adapters.llm.litellm_adapter import _open_stream
+    from convfinqa.domain.ports.llm import PromptRef
+
+    captured_kwargs: dict[str, Any] = {}
+
+    async def fake_acompletion(**kwargs: Any) -> AsyncMock:
+        captured_kwargs.update(kwargs)
+        mock = AsyncMock()
+        mock.__aiter__ = MagicMock(return_value=iter([]))
+        return mock
+
+    with patch("convfinqa.adapters.llm.litellm_adapter.litellm") as mock_litellm:
+        mock_litellm.acompletion = fake_acompletion
+        await _open_stream(
+            model="bedrock/claude-haiku",
+            wire_messages=[{"role": "user", "content": "hi"}],
+            timeout_seconds=30.0,
+            max_output_tokens=1000,
+            prompt_ref=PromptRef(name="convfinqa-system", label="production", version=3),
+        )
+
+    assert captured_kwargs["metadata"] == {
+        "prompt_name": "convfinqa-system",
+        "prompt_label": "production",
+        "prompt_version": 3,
+    }
+
+
+@pytest.mark.unit
 async def test_open_stream_passes_generation_name_in_metadata() -> None:
     from unittest.mock import AsyncMock
 

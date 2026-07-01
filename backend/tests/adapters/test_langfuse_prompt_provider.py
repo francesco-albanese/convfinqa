@@ -8,6 +8,7 @@ from convfinqa.adapters.prompts.langfuse_provider import LangfusePromptProvider
 @dataclass
 class FakePrompt:
     prompt: str
+    version: int = 3
 
 
 @dataclass
@@ -30,7 +31,8 @@ async def test_fetches_by_label_and_compiles_variables() -> None:
 
     compiled = await provider.compile("convfinqa-system", "production", {"name": "X"})
 
-    assert compiled == "Hello X."
+    assert compiled.text == "Hello X."
+    assert compiled.version == 3
     assert seen_labels == ["production"]
 
 

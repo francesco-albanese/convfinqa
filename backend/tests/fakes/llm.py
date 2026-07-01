@@ -36,6 +36,7 @@ class FakeLLMPort:
         session_id: str | None = None,
         environment: str | None = None,
         model: str | None = None,
+        prompt_ref: Any = None,
     ) -> AsyncIterator[LLMChunk]:
         if generation_name == "title-generation":
             self.title_seen_systems.append(system)

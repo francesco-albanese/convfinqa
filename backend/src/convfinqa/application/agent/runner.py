@@ -12,7 +12,7 @@ from convfinqa.application.output_guard import (
     StreamingOutputGuard,
 )
 from convfinqa.domain.entities import Document
-from convfinqa.domain.ports.llm import LLMPort, LLMToolSpec
+from convfinqa.domain.ports.llm import LLMPort, LLMToolSpec, PromptRef
 from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.value_objects import StopReason, Usage
 
@@ -64,6 +64,7 @@ async def stream_agent_iterations(
     conversation_id: str,
     environment: str,
     model: str,
+    prompt_ref: PromptRef | None = None,
 ) -> AsyncGenerator[StreamEvent]:
     for iteration in range(ITERATION_CAP):
         state = IterationState()
@@ -80,6 +81,7 @@ async def stream_agent_iterations(
                 session_id=conversation_id,
                 environment=environment,
                 model=model,
+                prompt_ref=prompt_ref,
             ),
             state,
             buffers.parts_in_order,
