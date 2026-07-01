@@ -414,7 +414,7 @@ function AppChatPage() {
 				<Composer
 					ref={composerRef}
 					onSend={handleSend}
-					disabled={!documentId}
+					disabled={!documentId || chat.status !== "ready"}
 				/>
 			</section>
 		</main>

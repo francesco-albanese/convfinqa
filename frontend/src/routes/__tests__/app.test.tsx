@@ -19,13 +19,22 @@ type DataPart = { type: string; data?: unknown };
 type StreamScript = {
 	conversationId?: string;
 	assistantText?: string;
+	holdUntilReleased?: boolean;
 };
 
 const streamScript: StreamScript = {};
+let releaseHold: (() => void) | null = null;
 
 function resetStreamScript() {
 	streamScript.conversationId = undefined;
 	streamScript.assistantText = undefined;
+	streamScript.holdUntilReleased = undefined;
+	releaseHold = null;
+}
+
+function releaseSendMessage() {
+	releaseHold?.();
+	releaseHold = null;
 }
 
 vi.mock("@/lib/chat/useConvfinqaChat", () => {
@@ -51,6 +60,11 @@ vi.mock("@/lib/chat/useConvfinqaChat", () => {
 						parts: [{ type: "text", text: input.text }],
 					},
 				]);
+				if (streamScript.holdUntilReleased) {
+					await new Promise<void>((resolve) => {
+						releaseHold = resolve;
+					});
+				}
 				if (streamScript.conversationId) {
 					optionsRef.current.onData?.({
 						type: "data-conversation",
@@ -227,6 +241,28 @@ describe("/app route — Composer + MessageList + useChat wiring", () => {
 		const textarea = await screen.findByLabelText("Message");
 		expect(textarea).toBeDisabled();
 		expect(screen.getByRole("note")).toHaveTextContent("Pin a document first");
+	});
+
+	it("disables the composer while the first message is in flight, before conversation_id resolves, to prevent a double-submit from creating a second conversation", async () => {
+		streamScript.holdUntilReleased = true;
+		streamScript.conversationId = "conv-new";
+		renderApp("/app?documentId=doc-1");
+		const user = userEvent.setup();
+
+		const textarea = await screen.findByLabelText("Message");
+		expect(textarea).not.toBeDisabled();
+		await user.type(textarea, "what was revenue in 2009?");
+		await user.click(screen.getByRole("button", { name: "Send message" }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("Message")).toBeDisabled();
+		});
+
+		releaseSendMessage();
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("Message")).not.toBeDisabled();
+		});
 	});
 
 	it("seeds the conversation with persisted messages when mounted with chatId in URL", async () => {
