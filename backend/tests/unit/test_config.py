@@ -17,7 +17,9 @@ def test_default_settings_have_default_model_in_allowlist() -> None:
     assert settings.llm_model in settings.llm_models
 
 
-def test_langfuse_host_accepts_langfuse_base_url_alias(monkeypatch) -> None:
+def test_langfuse_host_accepts_langfuse_base_url_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("LANGFUSE_BASE_URL", "https://example.langfuse.test")
 
     settings = Settings()
@@ -25,7 +27,9 @@ def test_langfuse_host_accepts_langfuse_base_url_alias(monkeypatch) -> None:
     assert settings.langfuse_host == "https://example.langfuse.test"
 
 
-def test_langfuse_host_prefers_langfuse_host(monkeypatch) -> None:
+def test_langfuse_host_prefers_langfuse_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("LANGFUSE_BASE_URL", "https://base.langfuse.test")
     monkeypatch.setenv("LANGFUSE_HOST", "https://host.langfuse.test")
 

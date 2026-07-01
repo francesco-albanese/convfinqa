@@ -1,6 +1,7 @@
 """Tests that internal error details never leak through the SSE boundary."""
 
 import json
+from typing import Any, NoReturn
 
 import pytest
 
@@ -16,7 +17,7 @@ from convfinqa.entrypoints.api.sse import to_ui_message_stream
 
 
 def _make_exploding_tool(secret: str) -> Tool:
-    def exploding(**_):  # type: ignore[return]
+    def exploding(**_: Any) -> NoReturn:
         raise RuntimeError(secret)
 
     return Tool(
