@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 import logging
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -19,7 +19,13 @@ from convfinqa.application.prompt_injection_detector import (
     PromptInjectionDetector,
     PromptInjectionSurface,
 )
+from convfinqa.application.prompts.ab_selector import (
+    DEFAULT_LABEL,
+    resolve_served_label,
+)
 from convfinqa.domain.entities import Conversation, Document, Message
+from convfinqa.domain.ports.llm import PromptRef
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
     DocumentRepository,
@@ -28,6 +34,43 @@ from convfinqa.domain.value_objects import Role, StopReason
 from convfinqa.logging import get_logger
 
 logger = get_logger("convfinqa.send_message")
+
+SYSTEM_PROMPT_NAME = "convfinqa-system"
+
+
+async def resolve_system_prompt(
+    prompt_provider: PromptProviderPort,
+    system_prompt_label: str,
+    user_id: uuid.UUID,
+    variables: Mapping[str, object],
+) -> tuple[str, PromptRef | None]:
+    compiled_prompt = await prompt_provider.compile(
+        SYSTEM_PROMPT_NAME, system_prompt_label, variables
+    )
+    served_label = system_prompt_label
+
+    if system_prompt_label == DEFAULT_LABEL:
+        served_label, malformed = resolve_served_label(
+            compiled_prompt.config.get("ab"), str(user_id)
+        )
+        if malformed:
+            logger.warning(
+                "malformed_ab_config",
+                extra={"prompt_name": SYSTEM_PROMPT_NAME, "user_id": str(user_id)},
+            )
+        if served_label != system_prompt_label:
+            compiled_prompt = await prompt_provider.compile(
+                SYSTEM_PROMPT_NAME, served_label, variables
+            )
+
+    prompt_ref = (
+        PromptRef(
+            name=SYSTEM_PROMPT_NAME, label=served_label, version=compiled_prompt.version
+        )
+        if compiled_prompt.version is not None
+        else None
+    )
+    return compiled_prompt.text, prompt_ref
 
 
 class ConversationNotFoundError(Exception):

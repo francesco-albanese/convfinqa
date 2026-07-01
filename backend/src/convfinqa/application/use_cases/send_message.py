@@ -28,13 +28,14 @@ from convfinqa.application.use_cases.send_message_support import (
     guard_user_turn,
     persist_assistant,
     resolve_conversation_and_document,
+    resolve_system_prompt,
     resolve_title,
     respond_without_model,
     should_generate_title,
 )
 from convfinqa.application.use_cases.title_generation import generate_title
 from convfinqa.domain.entities import Message
-from convfinqa.domain.ports.llm import LLMPort, PromptRef
+from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.ports.prompts import PromptProviderPort
@@ -104,20 +105,11 @@ class SendMessageUseCase:
                     metadata={"document_id": document.id, "llm_model": resolved_model},
                     tags=[f"environment:{self._environment}"],
                 )
-                compiled_prompt = await self._prompt_provider.compile(
-                    "convfinqa-system",
+                system_prompt, prompt_ref = await resolve_system_prompt(
+                    self._prompt_provider,
                     self._system_prompt_label,
+                    user_id,
                     build_system_prompt_variables(document, build_tool_docs()),
-                )
-                system_prompt = compiled_prompt.text
-                prompt_ref = (
-                    PromptRef(
-                        name="convfinqa-system",
-                        label=self._system_prompt_label,
-                        version=compiled_prompt.version,
-                    )
-                    if compiled_prompt.version is not None
-                    else None
                 )
                 tool_specs = build_tool_specs()
             except Exception:

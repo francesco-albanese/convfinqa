@@ -40,36 +40,45 @@ class FakeClient:
         return FakePrompt(version=version, config=config)
 
 
-async def test_latest_content_hash_returns_none_when_prompt_not_found() -> None:
+async def test_latest_config_returns_none_when_prompt_not_found() -> None:
     client = FakeClient()
     publisher = LangfusePromptPublisher(client)
 
-    result = await publisher.latest_content_hash("convfinqa-system")
+    result = await publisher.latest_config("convfinqa-system")
 
     assert result is None
 
 
-async def test_latest_content_hash_reads_from_stored_config() -> None:
+async def test_latest_config_reads_stored_config() -> None:
     client = FakeClient(
         existing={
-            "convfinqa-system": FakePrompt(version=3, config={"content_hash": "abc"})
+            "convfinqa-system": FakePrompt(
+                version=3, config={"content_hash": "abc", "ab": {"enabled": True}}
+            )
         }
     )
     publisher = LangfusePromptPublisher(client)
 
-    result = await publisher.latest_content_hash("convfinqa-system")
+    result = await publisher.latest_config("convfinqa-system")
 
-    assert result == "abc"
+    assert result == {"content_hash": "abc", "ab": {"enabled": True}}
 
 
-async def test_publish_creates_prompt_with_hash_and_labels_and_returns_version() -> None:
+async def test_publish_creates_prompt_with_hash_ab_and_labels() -> None:
     client = FakeClient()
     publisher = LangfusePromptPublisher(client)
 
     version = await publisher.publish(
-        "convfinqa-system", "Hello {{name}}", "hash123", ["latest", "git-abc1234"]
+        "convfinqa-system",
+        "Hello {{name}}",
+        "hash123",
+        ab_config={"enabled": False},
+        labels=["latest", "git-abc1234"],
     )
 
     assert version == 1
     assert client.created[0]["labels"] == ["latest", "git-abc1234"]
-    assert client.created[0]["config"] == {"content_hash": "hash123"}
+    assert client.created[0]["config"] == {
+        "content_hash": "hash123",
+        "ab": {"enabled": False},
+    }

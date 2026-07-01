@@ -11,6 +11,7 @@ DEFAULT_CACHE_TTL_SECONDS = 60
 class _LangfuseTextPrompt(Protocol):
     prompt: str
     version: int
+    config: dict[str, Any]
 
 
 class _LangfuseClient(Protocol):
@@ -44,4 +45,4 @@ class LangfusePromptProvider:
 
         prompt = await asyncio.to_thread(_fetch)
         text = compile_prompt_template(prompt.prompt, variables)
-        return CompiledPrompt(text=text, version=prompt.version)
+        return CompiledPrompt(text=text, version=prompt.version, config=prompt.config)
