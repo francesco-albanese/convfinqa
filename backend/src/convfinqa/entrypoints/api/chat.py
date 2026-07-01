@@ -18,7 +18,6 @@ from convfinqa.application.agent.stream_events import (
     ReasoningStart,
     TextDelta,
     ToolCallArgsComplete,
-    ToolCallArgsDelta,
     ToolCallStart,
     ToolResult,
 )
@@ -134,7 +133,6 @@ async def sync_chat(
                     | ReasoningDelta()
                     | ReasoningEnd()
                     | ToolCallStart()
-                    | ToolCallArgsDelta()
                     | ToolCallArgsComplete()
                     | ToolResult()
                     | Citation()

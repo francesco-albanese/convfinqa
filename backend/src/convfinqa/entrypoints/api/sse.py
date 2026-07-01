@@ -16,7 +16,6 @@ from convfinqa.application.agent.stream_events import (
     StreamEvent,
     TextDelta,
     ToolCallArgsComplete,
-    ToolCallArgsDelta,
     ToolCallStart,
     ToolResult,
 )
@@ -91,14 +90,6 @@ async def to_ui_message_stream(
                         "toolCallId": cid,
                         "toolName": name,
                         "dynamic": True,
-                    }
-                )
-            case ToolCallArgsDelta(call_id=cid, delta=delta):
-                yield _frame(
-                    {
-                        "type": "tool-input-delta",
-                        "toolCallId": cid,
-                        "inputTextDelta": delta,
                     }
                 )
             case ToolCallArgsComplete(call_id=cid, args=args):

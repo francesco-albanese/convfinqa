@@ -102,7 +102,7 @@ class SendMessageUseCase:
                     metadata={"document_id": document.id, "llm_model": resolved_model},
                     tags=[f"environment:{self._environment}"],
                 )
-                system_prompt = self._prompt_provider.compile(
+                system_prompt = await self._prompt_provider.compile(
                     "convfinqa-system",
                     "production",
                     build_system_prompt_variables(document, build_tool_docs()),

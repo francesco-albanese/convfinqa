@@ -3,6 +3,6 @@ from typing import Protocol
 
 
 class PromptProviderPort(Protocol):
-    def compile(
+    async def compile(
         self, name: str, label: str, variables: Mapping[str, object]
     ) -> str: ...

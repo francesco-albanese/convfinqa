@@ -57,6 +57,8 @@ async def execute_and_replay_tools(
             stored_name = BLOCKED_TOOL_NAME
             stored_args = json.dumps({"blocked": True})
             wire_input: object = {"blocked": True}
+            yield ToolCallStart(call_id=call_id, name=stored_name)
+            yield ToolCallArgsComplete(call_id=call_id, args=stored_args)
         else:
             yield ToolCallStart(call_id=call_id, name=tool_name)
             yield ToolCallArgsComplete(call_id=call_id, args=raw_args)

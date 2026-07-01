@@ -32,6 +32,21 @@ def test_allows_scoped_cells_lookup() -> None:
     assert reason is None
 
 
+def test_allows_scoped_lookup_whose_literal_value_contains_a_cross_scope_word() -> None:
+    action, reason = _decide(
+        "sql_query",
+        {
+            "sql": (
+                "SELECT value_num FROM cells "
+                "WHERE row_label='active users' AND col_label='2024 documents filed'"
+            )
+        },
+    )
+
+    assert action == ToolPolicyAction.ALLOW
+    assert reason is None
+
+
 def test_allows_all_periods_for_one_row() -> None:
     action, reason = _decide(
         "sql_query",
@@ -65,6 +80,18 @@ def test_allows_all_periods_for_one_row() -> None:
         "SELECT value_num FROM cells WHERE row_label='Revenue' AND 1 IN (1)",
         "SELECT value_num FROM cells WHERE row_label='x' OR 1=1",
         "SELECT value_num FROM cells WHERE row_label IN (SELECT row_label FROM cells)",
+        "SELECT row_label, col_label, value_num FROM cells "
+        "WHERE row_label='2024' AND col_label GLOB '*'",
+        "SELECT row_label, col_label, value_num FROM cells "
+        "WHERE row_label='2024' AND col_label REGEXP '.*'",
+        "SELECT row_label, col_label, value_num FROM cells "
+        "WHERE row_label='2024' AND col_label MATCH 'x'",
+        "SELECT row_label, col_label, value_num FROM cells "
+        "WHERE row_label='2024' AND col_label != 'x'",
+        "SELECT row_label, col_label, value_num FROM cells "
+        "WHERE row_label='2024' AND col_label > 'a'",
+        "SELECT row_label, col_label, value_num FROM cells "
+        "WHERE row_label='2024' AND col_label BETWEEN 'a' AND 'z'",
     ],
 )
 def test_blocks_unsafe_sql(sql: str) -> None:

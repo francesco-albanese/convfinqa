@@ -93,3 +93,44 @@ def test_scores_answer_figure_before_parenthetical_calculation() -> None:
 )
 def test_non_numeric_model_answer_fails(model: str) -> None:
     assert score_answer(model, "18%").passed is False
+
+
+@pytest.mark.parametrize(
+    ("model", "gold"),
+    [
+        ("(18)", "(18)"),
+        ("-18", "(18)"),
+        ("(2913)", "-2913"),
+    ],
+)
+def test_accounting_parentheses_denote_negative_numbers(model: str, gold: str) -> None:
+    assert score_answer(model, gold).passed is True
+
+
+def test_accounting_parentheses_wrong_sign_fails() -> None:
+    result = score_answer("18", "(18)")
+
+    assert result.passed is False
+    assert result.score == 0.0
+
+
+def test_scores_answer_before_a_leading_non_numeric_parenthetical() -> None:
+    result = score_answer(
+        "(See the table) The answer is 18% (computed from 118 - 100).", "18%"
+    )
+
+    assert result.passed is True
+    assert result.score == 1.0
+
+
+@pytest.mark.parametrize(
+    ("model", "gold"),
+    [
+        ("18%", "0.18"),
+        ("-18%", "-0.18"),
+    ],
+)
+def test_percent_normalization_handles_gold_as_bare_fraction(
+    model: str, gold: str
+) -> None:
+    assert score_answer(model, gold).passed is True

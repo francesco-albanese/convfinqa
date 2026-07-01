@@ -51,8 +51,11 @@ class OutputGuard:
 
 
 class StreamingOutputGuard:
+    # Text older than the holdback window is emitted and can never be re-scanned,
+    # so the window must outlast realistic secret shapes (e.g. JWTs commonly
+    # exceed 150 chars) or a secret split across chunks slips out unblocked.
     def __init__(
-        self, guard: OutputGuard | None = None, holdback_chars: int = 96
+        self, guard: OutputGuard | None = None, holdback_chars: int = 512
     ) -> None:
         self._guard = guard or OutputGuard()
         self._holdback_chars = holdback_chars

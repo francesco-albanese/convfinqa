@@ -158,7 +158,9 @@ class CountingPromptProvider:
         default_factory=list[tuple[str, str, dict[str, object]]]
     )
 
-    def compile(self, name: str, label: str, variables: Mapping[str, object]) -> str:
+    async def compile(
+        self, name: str, label: str, variables: Mapping[str, object]
+    ) -> str:
         self.calls.append((name, label, dict(variables)))
         return "compiled prompt"
 

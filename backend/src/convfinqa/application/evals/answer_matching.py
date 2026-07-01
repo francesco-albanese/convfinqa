@@ -25,8 +25,10 @@ def score_answer(model_answer: str, gold_answer: str) -> AnswerMatchResult:
     quant = _quantizer(gold.decimals)
     gold_value = gold.value.quantize(quant, rounding=ROUND_HALF_UP)
     candidates = [model.value]
-    if gold.is_percent and not model.is_percent:
-        candidates.append(model.value * Decimal(100))
+    if gold.is_percent != model.is_percent:
+        candidates.append(
+            model.value / Decimal(100) if model.is_percent else model.value * Decimal(100)
+        )
 
     passed = any(
         candidate.quantize(quant, rounding=ROUND_HALF_UP) == gold_value
@@ -38,15 +40,28 @@ def score_answer(model_answer: str, gold_answer: str) -> AnswerMatchResult:
 _NUMBER_RE = re.compile(
     r"(?P<number>[-+]?(?:\d+(?:,\d{3})*|\d*)(?:\.\d+)?)(?P<percent>\s*%)?"
 )
+_PAREN_SPAN_RE = re.compile(r"\([^()]*\)")
+_ACCOUNTING_NEGATIVE_RE = re.compile(
+    r"\(\s*(?P<inner>[-+]?(?:\d{1,3}(?:,\d{3})*|\d*)(?:\.\d+)?\s*%?)\s*\)"
+)
+
+
+def _inline_accounting_negatives(text: str) -> str:
+    def negate(match: re.Match[str]) -> str:
+        inner = match.group("inner").strip()
+        percent_suffix = "%" if inner.endswith("%") else ""
+        numeral = inner[: -1].strip() if percent_suffix else inner
+        numeral = numeral.removeprefix("-").removeprefix("+")
+        return f"-{numeral}{percent_suffix}"
+
+    return _ACCOUNTING_NEGATIVE_RE.sub(negate, text)
 
 
 def _parse_answer(answer: str) -> _ParsedAnswer | None:
     normalized = answer.strip().strip("\"'").replace("$", "")
-    prefix = normalized.split("(", 1)[0].strip()
-    prefix_answer = _parse_last_number(prefix)
-    if prefix_answer is not None:
-        return prefix_answer
-    return _parse_last_number(normalized)
+    normalized = _inline_accounting_negatives(normalized)
+    outside_parens = _PAREN_SPAN_RE.sub(" ", normalized)
+    return _parse_last_number(outside_parens)
 
 
 def _parse_last_number(text: str) -> _ParsedAnswer | None:
