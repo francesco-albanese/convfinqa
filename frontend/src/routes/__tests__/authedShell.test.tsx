@@ -295,3 +295,72 @@ describe("/_authed layout — DocPicker → navigation wire-up", () => {
 		});
 	});
 });
+
+describe("/_authed layout — sign-out pending state (convfinqa-9to)", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	async function signOutAndAssertPendingThenCleared(
+		resolveLogout: () => void,
+		logoutSettles: () => Promise<Response>,
+	) {
+		const user = userEvent.setup();
+		renderApp("/app");
+
+		const trigger = await screen.findByTestId("user-menu-trigger");
+		await user.click(trigger);
+		const signOutItem = await screen.findByText("Sign out");
+		await user.click(signOutItem);
+
+		expect(await screen.findByTestId("auth-loading-shell")).toBeInTheDocument();
+		expect(screen.queryByTestId("authed-shell")).not.toBeInTheDocument();
+
+		resolveLogout();
+		await logoutSettles().catch(() => undefined);
+
+		await waitFor(() => {
+			expect(
+				screen.queryByTestId("auth-loading-shell"),
+			).not.toBeInTheDocument();
+		});
+	}
+
+	it("shows the auth loading shell while the logout request is pending, then clears it on success", async () => {
+		let release: (() => void) | undefined;
+		const logout = new Promise<Response>((resolve) => {
+			release = () => resolve(new Response(null, { status: 204 }));
+		});
+		vi.stubGlobal(
+			"fetch",
+			makeFetchWithMe((url) => {
+				if (url === "/api/auth/logout") return logout;
+				return Promise.resolve(new Response(null, { status: 404 }));
+			}),
+		);
+
+		await signOutAndAssertPendingThenCleared(
+			() => release?.(),
+			() => logout,
+		);
+	});
+
+	it("still clears the pending state when the logout request fails", async () => {
+		let release: (() => void) | undefined;
+		const logout = new Promise<Response>((_resolve, reject) => {
+			release = () => reject(new Error("network error"));
+		});
+		vi.stubGlobal(
+			"fetch",
+			makeFetchWithMe((url) => {
+				if (url === "/api/auth/logout") return logout;
+				return Promise.resolve(new Response(null, { status: 404 }));
+			}),
+		);
+
+		await signOutAndAssertPendingThenCleared(
+			() => release?.(),
+			() => logout,
+		);
+	});
+});
