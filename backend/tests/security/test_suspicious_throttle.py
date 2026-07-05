@@ -56,6 +56,14 @@ async def test_attempts_in_same_window_share_window_start() -> None:
 
 
 @pytest.mark.asyncio
+async def test_naive_datetime_is_rejected() -> None:
+    throttle = _throttle(FakeRateLimit())
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await throttle.register_blocked_attempt(USER_ID, now=datetime(2026, 7, 5))
+
+
+@pytest.mark.asyncio
 async def test_attempts_in_later_window_start_a_fresh_count() -> None:
     rate_limit = FakeRateLimit()
     throttle = _throttle(rate_limit, window_seconds=300)

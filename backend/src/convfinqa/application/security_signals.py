@@ -22,12 +22,14 @@ CONTEXT_WINDOW_EXCEEDED = "context_window_exceeded"
 def classify_provider_error(exc: BaseException) -> str | None:
     name = exc.__class__.__name__.casefold()
     status_code = getattr(exc, "status_code", None)
-    if status_code == 429 or "ratelimit" in name or "throttl" in name:
-        return RATE_LIMITED
+    # litellm's BudgetExceededError also carries status_code=429, so the
+    # budget check must run before the generic 429/rate-limit catch-all.
     if "budget" in name:
         return BUDGET_EXCEEDED
     if "contextwindow" in name:
         return CONTEXT_WINDOW_EXCEEDED
+    if status_code == 429 or "ratelimit" in name or "throttl" in name:
+        return RATE_LIMITED
     return None
 
 

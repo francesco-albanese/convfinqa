@@ -49,12 +49,6 @@ class LangfuseClient:
         self, as_type: str, name: str, input: dict[str, Any] | None = None
     ) -> AsyncGenerator[ObservabilitySpan]:
         span = self._tracer.start_span(name)
-        span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type)
-        if input is not None:
-            span.set_attribute(
-                LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
-                _serialize_redacted(input),
-            )
         # Streaming responses enter this scope in the request-handler task but
         # exit it in the task Starlette spawns to send the body. That second
         # task runs on a *copy* of the handler's Context, where resetting the
@@ -64,6 +58,12 @@ class LangfuseClient:
         attach_task = asyncio.current_task()
         token = otel_context.attach(trace.set_span_in_context(span))
         try:
+            span.set_attribute(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type)
+            if input is not None:
+                span.set_attribute(
+                    LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
+                    _serialize_redacted(input),
+                )
             yield _OtelSpanWrapper(span)  # type: ignore[misc]
         except Exception as exc:
             span.record_exception(exc)

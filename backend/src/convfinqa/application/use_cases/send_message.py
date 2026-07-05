@@ -34,6 +34,9 @@ from convfinqa.application.agent.wire import (
     new_message_id,
 )
 from convfinqa.application.domain_boundary import (
+    APP_CAPABILITY_REASON,
+    PROTECTED_INTERNALS_REASON,
+    ROLE_CHANGE_REASON,
     DomainBoundaryAction,
     DomainBoundaryPolicy,
 )
@@ -54,7 +57,6 @@ from convfinqa.application.security_signals import (
 from convfinqa.application.suspicious_attempt_throttle import (
     SUSPICIOUS_ACTIVITY_REFUSAL,
     SuspiciousAttemptThrottle,
-    ThrottleDecision,
 )
 from convfinqa.application.use_cases.title_generation import generate_title
 from convfinqa.domain.entities import Conversation, Document, Message
@@ -96,8 +98,9 @@ __all__ = [
 
 UPSTREAM_LLM_PUBLIC_DETAIL = "upstream LLM error"
 
-SUSPICIOUS_BOUNDARY_REASONS = frozenset({"protected_internals", "role_change"})
-APP_CAPABILITY_REASON = "app_capability"
+SUSPICIOUS_BOUNDARY_REASONS = frozenset(
+    {PROTECTED_INTERNALS_REASON, ROLE_CHANGE_REASON}
+)
 
 logger = get_logger("convfinqa.send_message")
 
@@ -473,20 +476,10 @@ class SendMessageUseCase:
     async def _suspicious_refusal(
         self, user_id: uuid.UUID, conversation_id: str, refusal: str
     ) -> str:
-        decision = await self._register_suspicious_attempt(user_id, conversation_id)
-        if decision is not None and decision.throttled:
-            return SUSPICIOUS_ACTIVITY_REFUSAL
-        return refusal
-
-    async def _register_suspicious_attempt(
-        self, user_id: uuid.UUID, conversation_id: str
-    ) -> ThrottleDecision | None:
         if self._suspicious_throttle is None:
-            return None
+            return refusal
         try:
-            decision = await self._suspicious_throttle.register_blocked_attempt(
-                user_id
-            )
+            decision = await self._suspicious_throttle.register_blocked_attempt(user_id)
         except Exception as exc:  # noqa: BLE001
             logger.log(
                 logging.WARNING,
@@ -497,14 +490,15 @@ class SendMessageUseCase:
                     "conversation_id": conversation_id,
                 },
             )
-            return None
-        if decision.throttled:
-            self._security_signals.suspicious_activity_throttled(
-                conversation_id=conversation_id,
-                attempts=decision.attempts,
-                window_seconds=self._suspicious_throttle.window_seconds,
-            )
-        return decision
+            return refusal
+        if not decision.throttled:
+            return refusal
+        self._security_signals.suspicious_activity_throttled(
+            conversation_id=conversation_id,
+            attempts=decision.attempts,
+            window_seconds=self._suspicious_throttle.window_seconds,
+        )
+        return SUSPICIOUS_ACTIVITY_REFUSAL
 
     async def _resolve_title(
         self, title_task: asyncio.Task[str | None], conversation_id: str

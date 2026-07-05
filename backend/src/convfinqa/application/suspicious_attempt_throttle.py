@@ -35,6 +35,8 @@ class SuspiciousAttemptThrottle:
         self, user_id: uuid.UUID, now: datetime | None = None
     ) -> ThrottleDecision:
         moment = now or datetime.now(UTC)
+        if moment.tzinfo is None:
+            raise ValueError("now must be timezone-aware to keep windows UTC-aligned")
         window_start = self._window_start(moment)
         expires_at = window_start + timedelta(seconds=self._window_seconds * 2)
         attempts = await self._rate_limit.increment(user_id, window_start, expires_at)

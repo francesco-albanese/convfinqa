@@ -22,7 +22,7 @@ class ThrottlingException(Exception):  # noqa: N818 - mirrors the real AWS Bedro
 
 
 class BudgetExceededError(Exception):
-    pass
+    status_code = 429
 
 
 class ContextWindowExceededError(Exception):
@@ -34,6 +34,8 @@ class ContextWindowExceededError(Exception):
     [
         (FakeRateLimitError("slow down"), RATE_LIMITED),
         (ThrottlingException("bedrock throttle"), RATE_LIMITED),
+        # litellm's real BudgetExceededError also carries status_code=429;
+        # it must classify as budget, not rate-limited
         (BudgetExceededError("cap hit"), BUDGET_EXCEEDED),
         (ContextWindowExceededError("too long"), CONTEXT_WINDOW_EXCEEDED),
         (ValueError("unrelated"), None),
