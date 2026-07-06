@@ -12,12 +12,14 @@ from convfinqa.container.container import Container
 from convfinqa.container.factories import (
     build_persistence,
     build_pg_adapters,
+    build_prompt_provider,
     build_session,
     build_use_cases,
 )
 from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.observability import ObservabilityPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.session import SessionPort
 from convfinqa.logging import get_logger
@@ -38,6 +40,7 @@ def bootstrap_application(settings: Settings) -> Container:
     conversations, documents, documents_port, locks, user_lookup = build_persistence(
         session_factory
     )
+    prompt_provider = build_prompt_provider()
     session = build_session(settings, user_lookup)
     if session is None:
         _log.warning(
@@ -59,6 +62,7 @@ def bootstrap_application(settings: Settings) -> Container:
         documents,
         documents_port,
         locks,
+        prompt_provider,
         settings,
         observability,
         rate_limit,
@@ -71,6 +75,7 @@ def bootstrap_application(settings: Settings) -> Container:
         conversations=conversations,
         documents=documents,
         documents_port=documents_port,
+        prompt_provider=prompt_provider,
         locks=locks,
         send_message=send_message,
         list_documents=list_documents,
@@ -94,6 +99,7 @@ def for_testing(
     cache: CachePort | None = None,
     rate_limit: RateLimitPort | None = None,
     observability: ObservabilityPort | None = None,
+    prompt_provider: PromptProviderPort | None = None,
 ) -> Container:
     resolved_observability: ObservabilityPort
     if observability is None:
@@ -103,6 +109,9 @@ def for_testing(
         resolved_observability = observability
     conversations, documents, documents_port, locks, _ = build_persistence(
         session_factory
+    )
+    resolved_prompt_provider = (
+        prompt_provider if prompt_provider is not None else build_prompt_provider()
     )
     pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
     resolved_cache: CachePort = cache if cache is not None else pg_cache
@@ -122,6 +131,7 @@ def for_testing(
         documents,
         documents_port,
         locks,
+        resolved_prompt_provider,
         settings,
         resolved_observability,
         resolved_rate_limit,
@@ -134,6 +144,7 @@ def for_testing(
         conversations=conversations,
         documents=documents,
         documents_port=documents_port,
+        prompt_provider=resolved_prompt_provider,
         locks=locks,
         send_message=send_message,
         list_documents=list_documents,

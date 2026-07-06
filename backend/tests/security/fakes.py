@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import cast
 
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
+from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.application.suspicious_attempt_throttle import SuspiciousAttemptThrottle
 from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.domain.entities import (
@@ -140,7 +141,7 @@ def build_use_case(
         conversations=cast(ConversationRepository, convs),
         documents=cast(DocumentRepository, docs),
         locks=cast(ConversationLockPort, AlwaysAcquireLock()),
-        system_prompt_framing="framing",
+        prompt_provider=LocalFilePromptProvider(),
         observability=NoOpLangfuseClient(),  # type: ignore[arg-type]
         llm_model="test-model",
         environment="test",

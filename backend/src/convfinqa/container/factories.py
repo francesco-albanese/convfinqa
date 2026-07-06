@@ -11,6 +11,7 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyDocumentRepository,
 )
 from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUserLookup
+from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.adapters.rate_limit.postgres import PostgresRateLimitAdapter
 from convfinqa.application.security_signals import SecuritySignals
 from convfinqa.application.suspicious_attempt_throttle import SuspiciousAttemptThrottle
@@ -28,11 +29,16 @@ from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.observability import ObservabilityPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
 from convfinqa.domain.ports.session import SessionPort, UserRecord
 
 UserLookup = Callable[[str], Awaitable[UserRecord | None]]
+
+
+def build_prompt_provider() -> PromptProviderPort:
+    return LocalFilePromptProvider()
 
 
 def build_persistence(
@@ -80,6 +86,7 @@ def build_use_cases(
     documents: DocumentRepository,
     documents_port: DocumentsPort,
     locks: ConversationLockPort,
+    prompt_provider: PromptProviderPort,
     settings: Settings,
     observability: ObservabilityPort,
     rate_limit: RateLimitPort,
@@ -96,7 +103,7 @@ def build_use_cases(
         conversations=conversations,
         documents=documents,
         locks=locks,
-        system_prompt_framing=settings.system_prompt,
+        prompt_provider=prompt_provider,
         observability=observability,
         llm_model=settings.llm_model,
         environment=settings.environment,

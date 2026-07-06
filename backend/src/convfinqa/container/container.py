@@ -16,6 +16,7 @@ from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.observability import ObservabilityPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
 from convfinqa.domain.ports.session import SessionPort
@@ -30,6 +31,7 @@ class Container:
     conversations: ConversationRepository
     documents: DocumentRepository
     documents_port: DocumentsPort
+    prompt_provider: PromptProviderPort
     locks: ConversationLockPort
     send_message: SendMessageUseCase
     list_documents: ListDocumentsUseCase
