@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from convfinqa.application.use_cases.get_document import (
     DocumentNotFoundError as GetDocumentNotFoundError,
 )
-from convfinqa.application.use_cases.send_message import (
+from convfinqa.application.use_cases.send_message_support import (
     ConversationNotFoundError,
     DocumentNotFoundError,
 )

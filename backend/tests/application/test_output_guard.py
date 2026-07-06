@@ -2,7 +2,7 @@ import pytest
 
 from convfinqa.application.agent.chunks import process_llm_chunks
 from convfinqa.application.agent.iteration import IterationState
-from convfinqa.application.agent.stream_events import TextDelta
+from convfinqa.application.agent.stream_events import StreamEvent, TextDelta
 from convfinqa.application.output_guard import (
     OUTPUT_GUARD_REFUSAL,
     OutputGuard,
@@ -84,6 +84,36 @@ async def test_streaming_guard_blocks_split_leak_before_text_delta() -> None:
     assert deltas == [OUTPUT_GUARD_REFUSAL]
     assert text_chunks == [OUTPUT_GUARD_REFUSAL]
     assert current_text == [OUTPUT_GUARD_REFUSAL]
+
+
+@pytest.mark.asyncio
+async def test_streaming_guard_blocks_long_secret_streamed_in_small_chunks() -> None:
+    jwt = "eyJ" + ("a" * 40) + "." + ("b" * 60) + "." + ("c" * 50)
+    text = f"Here is a token: {jwt} for debugging."
+
+    async def chunks():
+        for start in range(0, len(text), 6):
+            yield LLMChunk(text=text[start : start + 6])
+
+    parts: list[dict[str, object]] = []
+    text_chunks: list[str] = []
+    current_text: list[str] = []
+    events: list[StreamEvent] = []
+    async for event in process_llm_chunks(
+        chunks(),
+        IterationState(),
+        parts,
+        text_chunks,
+        current_text,
+        {},
+        [],
+        StreamingOutputGuard(),
+    ):
+        events.append(event)
+
+    deltas = [event.text for event in events if isinstance(event, TextDelta)]
+    assert deltas == [OUTPUT_GUARD_REFUSAL]
+    assert jwt not in "".join(text_chunks)
 
 
 @pytest.mark.asyncio

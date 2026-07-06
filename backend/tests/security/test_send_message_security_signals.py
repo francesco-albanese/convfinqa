@@ -18,7 +18,7 @@ from convfinqa.application.security_signals import (
 from convfinqa.application.suspicious_attempt_throttle import (
     SUSPICIOUS_ACTIVITY_REFUSAL,
 )
-from convfinqa.application.use_cases.send_message import StreamEvent, TextDelta
+from convfinqa.application.agent.stream_events import StreamEvent, TextDelta
 from tests.fakes.llm import FakeLLMPort
 from tests.security.fakes import (
     USER_ID,

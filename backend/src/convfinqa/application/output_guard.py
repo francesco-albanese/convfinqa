@@ -51,8 +51,11 @@ class OutputGuard:
 
 
 class StreamingOutputGuard:
+    # Text older than the holdback window is emitted and can never be re-scanned,
+    # so the window must outlast realistic secret shapes (e.g. JWTs commonly
+    # exceed 150 chars) or a secret split across chunks slips out unblocked.
     def __init__(
-        self, guard: OutputGuard | None = None, holdback_chars: int = 96
+        self, guard: OutputGuard | None = None, holdback_chars: int = 512
     ) -> None:
         self._guard = guard or OutputGuard()
         self._holdback_chars = holdback_chars
@@ -69,6 +72,18 @@ class StreamingOutputGuard:
     def reason(self) -> OutputGuardReason | None:
         return self._reason
 
+    def block(
+        self, reason: OutputGuardReason | None = None
+    ) -> StreamingGuardResult:
+        self._blocked = True
+        if reason is not None:
+            self._reason = reason
+        self._pending = ""
+        if self._refusal_emitted:
+            return StreamingGuardResult(blocked=True)
+        self._refusal_emitted = True
+        return StreamingGuardResult(text=OUTPUT_GUARD_REFUSAL, blocked=True)
+
     def accept(self, text: str) -> StreamingGuardResult:
         if self._blocked:
             return StreamingGuardResult()
@@ -76,13 +91,7 @@ class StreamingOutputGuard:
         self._pending += text
         decision = self._guard.decide(self._pending)
         if decision.blocked:
-            self._blocked = True
-            self._reason = decision.reason
-            self._pending = ""
-            if self._refusal_emitted:
-                return StreamingGuardResult(blocked=True)
-            self._refusal_emitted = True
-            return StreamingGuardResult(text=OUTPUT_GUARD_REFUSAL, blocked=True)
+            return self.block(decision.reason)
 
         if len(self._pending) <= self._holdback_chars:
             return StreamingGuardResult()
@@ -98,13 +107,7 @@ class StreamingOutputGuard:
 
         decision = self._guard.decide(self._pending)
         if decision.blocked:
-            self._blocked = True
-            self._reason = decision.reason
-            self._pending = ""
-            if self._refusal_emitted:
-                return StreamingGuardResult(blocked=True)
-            self._refusal_emitted = True
-            return StreamingGuardResult(text=OUTPUT_GUARD_REFUSAL, blocked=True)
+            return self.block(decision.reason)
 
         safe_text = self._pending
         self._pending = ""

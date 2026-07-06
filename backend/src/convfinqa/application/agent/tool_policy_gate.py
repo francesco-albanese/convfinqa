@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, cast
 
-import sqlglot
 import sqlglot.expressions as exp
 
 from convfinqa.application.agent.sql.validator import validate_select
 from convfinqa.application.agent.tools import TOOL_REGISTRY
 
 BLOCKED_TOOL_ERROR = "tool call blocked"
+BLOCKED_TOOL_NAME = "blocked_tool_call"
 
 
 class ToolPolicyAction(StrEnum):
@@ -110,24 +110,14 @@ def _looks_like_forged_tool_result(tool_name: str, args: dict[str, Any]) -> bool
 
 
 _COMMENT_OR_SEMICOLON = re.compile(r"(--|/\*|\*/|;)")
-_CROSS_SCOPE_TERMS = re.compile(
-    r"\b(conversation_id|document_id|user_id|users?|documents?|conversations?)\b",
-    re.IGNORECASE,
-)
 _ALLOWED_SQL_COLUMNS = {"row_label", "col_label", "ordinal", "value_num", "value_text"}
 
 
 def _validate_sql_policy(sql: str) -> None:
     if _COMMENT_OR_SEMICOLON.search(sql):
         raise ValueError("SQL comments and semicolon chains are not allowed")
-    if _CROSS_SCOPE_TERMS.search(sql):
-        raise ValueError("cross-scope identifiers are not allowed")
 
-    validate_select(sql)
-
-    statement = sqlglot.parse_one(sql, dialect="sqlite")
-    if not isinstance(statement, exp.Select):
-        raise ValueError("only SELECT statements are allowed")
+    statement = validate_select(sql)
 
     table_names = {table.name for table in statement.find_all(exp.Table)}
     if table_names != {"cells"}:
@@ -144,5 +134,78 @@ def _validate_sql_policy(sql: str) -> None:
         raise ValueError("query must reference cells columns")
     if not referenced_columns.issubset(_ALLOWED_SQL_COLUMNS):
         raise ValueError("query references non-cells columns")
-    if not referenced_columns.intersection({"row_label", "col_label"}):
-        raise ValueError("query must be scoped by row_label or col_label")
+    _validate_literal_scope(statement)
+
+
+def _validate_literal_scope(statement: exp.Select) -> None:
+    where = statement.args["where"]
+    _validate_predicate(where.this)
+
+    if not any(_is_scoped_equality(node) for node in statement.find_all(exp.EQ)):
+        if not any(_is_scoped_in(node) for node in statement.find_all(exp.In)):
+            raise ValueError("query must be scoped by literal row_label or col_label")
+
+
+def _validate_predicate(node: exp.Condition) -> None:
+    if isinstance(node, exp.Paren):
+        _validate_predicate(node.this)
+        return
+    if isinstance(node, exp.And):
+        _validate_predicate(node.args["this"])
+        _validate_predicate(node.args["expression"])
+        return
+    if isinstance(node, exp.EQ):
+        if _is_self_contained_truth_expression(node):
+            raise ValueError("self-contained truth predicates are not allowed")
+        return
+    if isinstance(node, exp.In):
+        if _is_self_contained_truth_expression(node):
+            raise ValueError("self-contained truth predicates are not allowed")
+        if not _is_scoped_in(node):
+            raise ValueError("IN predicates must be a finite literal list on row_label or col_label")
+        return
+    if isinstance(node, exp.Select):
+        raise ValueError("subqueries are not allowed")
+    raise ValueError("query scope must use literal equality or finite IN")
+
+
+def _is_scoped_equality(node: exp.EQ) -> bool:
+    left = node.args.get("this")
+    right = node.args.get("expression")
+    return (_is_scope_column(left) and isinstance(right, exp.Literal)) or (
+        _is_scope_column(right) and isinstance(left, exp.Literal)
+    )
+
+
+def _is_self_contained_truth_expression(node: exp.EQ | exp.In) -> bool:
+    if isinstance(node, exp.EQ):
+        left = node.args.get("this")
+        right = node.args.get("expression")
+        if isinstance(left, exp.Literal) and isinstance(right, exp.Literal):
+            return True
+        return (
+            isinstance(left, exp.Column)
+            and isinstance(right, exp.Column)
+            and left.name == right.name
+        )
+
+    subject = node.args.get("this")
+    expressions = node.args.get("expressions")
+    return isinstance(subject, exp.Literal) and isinstance(expressions, list)
+
+
+def _is_scoped_in(node: exp.In) -> bool:
+    subject = node.args.get("this")
+    expressions = node.args.get("expressions")
+    if not isinstance(expressions, list):
+        return False
+    typed_expressions = cast("list[object]", expressions)
+    return (
+        _is_scope_column(subject)
+        and bool(typed_expressions)
+        and all(isinstance(item, exp.Literal) for item in typed_expressions)
+    )
+
+
+def _is_scope_column(node: object) -> bool:
+    return isinstance(node, exp.Column) and node.name in {"row_label", "col_label"}

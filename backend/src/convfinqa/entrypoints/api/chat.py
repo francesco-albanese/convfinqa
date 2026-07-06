@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
-from convfinqa.application.use_cases.send_message import (
+from convfinqa.application.agent.stream_events import (
     Citation,
     ConcurrentRequest,
     ConversationResolved,
@@ -18,7 +18,6 @@ from convfinqa.application.use_cases.send_message import (
     ReasoningStart,
     TextDelta,
     ToolCallArgsComplete,
-    ToolCallArgsDelta,
     ToolCallStart,
     ToolResult,
 )
@@ -133,7 +132,6 @@ async def sync_chat(
                     | ReasoningDelta()
                     | ReasoningEnd()
                     | ToolCallStart()
-                    | ToolCallArgsDelta()
                     | ToolCallArgsComplete()
                     | ToolResult()
                     | Citation()

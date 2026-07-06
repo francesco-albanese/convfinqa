@@ -1,26 +1,32 @@
 import re
 from collections.abc import Mapping
+from functools import cache
 from importlib import resources
+
+_SAFE_CATALOG_SEGMENT = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 class LocalFilePromptProvider:
     def __init__(self, package: str = "convfinqa.adapters.prompts.catalog") -> None:
         self._package = package
 
-    def compile(self, name: str, label: str, variables: Mapping[str, object]) -> str:
-        template = self._load_template(name, label)
+    async def compile(
+        self, name: str, label: str, variables: Mapping[str, object]
+    ) -> str:
+        template = _load_template(self._package, name, label)
         return compile_prompt_template(template, variables)
 
-    def _load_template(self, name: str, label: str) -> str:
-        filename = f"{name}.{label}.md"
-        try:
-            return (
-                resources.files(self._package)
-                .joinpath(filename)
-                .read_text(encoding="utf-8")
-            )
-        except FileNotFoundError as exc:
-            raise ValueError(f"prompt not found: {name}@{label}") from exc
+
+@cache
+def _load_template(package: str, name: str, label: str) -> str:
+    if not (_SAFE_CATALOG_SEGMENT.match(name) and _SAFE_CATALOG_SEGMENT.match(label)):
+        raise ValueError(f"prompt not found: {name}@{label}")
+
+    filename = f"{name}.{label}.md"
+    try:
+        return resources.files(package).joinpath(filename).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"prompt not found: {name}@{label}") from exc
 
 
 _PLACEHOLDER = re.compile(r"{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")

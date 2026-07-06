@@ -1,0 +1,102 @@
+import re
+from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerMatchResult:
+    passed: bool
+    score: float
+
+
+@dataclass(frozen=True, slots=True)
+class _ParsedAnswer:
+    value: Decimal
+    is_percent: bool
+    decimals: int
+
+
+def score_answer(model_answer: str, gold_answer: str) -> AnswerMatchResult:
+    gold = _parse_answer(gold_answer)
+    model = _parse_answer(model_answer)
+    if gold is None or model is None:
+        return AnswerMatchResult(passed=False, score=0.0)
+
+    quant = _quantizer(gold.decimals)
+    gold_value = gold.value.quantize(quant, rounding=ROUND_HALF_UP)
+    candidates = [model.value]
+    if gold.is_percent != model.is_percent:
+        candidates.append(
+            model.value / Decimal(100) if model.is_percent else model.value * Decimal(100)
+        )
+
+    passed = any(
+        candidate.quantize(quant, rounding=ROUND_HALF_UP) == gold_value
+        for candidate in candidates
+    )
+    return AnswerMatchResult(passed=passed, score=1.0 if passed else 0.0)
+
+
+_NUMBER_RE = re.compile(
+    r"(?P<number>[-+]?(?:\d+(?:,\d{3})*|\d*)(?:\.\d+)?)(?P<percent>\s*%)?"
+)
+_PAREN_SPAN_RE = re.compile(r"\([^()]*\)")
+_ACCOUNTING_NEGATIVE_RE = re.compile(
+    r"\(\s*(?P<inner>[-+]?(?:\d{1,3}(?:,\d{3})*|\d*)(?:\.\d+)?\s*%?)\s*\)"
+)
+
+
+def _inline_accounting_negatives(text: str) -> str:
+    def negate(match: re.Match[str]) -> str:
+        inner = match.group("inner").strip()
+        percent_suffix = "%" if inner.endswith("%") else ""
+        numeral = inner[: -1].strip() if percent_suffix else inner
+        numeral = numeral.removeprefix("-").removeprefix("+")
+        return f"-{numeral}{percent_suffix}"
+
+    return _ACCOUNTING_NEGATIVE_RE.sub(negate, text)
+
+
+def _parse_answer(answer: str) -> _ParsedAnswer | None:
+    normalized = answer.strip().strip("\"'").replace("$", "")
+    normalized = _inline_accounting_negatives(normalized)
+    outside_parens = _PAREN_SPAN_RE.sub(" ", normalized)
+    return _parse_last_number(outside_parens)
+
+
+def _parse_last_number(text: str) -> _ParsedAnswer | None:
+    parsed: _ParsedAnswer | None = None
+    for match in _NUMBER_RE.finditer(text):
+        raw_number = match.group("number")
+        if raw_number in {"", "+", "-", ".", "+.", "-."}:
+            continue
+        cleaned = raw_number.replace(",", "")
+        if cleaned.startswith("."):
+            cleaned = f"0{cleaned}"
+        elif cleaned.startswith("-."):
+            cleaned = cleaned.replace("-.", "-0.", 1)
+        elif cleaned.startswith("+."):
+            cleaned = cleaned.replace("+.", "+0.", 1)
+        try:
+            value = Decimal(cleaned)
+        except InvalidOperation:
+            continue
+        parsed = _ParsedAnswer(
+            value=value,
+            is_percent=bool(match.group("percent")),
+            decimals=_decimal_places(raw_number),
+        )
+    return parsed
+
+
+def _decimal_places(raw_number: str) -> int:
+    without_commas = raw_number.replace(",", "")
+    if "." not in without_commas:
+        return 0
+    return len(without_commas.rsplit(".", 1)[1])
+
+
+def _quantizer(decimals: int) -> Decimal:
+    if decimals <= 0:
+        return Decimal("1")
+    return Decimal("1").scaleb(-decimals)

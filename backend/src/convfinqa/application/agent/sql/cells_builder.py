@@ -19,7 +19,11 @@ def build_cells_db(document: Document) -> sqlite3.Connection:
     conn.execute(CELLS_SCHEMA)
 
     table_data: dict[str, Any] = document.table_data or {}
-    column_order = list(document.column_order) if document.column_order else list(table_data.keys())
+    column_order = (
+        list(document.column_order)
+        if document.column_order
+        else list(table_data.keys())
+    )
 
     for col_label in column_order:
         if col_label not in table_data:

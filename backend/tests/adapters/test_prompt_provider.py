@@ -6,8 +6,8 @@ from convfinqa.adapters.prompts.local_file import (
 )
 
 
-def test_local_prompt_provider_resolves_catalog_prompt() -> None:
-    prompt = LocalFilePromptProvider().compile(
+async def test_local_prompt_provider_resolves_catalog_prompt() -> None:
+    prompt = await LocalFilePromptProvider().compile(
         "convfinqa-system",
         "production",
         {
@@ -45,6 +45,22 @@ def test_prompt_template_compile_fails_on_unused_variable() -> None:
         compile_prompt_template("Hello {{name}}.", {"name": "ConvFinQA", "extra": "x"})
 
 
-def test_local_prompt_provider_fails_on_missing_prompt() -> None:
+async def test_local_prompt_provider_fails_on_missing_prompt() -> None:
     with pytest.raises(ValueError, match="prompt not found: missing@production"):
-        LocalFilePromptProvider().compile("missing", "production", {})
+        await LocalFilePromptProvider().compile("missing", "production", {})
+
+
+@pytest.mark.parametrize(
+    ("name", "label"),
+    [
+        ("../../../../../../etc/passwd", "production"),
+        ("convfinqa-system", "../../../../../../etc/passwd"),
+        ("convfinqa-system/../../secret", "production"),
+        ("convfinqa-system", "production/../../secret"),
+    ],
+)
+async def test_local_prompt_provider_rejects_path_traversal(
+    name: str, label: str
+) -> None:
+    with pytest.raises(ValueError, match="prompt not found"):
+        await LocalFilePromptProvider().compile(name, label, {})
