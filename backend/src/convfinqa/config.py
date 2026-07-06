@@ -54,6 +54,18 @@ class Settings(BaseSettings):
         ge=1,
     )
 
+    suspicious_attempt_max_blocks: int = Field(
+        description="guardrail-blocked attempts allowed per user per window before suspicious-activity throttling",
+        default=5,
+        ge=1,
+    )
+
+    suspicious_attempt_window_seconds: int = Field(
+        description="window size for counting guardrail-blocked attempts per user",
+        default=300,
+        ge=1,
+    )
+
     cognito_region: str = Field(default="eu-west-1")
     cognito_user_pool_id: str | None = Field(default=None)
     cognito_client_id: str | None = Field(default=None)
