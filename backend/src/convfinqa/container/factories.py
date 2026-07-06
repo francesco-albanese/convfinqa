@@ -15,6 +15,8 @@ from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUser
 from convfinqa.adapters.prompts.langfuse_provider import LangfusePromptProvider
 from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.adapters.rate_limit.postgres import PostgresRateLimitAdapter
+from convfinqa.application.security_signals import SecuritySignals
+from convfinqa.application.suspicious_attempt_throttle import SuspiciousAttemptThrottle
 from convfinqa.application.use_cases.delete_conversation import (
     DeleteConversationUseCase,
 )
@@ -97,6 +99,7 @@ def build_use_cases(
     prompt_provider: PromptProviderPort,
     settings: Settings,
     observability: ObservabilityPort,
+    rate_limit: RateLimitPort,
 ) -> tuple[
     SendMessageUseCase,
     ListDocumentsUseCase,
@@ -114,6 +117,12 @@ def build_use_cases(
         observability=observability,
         llm_model=settings.llm_model,
         environment=settings.environment,
+        security_signals=SecuritySignals(),
+        suspicious_throttle=SuspiciousAttemptThrottle(
+            rate_limit=rate_limit,
+            max_attempts=settings.suspicious_attempt_max_blocks,
+            window_seconds=settings.suspicious_attempt_window_seconds,
+        ),
     )
     list_documents = ListDocumentsUseCase(documents=documents_port)
     get_document = GetDocumentUseCase(documents=documents_port)

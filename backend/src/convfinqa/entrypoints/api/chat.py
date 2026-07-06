@@ -31,8 +31,7 @@ from convfinqa.entrypoints.api.dependencies import (
 from convfinqa.entrypoints.api.errors import ConversationBusyError, UpstreamLLMError
 from convfinqa.entrypoints.api.sse import (
     UI_MESSAGE_STREAM_HEADERS,
-    prepend_event,
-    to_ui_message_stream,
+    ui_message_stream_body,
 )
 
 chat_router = APIRouter(prefix="/api/v1", tags=["chat"])
@@ -182,7 +181,7 @@ async def stream_chat(
         raise ConversationBusyError(first_event.conversation_id)
 
     return StreamingResponse(
-        to_ui_message_stream(prepend_event(first_event, events)),
+        ui_message_stream_body(first_event, events),
         media_type="text/event-stream",
         headers=UI_MESSAGE_STREAM_HEADERS,
     )
