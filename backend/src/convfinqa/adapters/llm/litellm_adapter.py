@@ -3,13 +3,14 @@ from typing import Any, Protocol, cast
 
 import litellm
 
-from convfinqa.domain.ports.llm import LLMChunk, LLMToolSpec
+from convfinqa.domain.ports.llm import LLMChunk, LLMToolSpec, PromptRef
 from convfinqa.domain.value_objects import Usage
 from convfinqa.logging import get_logger
 
 LITELLM_LOG = get_logger("convfinqa.llm")
 MIN_THINKING_BUDGET_TOKENS = 1024
 DEFAULT_THINKING_BUDGET_TOKENS = 8000
+PROMPT_LINK_CACHE_TTL_SECONDS = 300
 
 
 def _attach_cost_to_current_generation(
@@ -31,6 +32,52 @@ def _attach_cost_to_current_generation(
 
     langfuse.get_client().update_current_generation(
         cost_details={"input": 0.0, "output": 0.0, "total": total_cost}
+    )
+
+
+def _link_prompt_to_current_generation(
+    kwargs: dict[str, Any],
+    response: Any,
+    start_time: Any,
+    end_time: Any,
+) -> None:
+    metadata: dict[str, Any] = kwargs.get("metadata") or {}
+    prompt_name = metadata.get("prompt_name")
+    prompt_version = metadata.get("prompt_version")
+    prompt_label = metadata.get("prompt_label")
+    if prompt_name is None or prompt_version is None:
+        return
+
+    import langfuse
+
+    client = langfuse.get_client()
+    try:
+        prompt = client.get_prompt(
+            prompt_name,
+            version=prompt_version,
+            cache_ttl_seconds=PROMPT_LINK_CACHE_TTL_SECONDS,
+        )
+    except Exception as exc:  # noqa: BLE001
+        LITELLM_LOG.warning(
+            "prompt_linkage_fallback_to_metadata_only",
+            extra={
+                "exc_type": exc.__class__.__name__,
+                "exc_message": str(exc) or exc.__class__.__name__,
+                "prompt_name": prompt_name,
+                "prompt_version": prompt_version,
+                "prompt_label": prompt_label,
+            },
+        )
+        return
+
+    client.update_current_generation(prompt=prompt)
+    LITELLM_LOG.debug(
+        "prompt_linked_first_class",
+        extra={
+            "prompt_name": prompt_name,
+            "prompt_version": prompt_version,
+            "prompt_label": prompt_label,
+        },
     )
 
 
@@ -59,6 +106,12 @@ def _register_callbacks() -> None:
         litellm.success_callback = [  # pyright: ignore[reportUnknownMemberType]
             *successes,
             _attach_cost_to_current_generation,
+        ]
+    successes = litellm.success_callback  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+    if _link_prompt_to_current_generation not in successes:
+        litellm.success_callback = [  # pyright: ignore[reportUnknownMemberType]
+            *successes,
+            _link_prompt_to_current_generation,
         ]
     failure: Any = litellm.failure_callback  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
     if _log_llm_failure not in failure:
@@ -110,6 +163,7 @@ async def _open_stream(
     trace_user_id: str | None = None,
     session_id: str | None = None,
     environment: str | None = None,
+    prompt_ref: PromptRef | None = None,
 ) -> AsyncIterable[_LiteLLMChunk]:
     acompletion: Any = litellm.acompletion  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
     kwargs: dict[str, Any] = {
@@ -134,6 +188,11 @@ async def _open_stream(
         metadata["session_id"] = session_id
     if environment is not None:
         metadata["tags"] = [f"environment:{environment}"]
+    if prompt_ref is not None:
+        metadata["prompt_name"] = prompt_ref.name
+        metadata["prompt_label"] = prompt_ref.label
+        if prompt_ref.version is not None:
+            metadata["prompt_version"] = prompt_ref.version
     if metadata:
         kwargs["metadata"] = metadata
     response = await acompletion(**kwargs)
@@ -203,6 +262,7 @@ class LiteLLMAdapter:
         session_id: str | None = None,
         environment: str | None = None,
         model: str | None = None,
+        prompt_ref: PromptRef | None = None,
     ) -> AsyncIterator[LLMChunk]:
         effective_model = model or self._model
         wire_messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
@@ -223,6 +283,7 @@ class LiteLLMAdapter:
             trace_user_id=trace_user_id,
             session_id=session_id,
             environment=environment,
+            prompt_ref=prompt_ref,
         )
 
         reasoning_active = False

@@ -42,12 +42,6 @@ class ToolCallStart:
 
 
 @dataclass(frozen=True, slots=True)
-class ToolCallArgsDelta:
-    call_id: str
-    delta: str
-
-
-@dataclass(frozen=True, slots=True)
 class ToolCallArgsComplete:
     call_id: str
     args: str
@@ -97,7 +91,6 @@ StreamEvent = (
     | ReasoningDelta
     | ReasoningEnd
     | ToolCallStart
-    | ToolCallArgsDelta
     | ToolCallArgsComplete
     | ToolResult
     | Finish

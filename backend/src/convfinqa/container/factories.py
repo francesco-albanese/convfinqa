@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 
+from langfuse import Langfuse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
@@ -11,7 +12,11 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyDocumentRepository,
 )
 from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUserLookup
+from convfinqa.adapters.prompts.langfuse_provider import LangfusePromptProvider
+from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.adapters.rate_limit.postgres import PostgresRateLimitAdapter
+from convfinqa.application.security_signals import SecuritySignals
+from convfinqa.application.suspicious_attempt_throttle import SuspiciousAttemptThrottle
 from convfinqa.application.use_cases.delete_conversation import (
     DeleteConversationUseCase,
 )
@@ -26,11 +31,24 @@ from convfinqa.domain.ports.documents_port import DocumentsPort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
 from convfinqa.domain.ports.observability import ObservabilityPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
 from convfinqa.domain.ports.session import SessionPort, UserRecord
 
 UserLookup = Callable[[str], Awaitable[UserRecord | None]]
+
+
+def build_prompt_provider(settings: Settings) -> PromptProviderPort:
+    if settings.langfuse_enabled and settings.langfuse_public_key and settings.langfuse_secret_key:
+        client = Langfuse(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key,
+            host=settings.langfuse_host,
+            tracing_enabled=False,
+        )
+        return LangfusePromptProvider(client)
+    return LocalFilePromptProvider()
 
 
 def build_persistence(
@@ -78,8 +96,11 @@ def build_use_cases(
     documents: DocumentRepository,
     documents_port: DocumentsPort,
     locks: ConversationLockPort,
+    prompt_provider: PromptProviderPort,
     settings: Settings,
     observability: ObservabilityPort,
+    rate_limit: RateLimitPort,
+    system_prompt_label: str = "production",
 ) -> tuple[
     SendMessageUseCase,
     ListDocumentsUseCase,
@@ -93,10 +114,17 @@ def build_use_cases(
         conversations=conversations,
         documents=documents,
         locks=locks,
-        system_prompt_framing=settings.system_prompt,
+        prompt_provider=prompt_provider,
         observability=observability,
         llm_model=settings.llm_model,
         environment=settings.environment,
+        system_prompt_label=system_prompt_label,
+        security_signals=SecuritySignals(),
+        suspicious_throttle=SuspiciousAttemptThrottle(
+            rate_limit=rate_limit,
+            max_attempts=settings.suspicious_attempt_max_blocks,
+            window_seconds=settings.suspicious_attempt_window_seconds,
+        ),
     )
     list_documents = ListDocumentsUseCase(documents=documents_port)
     get_document = GetDocumentUseCase(documents=documents_port)

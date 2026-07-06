@@ -32,9 +32,7 @@ def build_tool_specs() -> list[LLMToolSpec]:
     ]
 
 
-def history_to_wire(
-    conversation: Conversation, user_text: str
-) -> list[dict[str, Any]]:
+def history_to_wire(conversation: Conversation, user_text: str) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     for m in conversation.messages:
         messages.append({"role": m.role.value, "content": m.content})

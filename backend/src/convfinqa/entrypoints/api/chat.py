@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
-from convfinqa.application.use_cases.send_message import (
+from convfinqa.application.agent.stream_events import (
     Citation,
     ConcurrentRequest,
     ConversationResolved,
@@ -18,7 +18,6 @@ from convfinqa.application.use_cases.send_message import (
     ReasoningStart,
     TextDelta,
     ToolCallArgsComplete,
-    ToolCallArgsDelta,
     ToolCallStart,
     ToolResult,
 )
@@ -32,8 +31,7 @@ from convfinqa.entrypoints.api.dependencies import (
 from convfinqa.entrypoints.api.errors import ConversationBusyError, UpstreamLLMError
 from convfinqa.entrypoints.api.sse import (
     UI_MESSAGE_STREAM_HEADERS,
-    prepend_event,
-    to_ui_message_stream,
+    ui_message_stream_body,
 )
 
 chat_router = APIRouter(prefix="/api/v1", tags=["chat"])
@@ -134,7 +132,6 @@ async def sync_chat(
                     | ReasoningDelta()
                     | ReasoningEnd()
                     | ToolCallStart()
-                    | ToolCallArgsDelta()
                     | ToolCallArgsComplete()
                     | ToolResult()
                     | Citation()
@@ -184,7 +181,7 @@ async def stream_chat(
         raise ConversationBusyError(first_event.conversation_id)
 
     return StreamingResponse(
-        to_ui_message_stream(prepend_event(first_event, events)),
+        ui_message_stream_body(first_event, events),
         media_type="text/event-stream",
         headers=UI_MESSAGE_STREAM_HEADERS,
     )

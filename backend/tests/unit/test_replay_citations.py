@@ -6,56 +6,35 @@ import pytest
 
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.agent.replay import execute_and_replay_tools
-from convfinqa.application.agent.stream_events import Citation, ToolResult
-from convfinqa.domain.entities import Document
-
-
-def _doc_with_table() -> Document:
-    return Document(
-        id="doc1",
-        ticker="JKHY",
-        year=2009,
-        page=None,
-        title="Test",
-        pre_text=None,
-        post_text=None,
-        table_data={"Year ended June 30, 2009": {"net cash from operations": "206588"}},
-        column_order=None,
-    )
-
-
-def _empty_doc() -> Document:
-    return Document(
-        id="doc1",
-        ticker=None,
-        year=None,
-        page=None,
-        title=None,
-        pre_text=None,
-        post_text=None,
-        table_data=None,
-        column_order=None,
-    )
-
-
-def _make_tool_call(call_id: str, name: str, args: dict) -> dict:
-    raw = json.dumps(args)
-    return {call_id: {"name": name, "args": raw, "args_chunks": [raw]}}
+from convfinqa.application.agent.stream_events import Citation, StreamEvent, ToolResult
+from convfinqa.application.agent.tool_policy_gate import (
+    BLOCKED_TOOL_NAME,
+    ToolPolicyReason,
+)
+from tests.unit.replay_helpers import (
+    MessageParts,
+    RecordingObservability,
+    SeenCitations,
+    WireMessages,
+    doc_with_table,
+    empty_doc,
+    make_tool_call,
+)
 
 
 @pytest.mark.asyncio
 async def test_sql_query_with_matching_rows_yields_citation() -> None:
     """sql_query that returns rows fires Citation events for each (row_label, col_label) pair."""
     sql = "SELECT value_num FROM cells WHERE row_label='net cash from operations' AND col_label='Year ended June 30, 2009'"
-    tool_calls = _make_tool_call("c1", "sql_query", {"sql": sql})
+    tool_calls = make_tool_call("c1", "sql_query", {"sql": sql})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
-        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+        tool_calls, [], parts, wire, doc_with_table(), seen, NoOpLangfuseClient()
     ):
         events.append(event)
 
@@ -69,15 +48,15 @@ async def test_sql_query_with_matching_rows_yields_citation() -> None:
 async def test_sql_query_with_zero_rows_yields_no_citation() -> None:
     """sql_query returning empty rows produces a ToolResult but NO Citation event."""
     sql = "SELECT value_num FROM cells WHERE row_label='nonexistent row' AND col_label='Year ended June 30, 2009'"
-    tool_calls = _make_tool_call("c1", "sql_query", {"sql": sql})
+    tool_calls = make_tool_call("c1", "sql_query", {"sql": sql})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
-        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+        tool_calls, [], parts, wire, doc_with_table(), seen, NoOpLangfuseClient()
     ):
         events.append(event)
 
@@ -99,13 +78,13 @@ async def test_duplicate_citations_within_turn_are_deduplicated() -> None:
         "c2": {"name": "sql_query", "args": raw, "args_chunks": [raw]},
     }
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
-    events = []
+    events: list[StreamEvent] = []
     async for event in execute_and_replay_tools(
-        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+        tool_calls, [], parts, wire, doc_with_table(), seen, NoOpLangfuseClient()
     ):
         events.append(event)
 
@@ -117,14 +96,14 @@ async def test_duplicate_citations_within_turn_are_deduplicated() -> None:
 async def test_citation_part_added_to_parts_in_order() -> None:
     """When sql_query returns rows, a citation kind part is appended to parts_in_order."""
     sql = "SELECT value_num FROM cells WHERE row_label='net cash from operations' AND col_label='Year ended June 30, 2009'"
-    tool_calls = _make_tool_call("c1", "sql_query", {"sql": sql})
+    tool_calls = make_tool_call("c1", "sql_query", {"sql": sql})
 
-    parts: list = []
-    wire: list = []
-    seen: set = set()
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
 
     async for _ in execute_and_replay_tools(
-        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+        tool_calls, [], parts, wire, doc_with_table(), seen, NoOpLangfuseClient()
     ):
         pass
 
@@ -132,3 +111,75 @@ async def test_citation_part_added_to_parts_in_order() -> None:
     assert len(citation_parts) == 1
     assert citation_parts[0]["row_label"] == "net cash from operations"
     assert citation_parts[0]["col_label"] == "Year ended June 30, 2009"
+
+
+@pytest.mark.asyncio
+async def test_policy_blocked_sql_query_returns_sanitized_error() -> None:
+    tool_calls = make_tool_call("c1", "sql_query", {"sql": "SELECT * FROM cells"})
+    observability = RecordingObservability()
+
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
+
+    events: list[StreamEvent] = []
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, doc_with_table(), seen, observability
+    ):
+        events.append(event)
+
+    tool_results = [e for e in events if isinstance(e, ToolResult)]
+    assert len(tool_results) == 1
+    assert tool_results[0].is_error is True
+    assert json.loads(tool_results[0].result) == {"error": "tool call blocked"}
+    assert "SELECT *" not in tool_results[0].result
+    assert not [e for e in events if isinstance(e, Citation)]
+    assert json.loads(parts[1]["result"]) == {"error": "tool call blocked"}
+    assert observability.inputs == [
+        {"blocked": True, "reason": ToolPolicyReason.UNSAFE_SQL}
+    ]
+    assert observability.names == [BLOCKED_TOOL_NAME]
+
+
+@pytest.mark.asyncio
+async def test_policy_blocked_tool_call_still_replays_to_wire_as_tool_result() -> None:
+    tool_calls = make_tool_call(
+        "c1",
+        "sql_query",
+        {"sql": "SELECT value_num FROM cells; SELECT value_num FROM cells"},
+    )
+
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
+
+    async for _ in execute_and_replay_tools(
+        tool_calls, [], parts, wire, doc_with_table(), seen, NoOpLangfuseClient()
+    ):
+        pass
+
+    assert wire[-1] == {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": '{"error": "tool call blocked"}',
+    }
+
+
+@pytest.mark.asyncio
+async def test_policy_allows_math_tool_execution() -> None:
+    tool_calls = make_tool_call("c1", "subtract", {"a": "206588", "b": "181001"})
+
+    parts: MessageParts = []
+    wire: WireMessages = []
+    seen: SeenCitations = set()
+
+    events: list[StreamEvent] = []
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, empty_doc(), seen, NoOpLangfuseClient()
+    ):
+        events.append(event)
+
+    tool_results = [e for e in events if isinstance(e, ToolResult)]
+    assert len(tool_results) == 1
+    assert tool_results[0].is_error is False
+    assert json.loads(tool_results[0].result) == {"result": "25587"}

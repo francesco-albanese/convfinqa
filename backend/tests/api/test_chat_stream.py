@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
-from convfinqa.application.use_cases.send_message import TextDelta
+from convfinqa.application.agent.stream_events import TextDelta
 from convfinqa.container import Container
 from tests.conftest import SEEDED_USER_UUID
 from tests.fakes.llm import FakeLLMPort
