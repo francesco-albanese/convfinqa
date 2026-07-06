@@ -132,3 +132,70 @@ async def test_citation_part_added_to_parts_in_order() -> None:
     assert len(citation_parts) == 1
     assert citation_parts[0]["row_label"] == "net cash from operations"
     assert citation_parts[0]["col_label"] == "Year ended June 30, 2009"
+
+
+@pytest.mark.asyncio
+async def test_policy_blocked_sql_query_returns_sanitized_error() -> None:
+    tool_calls = _make_tool_call("c1", "sql_query", {"sql": "SELECT * FROM cells"})
+
+    parts: list = []
+    wire: list = []
+    seen: set = set()
+
+    events = []
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+    ):
+        events.append(event)
+
+    tool_results = [e for e in events if isinstance(e, ToolResult)]
+    assert len(tool_results) == 1
+    assert tool_results[0].is_error is True
+    assert json.loads(tool_results[0].result) == {"error": "tool call blocked"}
+    assert "SELECT *" not in tool_results[0].result
+    assert not [e for e in events if isinstance(e, Citation)]
+    assert json.loads(parts[1]["result"]) == {"error": "tool call blocked"}
+
+
+@pytest.mark.asyncio
+async def test_policy_blocked_tool_call_still_replays_to_wire_as_tool_result() -> None:
+    tool_calls = _make_tool_call(
+        "c1",
+        "sql_query",
+        {"sql": "SELECT value_num FROM cells; SELECT value_num FROM cells"},
+    )
+
+    parts: list = []
+    wire: list = []
+    seen: set = set()
+
+    async for _ in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _doc_with_table(), seen, NoOpLangfuseClient()
+    ):
+        pass
+
+    assert wire[-1] == {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": '{"error": "tool call blocked"}',
+    }
+
+
+@pytest.mark.asyncio
+async def test_policy_allows_math_tool_execution() -> None:
+    tool_calls = _make_tool_call("c1", "subtract", {"a": "206588", "b": "181001"})
+
+    parts: list = []
+    wire: list = []
+    seen: set = set()
+
+    events = []
+    async for event in execute_and_replay_tools(
+        tool_calls, [], parts, wire, _empty_doc(), seen, NoOpLangfuseClient()
+    ):
+        events.append(event)
+
+    tool_results = [e for e in events if isinstance(e, ToolResult)]
+    assert len(tool_results) == 1
+    assert tool_results[0].is_error is False
+    assert json.loads(tool_results[0].result) == {"result": "25587"}

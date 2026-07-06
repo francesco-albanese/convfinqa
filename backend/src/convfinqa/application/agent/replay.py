@@ -6,6 +6,10 @@ from typing import Any
 from convfinqa.application.agent.sql.citation_extractor import extract_citations
 from convfinqa.application.agent.stream_events import Citation, ToolResult
 from convfinqa.application.agent.tool_executor import execute_tool
+from convfinqa.application.agent.tool_policy_gate import (
+    BLOCKED_TOOL_ERROR,
+    ToolPolicyGate,
+)
 from convfinqa.application.agent.tools import TOOL_REGISTRY, build_sql_query_tool
 from convfinqa.application.agent.wire import safe_json_loads
 from convfinqa.domain.entities import Document
@@ -13,6 +17,7 @@ from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.logging import get_logger
 
 logger = get_logger("convfinqa.replay")
+_tool_policy_gate = ToolPolicyGate()
 
 
 async def execute_and_replay_tools(
@@ -30,17 +35,18 @@ async def execute_and_replay_tools(
     for call_id, tc_state in tool_calls.items():
         raw_args = tc_state.get("args", "".join(tc_state["args_chunks"]))
         tool_name = tc_state["name"]
+        policy_decision = _tool_policy_gate.decide(tool_name, raw_args)
 
-        tool = TOOL_REGISTRY.get(tool_name)
-        if tool is None:
+        if policy_decision.blocked:
             async with observability.start_as_current_observation(
-                as_type="tool", name=tool_name
+                as_type="tool", name=tool_name, input=safe_json_loads(raw_args)
             ) as span:
-                result_str = json.dumps({"error": f"unknown tool: {tool_name}"})
+                result_str = json.dumps({"error": BLOCKED_TOOL_ERROR})
                 span.set_output(result_str)
                 span.set_error()
             is_error = True
         else:
+            tool = TOOL_REGISTRY[tool_name]
             if tool.name == "sql_query":
                 tool = build_sql_query_tool(document)
             result_str, is_error = await execute_tool(tool, raw_args, observability)

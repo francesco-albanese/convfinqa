@@ -257,7 +257,7 @@ async def test_unknown_tool_name_returns_error_result() -> None:
     tool_results = [e for e in events if isinstance(e, ToolResult)]
     assert len(tool_results) == 1
     assert tool_results[0].is_error is True
-    assert "unknown tool" in tool_results[0].result
+    assert json.loads(tool_results[0].result) == {"error": "tool call blocked"}
 
 
 # ---------------------------------------------------------------------------
