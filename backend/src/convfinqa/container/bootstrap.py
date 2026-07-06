@@ -12,12 +12,14 @@ from convfinqa.container.container import Container
 from convfinqa.container.factories import (
     build_persistence,
     build_pg_adapters,
+    build_prompt_provider,
     build_session,
     build_use_cases,
 )
 from convfinqa.domain.ports.cache import CachePort
 from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.observability import ObservabilityPort
+from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.session import SessionPort
 from convfinqa.logging import get_logger
@@ -25,7 +27,9 @@ from convfinqa.logging import get_logger
 _log = get_logger(__name__)
 
 
-def bootstrap_application(settings: Settings) -> Container:
+def bootstrap_application(
+    settings: Settings, system_prompt_label: str = "production"
+) -> Container:
     init_tracer_provider(settings)
     observability = init_langfuse(settings)
     engine = create_engine(settings.database_url)
@@ -38,6 +42,7 @@ def bootstrap_application(settings: Settings) -> Container:
     conversations, documents, documents_port, locks, user_lookup = build_persistence(
         session_factory
     )
+    prompt_provider = build_prompt_provider(settings)
     session = build_session(settings, user_lookup)
     if session is None:
         _log.warning(
@@ -45,6 +50,7 @@ def bootstrap_application(settings: Settings) -> Container:
             "not set. Auth middleware is bypassed; X-User-Id header is trusted as "
             "identity. Do NOT run in this state in production.",
         )
+    cache, rate_limit = build_pg_adapters(session_factory)
     (
         send_message,
         list_documents,
@@ -58,10 +64,12 @@ def bootstrap_application(settings: Settings) -> Container:
         documents,
         documents_port,
         locks,
+        prompt_provider,
         settings,
         observability,
+        rate_limit,
+        system_prompt_label=system_prompt_label,
     )
-    cache, rate_limit = build_pg_adapters(session_factory)
     return Container(
         settings=settings,
         engine=engine,
@@ -70,6 +78,7 @@ def bootstrap_application(settings: Settings) -> Container:
         conversations=conversations,
         documents=documents,
         documents_port=documents_port,
+        prompt_provider=prompt_provider,
         locks=locks,
         send_message=send_message,
         list_documents=list_documents,
@@ -93,6 +102,7 @@ def for_testing(
     cache: CachePort | None = None,
     rate_limit: RateLimitPort | None = None,
     observability: ObservabilityPort | None = None,
+    prompt_provider: PromptProviderPort | None = None,
 ) -> Container:
     resolved_observability: ObservabilityPort
     if observability is None:
@@ -102,6 +112,16 @@ def for_testing(
         resolved_observability = observability
     conversations, documents, documents_port, locks, _ = build_persistence(
         session_factory
+    )
+    resolved_prompt_provider = (
+        prompt_provider
+        if prompt_provider is not None
+        else build_prompt_provider(settings)
+    )
+    pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
+    resolved_cache: CachePort = cache if cache is not None else pg_cache
+    resolved_rate_limit: RateLimitPort = (
+        rate_limit if rate_limit is not None else pg_rate_limit
     )
     (
         send_message,
@@ -116,13 +136,10 @@ def for_testing(
         documents,
         documents_port,
         locks,
+        resolved_prompt_provider,
         settings,
         resolved_observability,
-    )
-    pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
-    resolved_cache: CachePort = cache if cache is not None else pg_cache
-    resolved_rate_limit: RateLimitPort = (
-        rate_limit if rate_limit is not None else pg_rate_limit
+        resolved_rate_limit,
     )
     return Container(
         settings=settings,
@@ -132,6 +149,7 @@ def for_testing(
         conversations=conversations,
         documents=documents,
         documents_port=documents_port,
+        prompt_provider=resolved_prompt_provider,
         locks=locks,
         send_message=send_message,
         list_documents=list_documents,

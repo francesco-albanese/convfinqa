@@ -7,7 +7,12 @@ from typing import Annotated, cast
 import httpx
 import typer
 
+from convfinqa.entrypoints.cli.eval import eval_app
+from convfinqa.entrypoints.cli.prompts import prompts_app
+
 app = typer.Typer(no_args_is_help=True, add_completion=False)
+app.add_typer(prompts_app, name="prompts")
+app.add_typer(eval_app, name="eval")
 
 CLI_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 

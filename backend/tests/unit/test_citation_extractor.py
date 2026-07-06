@@ -35,5 +35,7 @@ def test_cross_product_with_in_clause_for_row_label() -> None:
 
 
 def test_returns_empty_when_col_label_is_non_literal() -> None:
-    result = extract_citations("SELECT value_num FROM cells WHERE row_label='revenue' AND col_label=col_label")
+    result = extract_citations(
+        "SELECT value_num FROM cells WHERE row_label='revenue' AND col_label=col_label"
+    )
     assert result == []

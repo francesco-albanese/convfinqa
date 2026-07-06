@@ -17,6 +17,6 @@ async def test_list_models_returns_allowlist_and_default(app: FastAPI) -> None:
     assert body["default"] in body["models"]
     assert body["models"] == [
         "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
-        "gemini/gemini-2.5-flash",
+        "gemini/gemini-3.5-flash",
     ]
     assert body["default"] == "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0"

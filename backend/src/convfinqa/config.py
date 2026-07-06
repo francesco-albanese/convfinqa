@@ -21,12 +21,6 @@ class Settings(BaseSettings):
             "gemini/gemini-3.5-flash",
         ]
     )
-    system_prompt: str = Field(
-        default=(
-            "You are ConvFinQA, a financial assistant. "
-            "Be concise and cite figures when given."
-        )
-    )
     database_url: str = Field(
         default="postgresql+asyncpg://convfinqa:convfinqa@localhost:5432/convfinqa"
     )
@@ -51,6 +45,18 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = Field(
         description="hard ceiling on tokens the LLM may emit per turn",
         default=1024,
+        ge=1,
+    )
+
+    suspicious_attempt_max_blocks: int = Field(
+        description="guardrail-blocked attempts allowed per user per window before suspicious-activity throttling",
+        default=5,
+        ge=1,
+    )
+
+    suspicious_attempt_window_seconds: int = Field(
+        description="window size for counting guardrail-blocked attempts per user",
+        default=300,
         ge=1,
     )
 

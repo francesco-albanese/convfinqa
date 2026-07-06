@@ -1,15 +1,16 @@
 from collections.abc import AsyncGenerator
 from typing import cast
+from uuid import UUID
 
 import pytest
 
-from convfinqa.application.use_cases.send_message import (
+from convfinqa.application.agent.stream_events import (
     ConversationResolved,
     MessageStarted,
-    SendMessageUseCase,
     StreamEvent,
     TextDelta,
 )
+from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
 from convfinqa.entrypoints.api.chat import ChatRequest, sync_chat
 from convfinqa.entrypoints.api.errors import UpstreamLLMError
@@ -35,7 +36,7 @@ async def test_sync_chat_raises_upstream_error_when_finish_event_missing() -> No
     with pytest.raises(UpstreamLLMError, match="missing Finish event"):
         await sync_chat(
             body=ChatRequest(message="hi", document_id="doc-1"),
-            user_id="alice",
+            user_id=UUID("11111111-1111-1111-1111-111111111111"),
             send_message=cast(SendMessageUseCase, _StubSendMessage()),
             settings=Settings(),
         )

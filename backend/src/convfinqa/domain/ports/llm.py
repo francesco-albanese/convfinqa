@@ -19,6 +19,13 @@ class LLMToolSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class PromptRef:
+    name: str
+    label: str
+    version: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class LLMChunk:
     text: str = ""
     reasoning_text: str = ""
@@ -44,4 +51,5 @@ class LLMPort(Protocol):
         session_id: str | None = None,
         environment: str | None = None,
         model: str | None = None,
+        prompt_ref: PromptRef | None = None,
     ) -> AsyncIterator[LLMChunk]: ...

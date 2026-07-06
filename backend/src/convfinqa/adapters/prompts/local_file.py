@@ -1,0 +1,51 @@
+import re
+from collections.abc import Mapping
+from functools import cache
+from importlib import resources
+
+from convfinqa.domain.ports.prompts import CompiledPrompt
+
+_SAFE_CATALOG_SEGMENT = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+class LocalFilePromptProvider:
+    def __init__(self, package: str = "convfinqa.adapters.prompts.catalog") -> None:
+        self._package = package
+
+    async def compile(
+        self, name: str, label: str, variables: Mapping[str, object]
+    ) -> CompiledPrompt:
+        template = _load_template(self._package, name, label)
+        return CompiledPrompt(text=compile_prompt_template(template, variables))
+
+
+@cache
+def _load_template(package: str, name: str, label: str) -> str:
+    if not (_SAFE_CATALOG_SEGMENT.match(name) and _SAFE_CATALOG_SEGMENT.match(label)):
+        raise ValueError(f"prompt not found: {name}@{label}")
+
+    filename = f"{name}.{label}.md"
+    try:
+        return resources.files(package).joinpath(filename).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"prompt not found: {name}@{label}") from exc
+
+
+_PLACEHOLDER = re.compile(r"{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
+
+
+def compile_prompt_template(template: str, variables: Mapping[str, object]) -> str:
+    used: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key not in variables:
+            raise ValueError(f"missing prompt variable: {key}")
+        used.add(key)
+        return str(variables[key])
+
+    compiled = _PLACEHOLDER.sub(replace, template)
+    unused = set(variables).difference(used)
+    if unused:
+        raise ValueError(f"unused prompt variables: {', '.join(sorted(unused))}")
+    return compiled
