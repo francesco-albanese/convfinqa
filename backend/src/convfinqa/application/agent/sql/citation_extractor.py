@@ -49,9 +49,17 @@ def _collect_values(node: Any, column_name: str, out: list[str]) -> None:
 def _try_eq_literal(eq: exp.EQ, column_name: str, out: list[str]) -> None:
     left: Any = eq.left  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
     right: Any = eq.right  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-    if _is_column(left, column_name) and isinstance(right, exp.Literal) and right.is_string:
+    if (
+        _is_column(left, column_name)
+        and isinstance(right, exp.Literal)
+        and right.is_string
+    ):
         out.append(right.this)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-    elif _is_column(right, column_name) and isinstance(left, exp.Literal) and left.is_string:
+    elif (
+        _is_column(right, column_name)
+        and isinstance(left, exp.Literal)
+        and left.is_string
+    ):
         out.append(left.this)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
 
 

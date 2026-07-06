@@ -1,22 +1,21 @@
 """Tests that internal error details never leak through the SSE boundary."""
 
 import json
+from typing import Any, NoReturn
 
 import pytest
 
 from convfinqa.application.agent.sql.sql_query import sql_query
+from convfinqa.application.agent.stream_events import ToolResult
+from convfinqa.application.agent.tool_executor import execute_tool
 from convfinqa.application.agent.tools import Tool
 from convfinqa.application.agent.tools.math import MathInput, MathOutput
-from convfinqa.application.use_cases.send_message import (
-    ToolResult,
-    _execute_tool,  # noqa: PLC2701
-)
 from convfinqa.domain.entities import Document
 from convfinqa.entrypoints.api.sse import to_ui_message_stream
 
 
 def _make_exploding_tool(secret: str) -> Tool:
-    def exploding(**_):  # type: ignore[return]
+    def exploding(**_: Any) -> NoReturn:
         raise RuntimeError(secret)
 
     return Tool(
@@ -37,8 +36,10 @@ async def test_tool_exception_returns_sanitized_message() -> None:
 
     from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 
-    result_json, is_error = await _execute_tool(
-        tool, '{"a": "1", "b": "2"}', NoOpLangfuseClient()  # type: ignore[arg-type]
+    result_json, is_error = await execute_tool(
+        tool,
+        '{"a": "1", "b": "2"}',
+        NoOpLangfuseClient(),  # type: ignore[arg-type]
     )
 
     assert is_error is True

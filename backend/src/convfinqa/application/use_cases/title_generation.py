@@ -1,12 +1,9 @@
 from convfinqa.domain.entities import Document
-from convfinqa.domain.ports.llm import LLMPort
+from convfinqa.domain.ports.llm import LLMPort, PromptRef
+from convfinqa.domain.ports.prompts import PromptProviderPort
 
-TITLE_SYSTEM_PROMPT = (
-    "Generate a short 3-6 word title summarising the user's question about a "
-    "financial document. Reply with the title only, no quotes, no punctuation "
-    "at the end, no preamble."
-)
 TITLE_MAX_CHARS = 80
+TITLE_PROMPT_NAME = "convfinqa-title"
 
 
 def build_title_seed(user_text: str, document: Document) -> str:
@@ -20,18 +17,32 @@ def build_title_seed(user_text: str, document: Document) -> str:
 
 async def generate_title(
     llm: LLMPort,
+    prompt_provider: PromptProviderPort,
     user_text: str,
     document: Document,
     model: str,
+    prompt_label: str = "production",
 ) -> str | None:
     seed = build_title_seed(user_text, document)
+    compiled_prompt = await prompt_provider.compile(TITLE_PROMPT_NAME, prompt_label, {})
+    prompt_ref = (
+        PromptRef(
+            name=TITLE_PROMPT_NAME,
+            label=prompt_label,
+            version=compiled_prompt.version,
+        )
+        if compiled_prompt.version is not None
+        else None
+    )
+
     collected: list[str] = []
     async for chunk in llm.stream(
         [{"role": "user", "content": seed}],
-        TITLE_SYSTEM_PROMPT,
+        compiled_prompt.text,
         tools=None,
         generation_name="title-generation",
         model=model,
+        prompt_ref=prompt_ref,
     ):
         collected.append(chunk.text)
     title = " ".join("".join(collected).split()).strip()

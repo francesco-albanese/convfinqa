@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.persistence.sqlalchemy.models import MessageOrm
-from convfinqa.application.use_cases.send_message import TextDelta
+from convfinqa.application.agent.stream_events import TextDelta
 from convfinqa.container import Container
 from tests.conftest import SEEDED_USER_UUID
 from tests.fakes.llm import FakeLLMPort
@@ -63,7 +63,7 @@ async def test_stream_chat_emits_ai_sdk_v5_frames_in_order_with_streaming_header
         response = await client.post(
             "/api/v1/chat/stream",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": seeded_document_id},
+            json={"message": "hi, about the document", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -134,7 +134,7 @@ async def test_stream_chat_mid_stream_llm_error_emits_error_frame_and_done(
         response = await client.post(
             "/api/v1/chat/stream",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": seeded_document_id},
+            json={"message": "hi, about the document", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -168,7 +168,7 @@ async def test_stream_chat_consumer_aborts_persists_interrupted(
     events = container.send_message.stream(
         user_id=SEEDED_USER_UUID,
         conversation_id=None,
-        user_text="hi",
+        user_text="hi, about the document",
         document_id=seeded_document_id,
     )
 
@@ -200,7 +200,7 @@ async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
         response = await client.post(
             "/api/v1/chat/stream",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": seeded_document_id},
+            json={"message": "hi, about the document", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
