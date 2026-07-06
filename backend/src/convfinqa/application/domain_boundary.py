@@ -59,6 +59,15 @@ CODE_REQUEST_PATTERNS = (
     ),
 )
 
+PROTECTED_INTERNALS_REASON = "protected_internals"
+ROLE_CHANGE_REASON = "role_change"
+CROSS_DOCUMENT_REASON = "cross_document"
+CURRENT_STOCK_PRICE_REASON = "current_stock_price"
+UNRELATED_CODE_REASON = "unrelated_code"
+APP_CAPABILITY_REASON = "app_capability"
+OFF_DOMAIN_REASON = "off_domain"
+DOCUMENT_GROUNDED_REASON = "document_grounded"
+
 REFUSAL = (
     "I can only help with questions grounded in the pinned financial document. "
     "Ask about the document's narrative, table values, or calculations tied to it."
@@ -88,36 +97,36 @@ class DomainBoundaryPolicy:
 
         protected_internal = _matches(normalized, PROTECTED_INTERNAL_PATTERNS)
         if protected_internal:
-            return _policy_response("protected_internals")
+            return _policy_response(PROTECTED_INTERNALS_REASON)
 
         if _matches(normalized, ROLE_CHANGE_PATTERNS):
-            return _policy_response("role_change")
+            return _policy_response(ROLE_CHANGE_REASON)
 
         if _matches(normalized, CROSS_DOCUMENT_PATTERNS):
-            return _policy_response("cross_document")
+            return _policy_response(CROSS_DOCUMENT_REASON)
 
         if _matches(normalized, CURRENT_PRICE_PATTERNS):
-            return _policy_response("current_stock_price")
+            return _policy_response(CURRENT_STOCK_PRICE_REASON)
 
         if _matches(normalized, CODE_REQUEST_PATTERNS) and not _is_document_grounded(
             normalized, document
         ):
-            return _policy_response("unrelated_code")
+            return _policy_response(UNRELATED_CODE_REASON)
 
         if _matches(normalized, APP_CAPABILITY_PATTERNS):
             return DomainBoundaryDecision(
                 action=DomainBoundaryAction.RESPOND_WITH_POLICY_MESSAGE,
-                reason="app_capability",
+                reason=APP_CAPABILITY_REASON,
                 response=APP_CAPABILITY_RESPONSE,
             )
 
         if _is_document_grounded(normalized, document):
             return DomainBoundaryDecision(
                 action=DomainBoundaryAction.ALLOW_GENERATION,
-                reason="document_grounded",
+                reason=DOCUMENT_GROUNDED_REASON,
             )
 
-        return _policy_response("off_domain")
+        return _policy_response(OFF_DOMAIN_REASON)
 
 
 def _policy_response(reason: str) -> DomainBoundaryDecision:
