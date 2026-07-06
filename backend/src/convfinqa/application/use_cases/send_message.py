@@ -179,7 +179,14 @@ class SendMessageUseCase:
                 title_task: asyncio.Task[str | None] | None = None
                 if should_generate_title(conversation):
                     title_task = asyncio.create_task(
-                        generate_title(self._llm, user_text, document, resolved_model)
+                        generate_title(
+                            self._llm,
+                            self._prompt_provider,
+                            user_text,
+                            document,
+                            resolved_model,
+                            prompt_label=self._system_prompt_label,
+                        )
                     )
 
                 buffers = AgentRunBuffers(
