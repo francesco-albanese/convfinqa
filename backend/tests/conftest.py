@@ -36,6 +36,14 @@ DEFAULT_DOCUMENT_ID = "Single_TEST/2024/page_1.pdf-1"
 SEEDED_USER_UUID = "00000000-0000-0000-0000-000000000001"
 
 
+def escape_configparser_percent(value: str) -> str:
+    """configparser treats a bare "%" as the start of a %(name)s interpolation
+    reference and raises on anything else, so a literal "%" (e.g. a Ralph
+    worktree directory encoded as "...%2F...") must be escaped as "%%" before
+    Config.set_main_option."""
+    return value.replace("%", "%%")
+
+
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
@@ -63,8 +71,13 @@ def database_url(postgres_container: PostgresContainer) -> str:
 @pytest.fixture(scope="session")
 def schema(database_url: str) -> None:
     config = AlembicConfig(str(PROJECT_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(PROJECT_ROOT / "backend" / "alembic"))
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option(
+        "script_location",
+        escape_configparser_percent(str(PROJECT_ROOT / "backend" / "alembic")),
+    )
+    config.set_main_option(
+        "sqlalchemy.url", escape_configparser_percent(database_url)
+    )
     command.upgrade(config, "head")
 
 

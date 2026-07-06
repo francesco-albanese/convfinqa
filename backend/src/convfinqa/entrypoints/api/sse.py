@@ -1,8 +1,8 @@
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from typing import cast
 
-from convfinqa.application.use_cases.send_message import (
+from convfinqa.application.agent.stream_events import (
     Citation,
     ConcurrentRequest,
     ConversationResolved,
@@ -16,7 +16,6 @@ from convfinqa.application.use_cases.send_message import (
     StreamEvent,
     TextDelta,
     ToolCallArgsComplete,
-    ToolCallArgsDelta,
     ToolCallStart,
     ToolResult,
 )
@@ -28,6 +27,24 @@ async def prepend_event(
     yield first
     async for event in rest:
         yield event
+
+
+async def ui_message_stream_body(
+    first: StreamEvent, events: AsyncGenerator[StreamEvent]
+) -> AsyncIterator[str]:
+    """Frame events as SSE and close the source generator in this same task.
+
+    `to_ui_message_stream` returns right after the `[DONE]` frame without
+    exhausting `events`, which would otherwise leave the use-case generator
+    suspended inside its lock and OTel span scopes until event-loop GC
+    finalizes it in a different context — producing "Failed to detach context"
+    errors and cancelling the lock-release commit mid-flight.
+    """
+    try:
+        async for frame in to_ui_message_stream(prepend_event(first, events)):
+            yield frame
+    finally:
+        await events.aclose()
 
 
 DONE_FRAME = "data: [DONE]\n\n"
@@ -91,14 +108,6 @@ async def to_ui_message_stream(
                         "toolCallId": cid,
                         "toolName": name,
                         "dynamic": True,
-                    }
-                )
-            case ToolCallArgsDelta(call_id=cid, delta=delta):
-                yield _frame(
-                    {
-                        "type": "tool-input-delta",
-                        "toolCallId": cid,
-                        "inputTextDelta": delta,
                     }
                 )
             case ToolCallArgsComplete(call_id=cid, args=args):

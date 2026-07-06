@@ -40,7 +40,9 @@ class Tool:
 
 
 def _sql_query_sentinel(**_: Any) -> dict[str, Any]:
-    raise NotImplementedError("sql_query requires document binding via get_sql_query_callable")
+    raise NotImplementedError(
+        "sql_query requires document binding via get_sql_query_callable"
+    )
 
 
 TOOL_REGISTRY: dict[str, Tool] = {

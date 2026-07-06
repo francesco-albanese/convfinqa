@@ -4,13 +4,13 @@ from uuid import UUID
 
 import pytest
 
-from convfinqa.application.use_cases.send_message import (
+from convfinqa.application.agent.stream_events import (
     ConversationResolved,
     MessageStarted,
-    SendMessageUseCase,
     StreamEvent,
     TextDelta,
 )
+from convfinqa.application.use_cases.send_message import SendMessageUseCase
 from convfinqa.config import Settings
 from convfinqa.entrypoints.api.chat import ChatRequest, sync_chat
 from convfinqa.entrypoints.api.errors import UpstreamLLMError

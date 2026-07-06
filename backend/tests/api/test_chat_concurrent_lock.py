@@ -21,7 +21,7 @@ async def _create_conversation(app: FastAPI, document_id: str) -> str:
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": document_id},
+            json={"message": "hi, about the document", "document_id": document_id},
         )
         return str(response.json()["conversation_id"])
 
@@ -43,7 +43,10 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
             response = await client.post(
                 "/api/v1/chat/stream",
                 headers={"X-User-Id": SEEDED_USER_UUID},
-                json={"message": "second", "conversation_id": conversation_id},
+                json={
+                    "message": "second, about the document",
+                    "conversation_id": conversation_id,
+                },
             )
             return response.status_code, response.text, dict(response.headers)
 
@@ -73,7 +76,7 @@ async def test_concurrent_streams_second_returns_409_problem_with_first_finishin
 
     user_messages = [r for r in rows if r.role == "user"]
     user_contents = [r.content for r in user_messages]
-    assert user_contents.count("second") == 1
+    assert user_contents.count("second, about the document") == 1
 
     assistant_messages = [r for r in rows if r.role == "assistant"]
     assert len(assistant_messages) == 2
@@ -95,7 +98,10 @@ async def test_sync_chat_concurrent_returns_409(
             response = await client.post(
                 "/api/v1/chat",
                 headers={"X-User-Id": SEEDED_USER_UUID},
-                json={"message": "again", "conversation_id": conversation_id},
+                json={
+                "message": "again, about the document",
+                "conversation_id": conversation_id,
+            },
             )
             return response.status_code, response.json()
 

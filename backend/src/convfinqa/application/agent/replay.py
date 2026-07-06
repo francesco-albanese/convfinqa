@@ -4,15 +4,28 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from convfinqa.application.agent.sql.citation_extractor import extract_citations
-from convfinqa.application.agent.stream_events import Citation, ToolResult
+from convfinqa.application.agent.stream_events import (
+    Citation,
+    StreamEvent,
+    ToolCallArgsComplete,
+    ToolCallStart,
+    ToolResult,
+)
 from convfinqa.application.agent.tool_executor import execute_tool
+from convfinqa.application.agent.tool_policy_gate import (
+    BLOCKED_TOOL_ERROR,
+    BLOCKED_TOOL_NAME,
+    ToolPolicyGate,
+)
 from convfinqa.application.agent.tools import TOOL_REGISTRY, build_sql_query_tool
 from convfinqa.application.agent.wire import safe_json_loads
+from convfinqa.application.security_signals import SecuritySignals
 from convfinqa.domain.entities import Document
 from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.logging import get_logger
 
 logger = get_logger("convfinqa.replay")
+_tool_policy_gate = ToolPolicyGate()
 
 
 async def execute_and_replay_tools(
@@ -23,27 +36,53 @@ async def execute_and_replay_tools(
     document: Document,
     seen_citations: set[tuple[str, str]],
     observability: ObservabilityPort,
-) -> AsyncGenerator[ToolResult | Citation]:
+    security_signals: SecuritySignals | None = None,
+    conversation_id: str = "",
+) -> AsyncGenerator[StreamEvent]:
     tool_use_blocks: list[dict[str, Any]] = []
     tool_results_for_wire: list[dict[str, Any]] = []
 
     for call_id, tc_state in tool_calls.items():
         raw_args = tc_state.get("args", "".join(tc_state["args_chunks"]))
         tool_name = tc_state["name"]
+        policy_decision = _tool_policy_gate.decide(tool_name, raw_args)
 
-        tool = TOOL_REGISTRY.get(tool_name)
-        if tool is None:
+        if policy_decision.blocked:
+            if security_signals is not None:
+                security_signals.tool_policy_blocked(
+                    conversation_id=conversation_id,
+                    document_id=document.id,
+                    tool_name=tool_name,
+                    reason=(
+                        policy_decision.reason.value
+                        if policy_decision.reason is not None
+                        else "unknown"
+                    ),
+                )
             async with observability.start_as_current_observation(
-                as_type="tool", name=tool_name
+                as_type="tool",
+                name=BLOCKED_TOOL_NAME,
+                input={"blocked": True, "reason": policy_decision.reason},
             ) as span:
-                result_str = json.dumps({"error": f"unknown tool: {tool_name}"})
+                result_str = json.dumps({"error": BLOCKED_TOOL_ERROR})
                 span.set_output(result_str)
                 span.set_error()
             is_error = True
+            stored_name = BLOCKED_TOOL_NAME
+            stored_args = json.dumps({"blocked": True})
+            wire_input: object = {"blocked": True}
+            yield ToolCallStart(call_id=call_id, name=stored_name)
+            yield ToolCallArgsComplete(call_id=call_id, args=stored_args)
         else:
+            yield ToolCallStart(call_id=call_id, name=tool_name)
+            yield ToolCallArgsComplete(call_id=call_id, args=raw_args)
+            tool = TOOL_REGISTRY[tool_name]
             if tool.name == "sql_query":
                 tool = build_sql_query_tool(document)
             result_str, is_error = await execute_tool(tool, raw_args, observability)
+            stored_name = tool_name
+            stored_args = raw_args
+            wire_input = safe_json_loads(raw_args)
 
         yield ToolResult(call_id=call_id, result=result_str, is_error=is_error)
 
@@ -51,8 +90,8 @@ async def execute_and_replay_tools(
             {
                 "kind": "tool_call",
                 "call_id": call_id,
-                "name": tool_name,
-                "args": raw_args,
+                "name": stored_name,
+                "args": stored_args,
             }
         )
         parts_in_order.append(
@@ -103,8 +142,8 @@ async def execute_and_replay_tools(
             {
                 "type": "tool_use",
                 "id": call_id,
-                "name": tool_name,
-                "input": safe_json_loads(raw_args),
+                "name": stored_name,
+                "input": wire_input,
             }
         )
         tool_results_for_wire.append(
