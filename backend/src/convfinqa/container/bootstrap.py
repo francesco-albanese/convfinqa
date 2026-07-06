@@ -40,7 +40,7 @@ def bootstrap_application(settings: Settings) -> Container:
     conversations, documents, documents_port, locks, user_lookup = build_persistence(
         session_factory
     )
-    prompt_provider = build_prompt_provider()
+    prompt_provider = build_prompt_provider(settings)
     session = build_session(settings, user_lookup)
     if session is None:
         _log.warning(
@@ -111,7 +111,9 @@ def for_testing(
         session_factory
     )
     resolved_prompt_provider = (
-        prompt_provider if prompt_provider is not None else build_prompt_provider()
+        prompt_provider
+        if prompt_provider is not None
+        else build_prompt_provider(settings)
     )
     pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
     resolved_cache: CachePort = cache if cache is not None else pg_cache

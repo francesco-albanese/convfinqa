@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 
+from langfuse import Langfuse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from convfinqa.adapters.auth.cognito_jwks import CognitoJwksAdapter
@@ -11,6 +12,7 @@ from convfinqa.adapters.persistence.sqlalchemy.repository import (
     SqlAlchemyDocumentRepository,
 )
 from convfinqa.adapters.persistence.sqlalchemy.user_lookup import SqlAlchemyUserLookup
+from convfinqa.adapters.prompts.langfuse_provider import LangfusePromptProvider
 from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.adapters.rate_limit.postgres import PostgresRateLimitAdapter
 from convfinqa.application.security_signals import SecuritySignals
@@ -37,7 +39,15 @@ from convfinqa.domain.ports.session import SessionPort, UserRecord
 UserLookup = Callable[[str], Awaitable[UserRecord | None]]
 
 
-def build_prompt_provider() -> PromptProviderPort:
+def build_prompt_provider(settings: Settings) -> PromptProviderPort:
+    if settings.langfuse_enabled and settings.langfuse_public_key and settings.langfuse_secret_key:
+        client = Langfuse(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key,
+            host=settings.langfuse_host,
+            tracing_enabled=False,
+        )
+        return LangfusePromptProvider(client)
     return LocalFilePromptProvider()
 
 
