@@ -21,7 +21,7 @@
 		"postgres": "^3.4"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.14",
+		"@biomejs/biome": "2.5.2",
 		"@testcontainers/postgresql": "^10",
 		"@types/aws-lambda": "^8",
 		"@types/node": "^24",
