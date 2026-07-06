@@ -62,13 +62,22 @@ class StreamingOutputGuard:
         self._pending = ""
         self._blocked = False
         self._refusal_emitted = False
+        self._reason: OutputGuardReason | None = None
 
     @property
     def blocked(self) -> bool:
         return self._blocked
 
-    def block(self) -> StreamingGuardResult:
+    @property
+    def reason(self) -> OutputGuardReason | None:
+        return self._reason
+
+    def block(
+        self, reason: OutputGuardReason | None = None
+    ) -> StreamingGuardResult:
         self._blocked = True
+        if reason is not None:
+            self._reason = reason
         self._pending = ""
         if self._refusal_emitted:
             return StreamingGuardResult(blocked=True)
@@ -82,7 +91,7 @@ class StreamingOutputGuard:
         self._pending += text
         decision = self._guard.decide(self._pending)
         if decision.blocked:
-            return self.block()
+            return self.block(decision.reason)
 
         if len(self._pending) <= self._holdback_chars:
             return StreamingGuardResult()
@@ -98,7 +107,7 @@ class StreamingOutputGuard:
 
         decision = self._guard.decide(self._pending)
         if decision.blocked:
-            return self.block()
+            return self.block(decision.reason)
 
         safe_text = self._pending
         self._pending = ""

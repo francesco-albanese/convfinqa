@@ -11,6 +11,7 @@ from convfinqa.application.output_guard import (
     OUTPUT_GUARD_REFUSAL,
     StreamingOutputGuard,
 )
+from convfinqa.application.security_signals import SecuritySignals
 from convfinqa.domain.entities import Document
 from convfinqa.domain.ports.llm import LLMPort, LLMToolSpec
 from convfinqa.domain.ports.observability import ObservabilityPort
@@ -64,6 +65,7 @@ async def stream_agent_iterations(
     conversation_id: str,
     environment: str,
     model: str,
+    security_signals: SecuritySignals | None = None,
 ) -> AsyncGenerator[StreamEvent]:
     for iteration in range(ITERATION_CAP):
         state = IterationState()
@@ -94,6 +96,17 @@ async def stream_agent_iterations(
         buffers.usage = state.usage
         if output_guard.blocked:
             buffers.output_blocked = True
+            if security_signals is not None:
+                security_signals.output_guard_blocked(
+                    conversation_id=conversation_id,
+                    document_id=document.id,
+                    model=model,
+                    reason=(
+                        output_guard.reason.value
+                        if output_guard.reason is not None
+                        else "unknown"
+                    ),
+                )
             buffers.replace_visible_text(OUTPUT_GUARD_REFUSAL)
             break
 
@@ -114,6 +127,12 @@ async def stream_agent_iterations(
 
         if iteration == ITERATION_CAP - 1:
             buffers.stop_reason = StopReason.ITERATION_CAP
+            if security_signals is not None:
+                security_signals.cost_control_triggered(
+                    conversation_id=conversation_id,
+                    model=model,
+                    control="iteration_cap",
+                )
             break
 
         async for event in execute_and_replay_tools(
@@ -124,5 +143,7 @@ async def stream_agent_iterations(
             document,
             buffers.seen_citations,
             observability,
+            security_signals=security_signals,
+            conversation_id=conversation_id,
         ):
             yield event
