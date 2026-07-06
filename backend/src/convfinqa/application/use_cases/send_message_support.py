@@ -9,6 +9,9 @@ from typing import Any
 
 from convfinqa.application.agent.stream_events import Finish, StreamEvent, TextDelta
 from convfinqa.application.domain_boundary import (
+    APP_CAPABILITY_REASON,
+    PROTECTED_INTERNALS_REASON,
+    ROLE_CHANGE_REASON,
     DomainBoundaryAction,
     DomainBoundaryPolicy,
 )
@@ -19,6 +22,11 @@ from convfinqa.application.prompt_injection_detector import (
     PromptInjectionDetector,
     PromptInjectionSurface,
 )
+from convfinqa.application.security_signals import SecuritySignals
+from convfinqa.application.suspicious_attempt_throttle import (
+    SUSPICIOUS_ACTIVITY_REFUSAL,
+    SuspiciousAttemptThrottle,
+)
 from convfinqa.domain.entities import Conversation, Document, Message
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
@@ -28,6 +36,10 @@ from convfinqa.domain.value_objects import Role, StopReason
 from convfinqa.logging import get_logger
 
 logger = get_logger("convfinqa.send_message")
+
+SUSPICIOUS_BOUNDARY_REASONS = frozenset(
+    {PROTECTED_INTERNALS_REASON, ROLE_CHANGE_REASON}
+)
 
 
 class ConversationNotFoundError(Exception):
@@ -48,13 +60,17 @@ class UserTurnGuardResult:
     detector_failed: bool = False
 
 
-def guard_user_turn(
+async def guard_user_turn(
     *,
     detector: PromptInjectionDetector,
     domain_boundary: DomainBoundaryPolicy,
     user_text: str,
     document: Document,
     conversation_id: str,
+    user_id: uuid.UUID,
+    model: str,
+    security_signals: SecuritySignals,
+    suspicious_throttle: SuspiciousAttemptThrottle | None,
 ) -> UserTurnGuardResult:
     try:
         injection_decision = detector.decide(
@@ -71,19 +87,97 @@ def guard_user_turn(
                 "conversation_id": conversation_id,
             },
         )
+        security_signals.prompt_injection_detected(
+            conversation_id=conversation_id,
+            document_id=document.id,
+            model=model,
+            action=PromptInjectionAction.BLOCK.value,
+            families=(),
+            surfaces=(),
+            detector_failed=True,
+        )
         return UserTurnGuardResult(
             response=PROMPT_INJECTION_REFUSAL,
             detector_failed=True,
         )
 
+    if injection_decision.action != PromptInjectionAction.ALLOW:
+        security_signals.prompt_injection_detected(
+            conversation_id=conversation_id,
+            document_id=document.id,
+            model=model,
+            action=injection_decision.action.value,
+            families=(
+                finding.family.value for finding in injection_decision.findings
+            ),
+            surfaces=(
+                finding.surface.value for finding in injection_decision.findings
+            ),
+        )
     if injection_decision.action == PromptInjectionAction.BLOCK:
-        return UserTurnGuardResult(response=PROMPT_INJECTION_REFUSAL)
+        refusal = await suspicious_refusal(
+            security_signals=security_signals,
+            suspicious_throttle=suspicious_throttle,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            refusal=PROMPT_INJECTION_REFUSAL,
+        )
+        return UserTurnGuardResult(response=refusal)
 
     boundary_decision = domain_boundary.decide(user_text, document)
     if boundary_decision.action == DomainBoundaryAction.RESPOND_WITH_POLICY_MESSAGE:
-        return UserTurnGuardResult(response=boundary_decision.response or "")
+        response = boundary_decision.response or ""
+        if boundary_decision.reason != APP_CAPABILITY_REASON:
+            security_signals.domain_boundary_blocked(
+                conversation_id=conversation_id,
+                document_id=document.id,
+                model=model,
+                reason=boundary_decision.reason,
+            )
+        if boundary_decision.reason in SUSPICIOUS_BOUNDARY_REASONS:
+            response = await suspicious_refusal(
+                security_signals=security_signals,
+                suspicious_throttle=suspicious_throttle,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                refusal=response,
+            )
+        return UserTurnGuardResult(response=response)
 
     return UserTurnGuardResult()
+
+
+async def suspicious_refusal(
+    *,
+    security_signals: SecuritySignals,
+    suspicious_throttle: SuspiciousAttemptThrottle | None,
+    user_id: uuid.UUID,
+    conversation_id: str,
+    refusal: str,
+) -> str:
+    if suspicious_throttle is None:
+        return refusal
+    try:
+        decision = await suspicious_throttle.register_blocked_attempt(user_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.log(
+            logging.WARNING,
+            "suspicious_attempt_tracking_failed",
+            extra={
+                "exc_type": exc.__class__.__name__,
+                "exc_message": str(exc) or exc.__class__.__name__,
+                "conversation_id": conversation_id,
+            },
+        )
+        return refusal
+    if not decision.throttled:
+        return refusal
+    security_signals.suspicious_activity_throttled(
+        conversation_id=conversation_id,
+        attempts=decision.attempts,
+        window_seconds=suspicious_throttle.window_seconds,
+    )
+    return SUSPICIOUS_ACTIVITY_REFUSAL
 
 
 async def resolve_conversation_and_document(

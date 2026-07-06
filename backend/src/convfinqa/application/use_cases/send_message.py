@@ -23,6 +23,11 @@ from convfinqa.application.domain_boundary import DomainBoundaryPolicy
 from convfinqa.application.prompt_injection_detector import PromptInjectionDetector
 from convfinqa.application.prompts.system_prompt import build_system_prompt_variables
 from convfinqa.application.prompts.tool_docs import build_tool_docs
+from convfinqa.application.security_signals import (
+    SecuritySignals,
+    classify_provider_error,
+)
+from convfinqa.application.suspicious_attempt_throttle import SuspiciousAttemptThrottle
 from convfinqa.application.use_cases.send_message_support import (
     cancel_title_task,
     guard_user_turn,
@@ -61,6 +66,8 @@ class SendMessageUseCase:
         environment: str,
         prompt_injection_detector: PromptInjectionDetector | None = None,
         system_prompt_label: str = "production",
+        security_signals: SecuritySignals | None = None,
+        suspicious_throttle: SuspiciousAttemptThrottle | None = None,
     ) -> None:
         self._llm = llm
         self._conversations = conversations
@@ -75,6 +82,8 @@ class SendMessageUseCase:
         self._prompt_injection_detector = (
             prompt_injection_detector or PromptInjectionDetector()
         )
+        self._security_signals = security_signals or SecuritySignals()
+        self._suspicious_throttle = suspicious_throttle
 
     async def stream(
         self,
@@ -134,12 +143,16 @@ class SendMessageUseCase:
                 assistant_id = new_message_id()
                 yield MessageStarted(message_id=assistant_id)
 
-                guard_result = guard_user_turn(
+                guard_result = await guard_user_turn(
                     detector=self._prompt_injection_detector,
                     domain_boundary=self._domain_boundary,
                     user_text=user_text,
                     document=document,
                     conversation_id=conversation.id,
+                    user_id=user_id,
+                    model=resolved_model,
+                    security_signals=self._security_signals,
+                    suspicious_throttle=self._suspicious_throttle,
                 )
                 if guard_result.response is not None:
                     if guard_result.detector_failed:
@@ -187,6 +200,7 @@ class SendMessageUseCase:
                         environment=self._environment,
                         model=resolved_model,
                         prompt_ref=prompt_ref,
+                        security_signals=self._security_signals,
                     ):
                         yield event
                 except GeneratorExit:
@@ -217,6 +231,14 @@ class SendMessageUseCase:
                             "conversation_id": conversation.id,
                         },
                     )
+                    provider_condition = classify_provider_error(exc)
+                    if provider_condition is not None:
+                        self._security_signals.provider_throttled(
+                            conversation_id=conversation.id,
+                            model=resolved_model,
+                            condition=provider_condition,
+                            exc_type=exc.__class__.__name__,
+                        )
 
                 buffers.flush_current_text_part()
 
