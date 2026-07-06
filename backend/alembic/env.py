@@ -15,7 +15,10 @@ if config.get_main_option("sqlalchemy.url") in (None, ""):
     config.set_main_option("sqlalchemy.url", SETTINGS.database_url)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers defaults to True, which silently switches off
+    # every already-created application logger (e.g. convfinqa.security) when
+    # migrations run in-process — tests and any embedded upgrade would lose logs.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

@@ -27,7 +27,9 @@ def score_answer(model_answer: str, gold_answer: str) -> AnswerMatchResult:
     candidates = [model.value]
     if gold.is_percent != model.is_percent:
         candidates.append(
-            model.value / Decimal(100) if model.is_percent else model.value * Decimal(100)
+            model.value / Decimal(100)
+            if model.is_percent
+            else model.value * Decimal(100)
         )
 
     passed = any(
@@ -50,7 +52,7 @@ def _inline_accounting_negatives(text: str) -> str:
     def negate(match: re.Match[str]) -> str:
         inner = match.group("inner").strip()
         percent_suffix = "%" if inner.endswith("%") else ""
-        numeral = inner[: -1].strip() if percent_suffix else inner
+        numeral = inner[:-1].strip() if percent_suffix else inner
         numeral = numeral.removeprefix("-").removeprefix("+")
         return f"-{numeral}{percent_suffix}"
 

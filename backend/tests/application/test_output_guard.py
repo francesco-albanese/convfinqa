@@ -67,7 +67,7 @@ async def test_streaming_guard_blocks_split_leak_before_text_delta() -> None:
     parts: list[dict[str, object]] = []
     text_chunks: list[str] = []
     current_text: list[str] = []
-    events = []
+    events: list[StreamEvent] = []
     async for event in process_llm_chunks(
         chunks(),
         IterationState(),
@@ -124,7 +124,7 @@ async def test_streaming_guard_allows_safe_text_after_flush() -> None:
 
     text_chunks: list[str] = []
     current_text: list[str] = []
-    events = []
+    events: list[StreamEvent] = []
     async for event in process_llm_chunks(
         chunks(),
         IterationState(),

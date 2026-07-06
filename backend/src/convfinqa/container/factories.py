@@ -40,7 +40,11 @@ UserLookup = Callable[[str], Awaitable[UserRecord | None]]
 
 
 def build_prompt_provider(settings: Settings) -> PromptProviderPort:
-    if settings.langfuse_enabled and settings.langfuse_public_key and settings.langfuse_secret_key:
+    if (
+        settings.langfuse_enabled
+        and settings.langfuse_public_key
+        and settings.langfuse_secret_key
+    ):
         client = Langfuse(
             public_key=settings.langfuse_public_key,
             secret_key=settings.langfuse_secret_key,

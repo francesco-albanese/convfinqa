@@ -64,9 +64,7 @@ def sync(
     entries = read_catalog_entries()
     git_sha = _git_short_sha()
 
-    report = asyncio.run(
-        sync_catalog(entries, publisher, git_sha, dry_run=dry_run)
-    )
+    report = asyncio.run(sync_catalog(entries, publisher, git_sha, dry_run=dry_run))
     _print_report(report, dry_run=dry_run)
 
     if report.has_errors:

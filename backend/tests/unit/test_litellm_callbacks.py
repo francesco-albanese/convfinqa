@@ -1,3 +1,8 @@
+# White-box tests for the litellm adapter boundary. litellm's public API is
+# untyped (see .claude/rules/python/litellm.md), and these tests exercise the
+# adapter's private callback helpers on purpose.
+# pyright: reportPrivateUsage=false, reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false, reportUnknownArgumentType=false
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -236,7 +241,9 @@ async def test_open_stream_passes_prompt_ref_in_metadata() -> None:
             wire_messages=[{"role": "user", "content": "hi"}],
             timeout_seconds=30.0,
             max_output_tokens=1000,
-            prompt_ref=PromptRef(name="convfinqa-system", label="production", version=3),
+            prompt_ref=PromptRef(
+                name="convfinqa-system", label="production", version=3
+            ),
         )
 
     assert captured_kwargs["metadata"] == {

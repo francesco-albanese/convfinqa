@@ -73,27 +73,39 @@ async def stream_agent_iterations(
         assistant_thinking_blocks: list[dict[str, Any]] = []
         output_guard = StreamingOutputGuard()
 
-        async for event in process_llm_chunks(
-            llm.stream(
-                buffers.wire_messages,
-                system_prompt,
-                tool_specs,
-                generation_name=f"iteration-{iteration}",
-                trace_user_id=str(user_id),
-                session_id=conversation_id,
-                environment=environment,
-                model=model,
-                prompt_ref=prompt_ref,
-            ),
-            state,
-            buffers.parts_in_order,
-            buffers.text_chunks,
-            buffers.current_text_buffer,
-            buffers.reasoning_signatures,
-            assistant_thinking_blocks,
-            output_guard,
-        ):
-            yield event
+        try:
+            async for event in process_llm_chunks(
+                llm.stream(
+                    buffers.wire_messages,
+                    system_prompt,
+                    tool_specs,
+                    generation_name=f"iteration-{iteration}",
+                    trace_user_id=str(user_id),
+                    session_id=conversation_id,
+                    environment=environment,
+                    model=model,
+                    prompt_ref=prompt_ref,
+                ),
+                state,
+                buffers.parts_in_order,
+                buffers.text_chunks,
+                buffers.current_text_buffer,
+                buffers.reasoning_signatures,
+                assistant_thinking_blocks,
+                output_guard,
+            ):
+                yield event
+        except Exception:
+            # An upstream error abandons the iteration before
+            # process_llm_chunks' final flush, which would silently drop any
+            # partial answer still inside the guard's holdback window. Flush
+            # it through the guard (so it is still scanned) and keep it for
+            # persistence before propagating the error.
+            result = output_guard.flush()
+            if result.text:
+                buffers.text_chunks.append(result.text)
+                buffers.current_text_buffer.append(result.text)
+            raise
 
         buffers.usage = state.usage
         if output_guard.blocked:

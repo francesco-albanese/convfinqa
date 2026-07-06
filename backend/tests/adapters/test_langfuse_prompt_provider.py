@@ -40,9 +40,7 @@ async def test_fetches_by_label_and_compiles_variables() -> None:
 
 
 async def test_exposes_the_prompts_config_for_ab_selection() -> None:
-    client = FakeClient(
-        prompt="Hello {{name}}.", config={"ab": {"enabled": True}}
-    )
+    client = FakeClient(prompt="Hello {{name}}.", config={"ab": {"enabled": True}})
     provider = LangfusePromptProvider(client)
 
     compiled = await provider.compile("convfinqa-system", "production", {"name": "X"})

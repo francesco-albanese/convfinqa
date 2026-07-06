@@ -32,9 +32,7 @@ USER_A = UUID("11111111-1111-1111-1111-111111111111")
 async def test_pinned_label_bypasses_ab_entirely() -> None:
     provider = FakeProvider(text_by_label={"latest": "latest text"})
 
-    text, prompt_ref = await resolve_system_prompt(
-        provider, "latest", uuid4(), {}
-    )
+    text, prompt_ref = await resolve_system_prompt(provider, "latest", uuid4(), {})
 
     assert text == "latest text"
     assert provider.calls == [("convfinqa-system", "latest")]
@@ -48,9 +46,7 @@ async def test_disabled_ab_serves_production_with_a_single_fetch() -> None:
         config={"ab": {"enabled": False}},
     )
 
-    text, prompt_ref = await resolve_system_prompt(
-        provider, "production", uuid4(), {}
-    )
+    text, prompt_ref = await resolve_system_prompt(provider, "production", uuid4(), {})
 
     assert text == "prod text"
     assert provider.calls == [("convfinqa-system", "production")]
@@ -71,9 +67,7 @@ async def test_enabled_ab_routes_to_a_variant_and_links_its_version() -> None:
         },
     )
 
-    text, prompt_ref = await resolve_system_prompt(
-        provider, "production", USER_A, {}
-    )
+    text, prompt_ref = await resolve_system_prompt(provider, "production", USER_A, {})
 
     assert text == "variant text"
     assert provider.calls == [
@@ -118,9 +112,7 @@ async def test_malformed_ab_config_degrades_to_production() -> None:
         config={"ab": {"enabled": True}},
     )
 
-    text, prompt_ref = await resolve_system_prompt(
-        provider, "production", uuid4(), {}
-    )
+    text, prompt_ref = await resolve_system_prompt(provider, "production", uuid4(), {})
 
     assert text == "prod text"
     assert provider.calls == [("convfinqa-system", "production")]

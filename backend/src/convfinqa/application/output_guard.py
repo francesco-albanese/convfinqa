@@ -72,9 +72,7 @@ class StreamingOutputGuard:
     def reason(self) -> OutputGuardReason | None:
         return self._reason
 
-    def block(
-        self, reason: OutputGuardReason | None = None
-    ) -> StreamingGuardResult:
+    def block(self, reason: OutputGuardReason | None = None) -> StreamingGuardResult:
         self._blocked = True
         if reason is not None:
             self._reason = reason
