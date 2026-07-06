@@ -62,10 +62,12 @@ async def test_prompt_provider_compiles_once_across_agent_loop_iterations() -> N
             session_id: str | None = None,
             environment: str | None = None,
             model: str | None = None,
+            prompt_ref: Any = None,
         ) -> AsyncIterator[LLMChunk]:
             self.seen_systems.append(system)
             self.seen_messages.append(list(messages))
             del tools, generation_name, trace_user_id, session_id, environment, model
+            del prompt_ref
             yield LLMChunk(
                 tool_call_event="start",
                 tool_call_id="c1",
@@ -145,3 +147,56 @@ async def test_existing_conversation_with_prior_user_message_does_not_regenerate
 
     assert titles == []
     assert convs.conversations["conv_existing"].title is None
+
+
+@pytest.mark.asyncio
+async def test_passes_prompt_ref_to_llm_when_provider_resolves_a_version() -> None:
+    convs = FakeConvRepo()
+    docs = FakeDocRepo(by_id={"doc-1": document()})
+    llm = FakeLLM(deltas=("answer",))
+    provider = CountingPromptProvider(version=7)
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id=USER_ID_STR,
+        document_id="doc-1",
+        created_at=datetime.now(UTC),
+        title="Existing title",
+    )
+    use_case = build_use_case(convs, docs, llm, prompt_provider=provider)
+
+    async for _ in use_case.stream(
+        user_id=USER_ID,
+        conversation_id="conv_existing",
+        user_text="what was revenue in the pinned document?",
+    ):
+        pass
+
+    prompt_ref = llm.seen_prompt_refs[0]
+    assert prompt_ref.name == "convfinqa-system"
+    assert prompt_ref.label == "production"
+    assert prompt_ref.version == 7
+
+
+@pytest.mark.asyncio
+async def test_omits_prompt_ref_when_provider_has_no_version() -> None:
+    convs = FakeConvRepo()
+    docs = FakeDocRepo(by_id={"doc-1": document()})
+    llm = FakeLLM(deltas=("answer",))
+    provider = CountingPromptProvider(version=None)
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id=USER_ID_STR,
+        document_id="doc-1",
+        created_at=datetime.now(UTC),
+        title="Existing title",
+    )
+    use_case = build_use_case(convs, docs, llm, prompt_provider=provider)
+
+    async for _ in use_case.stream(
+        user_id=USER_ID,
+        conversation_id="conv_existing",
+        user_text="what was revenue in the pinned document?",
+    ):
+        pass
+
+    assert llm.seen_prompt_refs[0] is None

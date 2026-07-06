@@ -44,11 +44,12 @@ def _document(
 
 
 async def _system_prompt(document: Document) -> str:
-    return await LocalFilePromptProvider().compile(
+    compiled = await LocalFilePromptProvider().compile(
         "convfinqa-system",
         "production",
         build_system_prompt_variables(document, build_tool_docs()),
     )
+    return compiled.text
 
 
 async def test_prompt_embeds_framing_title_ticker_and_year() -> None:

@@ -30,6 +30,7 @@ class StubLLM:
         session_id: str | None = None,
         environment: str | None = None,
         model: str | None = None,
+        prompt_ref: Any = None,
     ) -> AsyncIterator[LLMChunk]:
         del model
         self.received_wire_messages.append(list(messages))

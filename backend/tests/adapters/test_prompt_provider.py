@@ -7,7 +7,7 @@ from convfinqa.adapters.prompts.local_file import (
 
 
 async def test_local_prompt_provider_resolves_catalog_prompt() -> None:
-    prompt = await LocalFilePromptProvider().compile(
+    compiled = await LocalFilePromptProvider().compile(
         "convfinqa-system",
         "production",
         {
@@ -21,10 +21,11 @@ async def test_local_prompt_provider_resolves_catalog_prompt() -> None:
         },
     )
 
-    assert prompt.startswith("<trusted_application_policy>")
-    assert "You are ConvFinQA" in prompt
-    assert "Title: ACME" in prompt
-    assert "## tool docs" in prompt
+    assert compiled.text.startswith("<trusted_application_policy>")
+    assert "You are ConvFinQA" in compiled.text
+    assert "Title: ACME" in compiled.text
+    assert "## tool docs" in compiled.text
+    assert compiled.version is None
 
 
 def test_prompt_template_compile_replaces_all_variables() -> None:

@@ -21,7 +21,7 @@ from convfinqa.domain.entities import (
 )
 from convfinqa.domain.ports.llm import LLMChunk, LLMPort
 from convfinqa.domain.ports.lock import ConversationLockPort
-from convfinqa.domain.ports.prompts import PromptProviderPort
+from convfinqa.domain.ports.prompts import CompiledPrompt, PromptProviderPort
 from convfinqa.domain.ports.repository import (
     ConversationRepository,
     DocumentRepository,
@@ -115,6 +115,7 @@ class FakeLLM:
     seen_messages: list[list[dict[str, Any]]] = field(
         default_factory=list[list[dict[str, Any]]]
     )
+    seen_prompt_refs: list[Any] = field(default_factory=list[Any])
 
     async def stream(
         self,
@@ -126,6 +127,7 @@ class FakeLLM:
         session_id: str | None = None,
         environment: str | None = None,
         model: str | None = None,
+        prompt_ref: Any = None,
     ) -> AsyncIterator[LLMChunk]:
         if generation_name == "title-generation":
             for d in self.title_deltas:
@@ -133,6 +135,7 @@ class FakeLLM:
             return
         self.seen_systems.append(system)
         self.seen_messages.append(list(messages))
+        self.seen_prompt_refs.append(prompt_ref)
         del tools, model
         if self.chunks is not None:
             for chunk in self.chunks:
@@ -154,15 +157,16 @@ class FailingPromptInjectionDetector(PromptInjectionDetector):
 
 @dataclass(slots=True)
 class CountingPromptProvider:
+    version: int | None = None
     calls: list[tuple[str, str, dict[str, object]]] = field(
         default_factory=list[tuple[str, str, dict[str, object]]]
     )
 
     async def compile(
         self, name: str, label: str, variables: Mapping[str, object]
-    ) -> str:
+    ) -> CompiledPrompt:
         self.calls.append((name, label, dict(variables)))
-        return "compiled prompt"
+        return CompiledPrompt(text="compiled prompt", version=self.version)
 
 
 def document(doc_id: str = "doc-1") -> Document:

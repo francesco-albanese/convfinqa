@@ -3,12 +3,14 @@ from collections.abc import Mapping
 from typing import Any, Protocol, cast
 
 from convfinqa.adapters.prompts.local_file import compile_prompt_template
+from convfinqa.domain.ports.prompts import CompiledPrompt
 
 DEFAULT_CACHE_TTL_SECONDS = 60
 
 
 class _LangfuseTextPrompt(Protocol):
     prompt: str
+    version: int
 
 
 class _LangfuseClient(Protocol):
@@ -31,15 +33,15 @@ class LangfusePromptProvider:
 
     async def compile(
         self, name: str, label: str, variables: Mapping[str, object]
-    ) -> str:
-        def _fetch() -> str:
-            prompt = self._client.get_prompt(
+    ) -> CompiledPrompt:
+        def _fetch() -> _LangfuseTextPrompt:
+            return self._client.get_prompt(
                 name,
                 label=label,
                 type="text",
                 cache_ttl_seconds=self._cache_ttl_seconds,
             )
-            return prompt.prompt
 
-        template = await asyncio.to_thread(_fetch)
-        return compile_prompt_template(template, variables)
+        prompt = await asyncio.to_thread(_fetch)
+        text = compile_prompt_template(prompt.prompt, variables)
+        return CompiledPrompt(text=text, version=prompt.version)
