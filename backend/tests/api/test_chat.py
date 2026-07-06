@@ -37,7 +37,7 @@ async def test_sync_chat_happy_path_creates_conversation_and_persists_messages(
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": seeded_document_id},
+            json={"message": "hi, about the document", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -51,7 +51,7 @@ async def test_sync_chat_happy_path_creates_conversation_and_persists_messages(
 
     rows = await _messages_for(session_factory, body["conversation_id"])
     assert [r.role for r in rows] == ["user", "assistant"]
-    assert rows[0].content == "hi"
+    assert rows[0].content == "hi, about the document"
     assert rows[1].content == "Hello world"
     assert rows[1].stop_reason == "end_turn"
 
@@ -66,7 +66,7 @@ async def test_sync_chat_forwards_default_model_when_omitted(
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": seeded_document_id},
+            json={"message": "hi, about the document", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 200
@@ -81,13 +81,13 @@ async def test_sync_chat_forwards_chosen_model_when_in_allowlist(
     fake_llm: FakeLLMPort,
     seeded_document_id: str,
 ) -> None:
-    chosen_model = "gemini/gemini-2.5-flash"
+    chosen_model = "gemini/gemini-3.5-flash"
     async with await _client(app) as client:
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
             json={
-                "message": "hi",
+                "message": "hi, about the document",
                 "document_id": seeded_document_id,
                 "model": chosen_model,
             },
@@ -129,14 +129,17 @@ async def test_sync_chat_continuation_includes_prior_history(
         first = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "first", "document_id": seeded_document_id},
+            json={"message": "first, about the document", "document_id": seeded_document_id},
         )
         conversation_id = first.json()["conversation_id"]
 
         second = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "second", "conversation_id": conversation_id},
+            json={
+                "message": "second, about the document",
+                "conversation_id": conversation_id,
+            },
         )
 
     assert second.status_code == 200
@@ -145,9 +148,9 @@ async def test_sync_chat_continuation_includes_prior_history(
 
     second_call_messages = fake_llm.seen_messages[1]
     contents = [m["content"] for m in second_call_messages if isinstance(m, dict)]
-    assert "first" in contents
+    assert "first, about the document" in contents
     assert "Hello world" in contents
-    assert contents[-1] == "second"
+    assert contents[-1] == "second, about the document"
 
 
 @pytest.mark.asyncio
@@ -226,7 +229,7 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi", "document_id": seeded_document_id},
+            json={"message": "hi, about the document", "document_id": seeded_document_id},
         )
 
     assert response.status_code == 502
@@ -247,6 +250,6 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
         rows = list(result.scalars().all())
 
     assert [r.role for r in rows] == ["user", "assistant"]
-    assert rows[0].content == "hi"
+    assert rows[0].content == "hi, about the document"
     assert rows[1].content == "partial "
     assert rows[1].stop_reason == "interrupted"

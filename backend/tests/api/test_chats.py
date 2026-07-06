@@ -380,7 +380,9 @@ async def test_get_chat_messages_parts_envelope_round_trips_through_api(
 
 
 async def _start_conversation(
-    app: FastAPI, document_id: str, message: str = "what was revenue"
+    app: FastAPI,
+    document_id: str,
+    message: str = "what was revenue in the pinned document",
 ) -> str:
     async with await _client(app) as client:
         response = await client.post(
@@ -478,4 +480,4 @@ async def test_title_generation_failure_leaves_conversation_functional(
     items = await _list_chats(app)
     summary = next(item for item in items if item["id"] == conversation_id)
     assert summary["title"] is None
-    assert summary["last_message_preview"] == "what was revenue"
+    assert summary["last_message_preview"] == "what was revenue in the pinned document"

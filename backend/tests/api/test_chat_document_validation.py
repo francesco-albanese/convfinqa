@@ -56,14 +56,20 @@ async def test_existing_conversation_resumes_using_stored_document_id(
         first = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "first", "document_id": seeded_document_id},
+            json={
+                "message": "first, about the document",
+                "document_id": seeded_document_id,
+            },
         )
         conversation_id = first.json()["conversation_id"]
 
         second = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "second", "conversation_id": conversation_id},
+            json={
+                "message": "second, about the document",
+                "conversation_id": conversation_id,
+            },
         )
 
     assert second.status_code == 200
