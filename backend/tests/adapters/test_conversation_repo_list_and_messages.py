@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -14,8 +15,8 @@ DOC_AAA = "doc-aaa-2024"
 DOC_BBB = "doc-bbb-2025"
 DOC_CCC = "doc-ccc-2026"
 
-ALICE_UUID = "11111111-1111-1111-1111-111111111111"
-BOB_UUID = "22222222-2222-2222-2222-222222222222"
+ALICE_UUID = uuid.UUID("11111111-1111-1111-1111-111111111111")
+BOB_UUID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
 
 async def _seed_documents(engine: AsyncEngine) -> None:
@@ -53,14 +54,14 @@ async def _seed_users(engine: AsyncEngine) -> None:
                     "VALUES (CAST(:id AS uuid), :sub, :email) "
                     "ON CONFLICT (cognito_sub) DO NOTHING"
                 ),
-                {"id": user_uuid, "sub": cognito_sub, "email": email},
+                {"id": str(user_uuid), "sub": cognito_sub, "email": email},
             )
 
 
 async def _insert_conversation(
     engine: AsyncEngine,
     conv_id: str,
-    user_uuid: str,
+    user_uuid: uuid.UUID,
     document_id: str,
     created_at: datetime,
 ) -> None:
@@ -72,7 +73,7 @@ async def _insert_conversation(
             ),
             {
                 "id": conv_id,
-                "user_id": user_uuid,
+                "user_id": str(user_uuid),
                 "document_id": document_id,
                 "created_at": created_at,
             },

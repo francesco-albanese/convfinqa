@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from typing import cast
+from uuid import UUID
 
 import pytest
 
@@ -35,7 +36,7 @@ async def test_sync_chat_raises_upstream_error_when_finish_event_missing() -> No
     with pytest.raises(UpstreamLLMError, match="missing Finish event"):
         await sync_chat(
             body=ChatRequest(message="hi", document_id="doc-1"),
-            user_id="alice",
+            user_id=UUID("11111111-1111-1111-1111-111111111111"),
             send_message=cast(SendMessageUseCase, _StubSendMessage()),
             settings=Settings(),
         )
