@@ -48,6 +48,7 @@ def bootstrap_application(settings: Settings) -> Container:
             "not set. Auth middleware is bypassed; X-User-Id header is trusted as "
             "identity. Do NOT run in this state in production.",
         )
+    cache, rate_limit = build_pg_adapters(session_factory)
     (
         send_message,
         list_documents,
@@ -64,8 +65,8 @@ def bootstrap_application(settings: Settings) -> Container:
         prompt_provider,
         settings,
         observability,
+        rate_limit,
     )
-    cache, rate_limit = build_pg_adapters(session_factory)
     return Container(
         settings=settings,
         engine=engine,
@@ -112,6 +113,11 @@ def for_testing(
     resolved_prompt_provider = (
         prompt_provider if prompt_provider is not None else build_prompt_provider()
     )
+    pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
+    resolved_cache: CachePort = cache if cache is not None else pg_cache
+    resolved_rate_limit: RateLimitPort = (
+        rate_limit if rate_limit is not None else pg_rate_limit
+    )
     (
         send_message,
         list_documents,
@@ -128,11 +134,7 @@ def for_testing(
         resolved_prompt_provider,
         settings,
         resolved_observability,
-    )
-    pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
-    resolved_cache: CachePort = cache if cache is not None else pg_cache
-    resolved_rate_limit: RateLimitPort = (
-        rate_limit if rate_limit is not None else pg_rate_limit
+        resolved_rate_limit,
     )
     return Container(
         settings=settings,

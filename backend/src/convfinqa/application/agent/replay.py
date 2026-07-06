@@ -12,6 +12,7 @@ from convfinqa.application.agent.tool_policy_gate import (
 )
 from convfinqa.application.agent.tools import TOOL_REGISTRY, build_sql_query_tool
 from convfinqa.application.agent.wire import safe_json_loads
+from convfinqa.application.security_signals import SecuritySignals
 from convfinqa.domain.entities import Document
 from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.logging import get_logger
@@ -28,6 +29,8 @@ async def execute_and_replay_tools(
     document: Document,
     seen_citations: set[tuple[str, str]],
     observability: ObservabilityPort,
+    security_signals: SecuritySignals | None = None,
+    conversation_id: str = "",
 ) -> AsyncGenerator[ToolResult | Citation]:
     tool_use_blocks: list[dict[str, Any]] = []
     tool_results_for_wire: list[dict[str, Any]] = []
@@ -38,6 +41,17 @@ async def execute_and_replay_tools(
         policy_decision = _tool_policy_gate.decide(tool_name, raw_args)
 
         if policy_decision.blocked:
+            if security_signals is not None:
+                security_signals.tool_policy_blocked(
+                    conversation_id=conversation_id,
+                    document_id=document.id,
+                    tool_name=tool_name,
+                    reason=(
+                        policy_decision.reason.value
+                        if policy_decision.reason is not None
+                        else "unknown"
+                    ),
+                )
             async with observability.start_as_current_observation(
                 as_type="tool", name=tool_name, input=safe_json_loads(raw_args)
             ) as span:

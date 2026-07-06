@@ -34,6 +34,9 @@ from convfinqa.application.agent.wire import (
     new_message_id,
 )
 from convfinqa.application.domain_boundary import (
+    APP_CAPABILITY_REASON,
+    PROTECTED_INTERNALS_REASON,
+    ROLE_CHANGE_REASON,
     DomainBoundaryAction,
     DomainBoundaryPolicy,
 )
@@ -47,6 +50,14 @@ from convfinqa.application.prompt_injection_detector import (
 )
 from convfinqa.application.prompts.system_prompt import build_system_prompt_variables
 from convfinqa.application.prompts.tool_docs import build_tool_docs
+from convfinqa.application.security_signals import (
+    SecuritySignals,
+    classify_provider_error,
+)
+from convfinqa.application.suspicious_attempt_throttle import (
+    SUSPICIOUS_ACTIVITY_REFUSAL,
+    SuspiciousAttemptThrottle,
+)
 from convfinqa.application.use_cases.title_generation import generate_title
 from convfinqa.domain.entities import Conversation, Document, Message
 from convfinqa.domain.ports.llm import LLMPort
@@ -88,6 +99,10 @@ __all__ = [
 
 UPSTREAM_LLM_PUBLIC_DETAIL = "upstream LLM error"
 
+SUSPICIOUS_BOUNDARY_REASONS = frozenset(
+    {PROTECTED_INTERNALS_REASON, ROLE_CHANGE_REASON}
+)
+
 logger = get_logger("convfinqa.send_message")
 
 _execute_tool = execute_tool
@@ -117,6 +132,8 @@ class SendMessageUseCase:
         llm_model: str,
         environment: str,
         prompt_injection_detector: PromptInjectionDetector | None = None,
+        security_signals: SecuritySignals | None = None,
+        suspicious_throttle: SuspiciousAttemptThrottle | None = None,
     ) -> None:
         self._llm = llm
         self._conversations = conversations
@@ -130,6 +147,8 @@ class SendMessageUseCase:
         self._prompt_injection_detector = (
             prompt_injection_detector or PromptInjectionDetector()
         )
+        self._security_signals = security_signals or SecuritySignals()
+        self._suspicious_throttle = suspicious_throttle
 
     async def stream(
         self,
@@ -191,6 +210,15 @@ class SendMessageUseCase:
                             "conversation_id": conversation.id,
                         },
                     )
+                    self._security_signals.prompt_injection_detected(
+                        conversation_id=conversation.id,
+                        document_id=document.id,
+                        model=resolved_model,
+                        action=PromptInjectionAction.BLOCK.value,
+                        families=(),
+                        surfaces=(),
+                        detector_failed=True,
+                    )
                     span.set_output(PROMPT_INJECTION_REFUSAL)
                     async for event in self._respond_without_model(
                         conversation.id,
@@ -199,12 +227,30 @@ class SendMessageUseCase:
                     ):
                         yield event
                     return
+                if injection_decision.action != PromptInjectionAction.ALLOW:
+                    self._security_signals.prompt_injection_detected(
+                        conversation_id=conversation.id,
+                        document_id=document.id,
+                        model=resolved_model,
+                        action=injection_decision.action.value,
+                        families=(
+                            finding.family.value
+                            for finding in injection_decision.findings
+                        ),
+                        surfaces=(
+                            finding.surface.value
+                            for finding in injection_decision.findings
+                        ),
+                    )
                 if injection_decision.action == PromptInjectionAction.BLOCK:
-                    span.set_output(PROMPT_INJECTION_REFUSAL)
+                    refusal = await self._suspicious_refusal(
+                        user_id, conversation.id, PROMPT_INJECTION_REFUSAL
+                    )
+                    span.set_output(refusal)
                     async for event in self._respond_without_model(
                         conversation.id,
                         assistant_id,
-                        PROMPT_INJECTION_REFUSAL,
+                        refusal,
                     ):
                         yield event
                     return
@@ -214,11 +260,23 @@ class SendMessageUseCase:
                     boundary_decision.action
                     == DomainBoundaryAction.RESPOND_WITH_POLICY_MESSAGE
                 ):
-                    span.set_output(boundary_decision.response or "")
+                    response = boundary_decision.response or ""
+                    if boundary_decision.reason != APP_CAPABILITY_REASON:
+                        self._security_signals.domain_boundary_blocked(
+                            conversation_id=conversation.id,
+                            document_id=document.id,
+                            model=resolved_model,
+                            reason=boundary_decision.reason,
+                        )
+                    if boundary_decision.reason in SUSPICIOUS_BOUNDARY_REASONS:
+                        response = await self._suspicious_refusal(
+                            user_id, conversation.id, response
+                        )
+                    span.set_output(response)
                     async for event in self._respond_without_model(
                         conversation.id,
                         assistant_id,
-                        boundary_decision.response or "",
+                        response,
                     ):
                         yield event
                     return
@@ -279,6 +337,16 @@ class SendMessageUseCase:
                         usage = state.usage
                         if output_guard.blocked:
                             output_blocked = True
+                            self._security_signals.output_guard_blocked(
+                                conversation_id=conversation.id,
+                                document_id=document.id,
+                                model=resolved_model,
+                                reason=(
+                                    output_guard.reason.value
+                                    if output_guard.reason is not None
+                                    else "unknown"
+                                ),
+                            )
                             break
 
                         if state.current_reasoning_id:
@@ -305,6 +373,11 @@ class SendMessageUseCase:
 
                         if iteration == ITERATION_CAP - 1:
                             stop_reason = StopReason.ITERATION_CAP
+                            self._security_signals.cost_control_triggered(
+                                conversation_id=conversation.id,
+                                model=resolved_model,
+                                control="iteration_cap",
+                            )
                             break
 
                         async for event in execute_and_replay_tools(
@@ -315,6 +388,8 @@ class SendMessageUseCase:
                             document,
                             seen_citations,
                             self._observability,
+                            security_signals=self._security_signals,
+                            conversation_id=conversation.id,
                         ):
                             yield event
 
@@ -348,6 +423,14 @@ class SendMessageUseCase:
                             "conversation_id": conversation.id,
                         },
                     )
+                    provider_condition = classify_provider_error(exc)
+                    if provider_condition is not None:
+                        self._security_signals.provider_throttled(
+                            conversation_id=conversation.id,
+                            model=resolved_model,
+                            condition=provider_condition,
+                            exc_type=exc.__class__.__name__,
+                        )
 
                 if current_text_buffer:
                     parts_in_order.append(
@@ -390,6 +473,33 @@ class SendMessageUseCase:
                     )
                 finally:
                     await self._cancel_title_task(title_task)
+
+    async def _suspicious_refusal(
+        self, user_id: uuid.UUID, conversation_id: str, refusal: str
+    ) -> str:
+        if self._suspicious_throttle is None:
+            return refusal
+        try:
+            decision = await self._suspicious_throttle.register_blocked_attempt(user_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.log(
+                logging.WARNING,
+                "suspicious_attempt_tracking_failed",
+                extra={
+                    "exc_type": exc.__class__.__name__,
+                    "exc_message": str(exc) or exc.__class__.__name__,
+                    "conversation_id": conversation_id,
+                },
+            )
+            return refusal
+        if not decision.throttled:
+            return refusal
+        self._security_signals.suspicious_activity_throttled(
+            conversation_id=conversation_id,
+            attempts=decision.attempts,
+            window_seconds=self._suspicious_throttle.window_seconds,
+        )
+        return SUSPICIOUS_ACTIVITY_REFUSAL
 
     async def _resolve_title(
         self, title_task: asyncio.Task[str | None], conversation_id: str
