@@ -1,7 +1,7 @@
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 from convfinqa.domain.ports.prompts import PromptPublisherPort
 
@@ -31,6 +31,9 @@ class SyncReport:
         return any(outcome.status == "errored" for outcome in self.outcomes)
 
 
+DEFAULT_AB_CONFIG: dict[str, object] = {"enabled": False}
+
+
 def content_hash(template: str) -> str:
     return hashlib.sha256(template.encode("utf-8")).hexdigest()
 
@@ -58,21 +61,36 @@ async def _sync_entry(
 ) -> SyncOutcome:
     new_hash = content_hash(entry.template)
     try:
-        previous_hash = await publisher.latest_content_hash(entry.name)
+        previous_config = await publisher.latest_config(entry.name)
     except Exception as exc:  # noqa: BLE001
         return SyncOutcome(entry.name, "errored", error=str(exc))
 
+    previous_hash = (
+        previous_config.get("content_hash") if previous_config is not None else None
+    )
     if previous_hash == new_hash:
         return SyncOutcome(entry.name, "skipped")
 
     if dry_run:
         return SyncOutcome(entry.name, "would_create")
 
+    # The `ab` block is UI-owned: carry it forward untouched so a re-sync
+    # (triggered by a template edit) never clobbers UI-tuned experiment
+    # weights. Only the very first version scaffolds a default.
+    ab_config = (
+        previous_config.get("ab", DEFAULT_AB_CONFIG)
+        if previous_config is not None
+        else DEFAULT_AB_CONFIG
+    )
+
     try:
         version = await publisher.publish(
             entry.name,
             entry.template,
             new_hash,
+            ab_config=cast("Mapping[str, object]", ab_config)
+            if isinstance(ab_config, dict)
+            else DEFAULT_AB_CONFIG,
             labels=["latest", f"git-{git_sha}"],
         )
     except Exception as exc:  # noqa: BLE001
