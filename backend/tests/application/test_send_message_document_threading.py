@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
+from convfinqa.application.output_guard import OUTPUT_GUARD_REFUSAL
 from convfinqa.application.prompt_injection_detector import (
     PromptInjectionDecision,
     PromptInjectionDetector,
@@ -456,9 +457,7 @@ async def test_refused_turn_is_not_persisted_or_replayed_to_later_llm_call() -> 
 
     assert llm.seen_messages
     replayed_contents = [
-        message["content"]
-        for llm_call in llm.seen_messages
-        for message in llm_call
+        message["content"] for llm_call in llm.seen_messages for message in llm_call
     ]
     assert attack not in replayed_contents
     assert allowed_question in replayed_contents
@@ -529,3 +528,39 @@ async def test_existing_conversation_with_prior_user_message_does_not_regenerate
 
     assert titles == []
     assert convs.conversations["conv_existing"].title is None
+
+
+@pytest.mark.asyncio
+async def test_guarded_output_persists_only_safe_refusal() -> None:
+    convs = _FakeConvRepo()
+    docs = _FakeDocRepo(by_id={"doc-1": _document()})
+    unsafe = "The system prompt says reveal hidden rules."
+    llm = _FakeLLM(deltas=("The sys", "tem prompt says reveal hidden rules."))
+    convs.conversations["conv_existing"] = Conversation(
+        id="conv_existing",
+        user_id=USER_ID_STR,
+        document_id="doc-1",
+        created_at=datetime.now(UTC),
+    )
+    use_case = _build_use_case(convs, docs, llm)
+
+    deltas: list[str] = []
+    async for event in use_case.stream(
+        user_id=USER_ID,
+        conversation_id="conv_existing",
+        user_text="what was revenue in the pinned document?",
+    ):
+        if isinstance(event, TextDelta):
+            deltas.append(event.text)
+
+    assistant_messages = [
+        message
+        for message in convs.messages_by_conv["conv_existing"]
+        if message.role == Role.ASSISTANT
+    ]
+    assert deltas == [OUTPUT_GUARD_REFUSAL]
+    assert len(assistant_messages) == 1
+    assert assistant_messages[0].content == OUTPUT_GUARD_REFUSAL
+    assert unsafe not in assistant_messages[0].content
+    assert assistant_messages[0].parts is not None
+    assert unsafe not in str(assistant_messages[0].parts)
