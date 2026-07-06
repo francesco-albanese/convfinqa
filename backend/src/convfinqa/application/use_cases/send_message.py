@@ -65,6 +65,7 @@ class SendMessageUseCase:
         llm_model: str,
         environment: str,
         prompt_injection_detector: PromptInjectionDetector | None = None,
+        system_prompt_label: str = "production",
         security_signals: SecuritySignals | None = None,
         suspicious_throttle: SuspiciousAttemptThrottle | None = None,
     ) -> None:
@@ -76,6 +77,7 @@ class SendMessageUseCase:
         self._observability = observability
         self._llm_model = llm_model
         self._environment = environment
+        self._system_prompt_label = system_prompt_label
         self._domain_boundary = DomainBoundaryPolicy()
         self._prompt_injection_detector = (
             prompt_injection_detector or PromptInjectionDetector()
@@ -113,14 +115,14 @@ class SendMessageUseCase:
                 )
                 compiled_prompt = await self._prompt_provider.compile(
                     "convfinqa-system",
-                    "production",
+                    self._system_prompt_label,
                     build_system_prompt_variables(document, build_tool_docs()),
                 )
                 system_prompt = compiled_prompt.text
                 prompt_ref = (
                     PromptRef(
                         name="convfinqa-system",
-                        label="production",
+                        label=self._system_prompt_label,
                         version=compiled_prompt.version,
                     )
                     if compiled_prompt.version is not None

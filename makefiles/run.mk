@@ -1,4 +1,4 @@
-.PHONY: run cli prompts-sync eval-seed-dataset
+.PHONY: run cli prompts-sync eval-seed-dataset eval
 
 run: ## Start the FastAPI server (uv run main)
 	uv run main
@@ -11,3 +11,6 @@ prompts-sync: ## Publish the git-committed prompt catalog to Langfuse
 
 eval-seed-dataset: ## Seed the Langfuse eval dataset (one item per ConvFinQA dialogue)
 	uv run convfinqa eval seed-dataset
+
+eval: eval-seed-dataset ## Seed then replay the eval dataset through the real agent; pass flags via ARGS="--prompt-label latest"
+	uv run convfinqa eval run $(ARGS)

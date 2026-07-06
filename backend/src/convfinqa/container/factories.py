@@ -100,6 +100,7 @@ def build_use_cases(
     settings: Settings,
     observability: ObservabilityPort,
     rate_limit: RateLimitPort,
+    system_prompt_label: str = "production",
 ) -> tuple[
     SendMessageUseCase,
     ListDocumentsUseCase,
@@ -117,6 +118,7 @@ def build_use_cases(
         observability=observability,
         llm_model=settings.llm_model,
         environment=settings.environment,
+        system_prompt_label=system_prompt_label,
         security_signals=SecuritySignals(),
         suspicious_throttle=SuspiciousAttemptThrottle(
             rate_limit=rate_limit,
