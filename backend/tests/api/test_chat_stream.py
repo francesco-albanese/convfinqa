@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import Any, cast
 
 import pytest
@@ -63,7 +64,10 @@ async def test_stream_chat_emits_ai_sdk_v5_frames_in_order_with_streaming_header
         response = await client.post(
             "/api/v1/chat/stream",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "hi, about the document",
+                "document_id": seeded_document_id,
+            },
         )
 
     assert response.status_code == 200
@@ -72,11 +76,12 @@ async def test_stream_chat_emits_ai_sdk_v5_frames_in_order_with_streaming_header
     assert response.headers["cache-control"] == "no-cache"
 
     frames = _parse_frames(response.text)
+    # Short answers sit inside the output guard's holdback window until the
+    # end-of-stream flush, so they arrive as a single text-delta frame.
     assert _types(frames) == [
         "start",
         "data-conversation",
         "text-start",
-        "text-delta",
         "text-delta",
         "data-title",
         "text-end",
@@ -134,7 +139,10 @@ async def test_stream_chat_mid_stream_llm_error_emits_error_frame_and_done(
         response = await client.post(
             "/api/v1/chat/stream",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "hi, about the document",
+                "document_id": seeded_document_id,
+            },
         )
 
     assert response.status_code == 200
@@ -166,7 +174,7 @@ async def test_stream_chat_consumer_aborts_persists_interrupted(
 
     container: Container = app.state.container
     events = container.send_message.stream(
-        user_id=SEEDED_USER_UUID,
+        user_id=uuid.UUID(SEEDED_USER_UUID),
         conversation_id=None,
         user_text="hi, about the document",
         document_id=seeded_document_id,
@@ -200,7 +208,10 @@ async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
         response = await client.post(
             "/api/v1/chat/stream",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "hi, about the document",
+                "document_id": seeded_document_id,
+            },
         )
 
     assert response.status_code == 200
@@ -213,4 +224,4 @@ async def test_stream_chat_provider_portability_handles_gemini_shaped_chunks(
         for f in frames
         if isinstance(f, dict) and f["type"] == "text-delta"
     ]
-    assert deltas == ["x", "y"]
+    assert "".join(deltas) == "xy"

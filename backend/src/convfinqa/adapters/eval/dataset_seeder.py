@@ -123,7 +123,9 @@ def main() -> int:
 
     dataset_path = resolve_dataset_path()
     if not dataset_path.is_file():
-        LOGGER.error("dataset_file_not_found", extra={"dataset_path": str(dataset_path)})
+        LOGGER.error(
+            "dataset_file_not_found", extra={"dataset_path": str(dataset_path)}
+        )
         return 1
 
     client = Langfuse(

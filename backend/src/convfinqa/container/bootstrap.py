@@ -7,6 +7,7 @@ from convfinqa.adapters.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
+from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.config import Settings
 from convfinqa.container.container import Container
 from convfinqa.container.factories import (
@@ -113,10 +114,10 @@ def for_testing(
     conversations, documents, documents_port, locks, _ = build_persistence(
         session_factory
     )
+    # Tests must stay hermetic: never let ambient Langfuse env vars swap in the
+    # network-backed prompt provider. Tests that want it inject it explicitly.
     resolved_prompt_provider = (
-        prompt_provider
-        if prompt_provider is not None
-        else build_prompt_provider(settings)
+        prompt_provider if prompt_provider is not None else LocalFilePromptProvider()
     )
     pg_cache, pg_rate_limit = build_pg_adapters(session_factory)
     resolved_cache: CachePort = cache if cache is not None else pg_cache

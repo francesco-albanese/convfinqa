@@ -37,7 +37,10 @@ async def test_sync_chat_happy_path_creates_conversation_and_persists_messages(
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "hi, about the document",
+                "document_id": seeded_document_id,
+            },
         )
 
     assert response.status_code == 200
@@ -66,7 +69,10 @@ async def test_sync_chat_forwards_default_model_when_omitted(
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "hi, about the document",
+                "document_id": seeded_document_id,
+            },
         )
 
     assert response.status_code == 200
@@ -129,7 +135,10 @@ async def test_sync_chat_continuation_includes_prior_history(
         first = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "first, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "first, about the document",
+                "document_id": seeded_document_id,
+            },
         )
         conversation_id = first.json()["conversation_id"]
 
@@ -147,7 +156,9 @@ async def test_sync_chat_continuation_includes_prior_history(
     assert [r.role for r in rows] == ["user", "assistant", "user", "assistant"]
 
     second_call_messages = fake_llm.seen_messages[1]
-    contents = [m["content"] for m in second_call_messages if isinstance(m, dict)]
+    contents: list[object] = [
+        m["content"] for m in second_call_messages if isinstance(m, dict)
+    ]
     assert "first, about the document" in contents
     assert "Hello world" in contents
     assert contents[-1] == "second, about the document"
@@ -229,7 +240,10 @@ async def test_sync_chat_llm_error_returns_502_and_persists_partial(
         response = await client.post(
             "/api/v1/chat",
             headers={"X-User-Id": SEEDED_USER_UUID},
-            json={"message": "hi, about the document", "document_id": seeded_document_id},
+            json={
+                "message": "hi, about the document",
+                "document_id": seeded_document_id,
+            },
         )
 
     assert response.status_code == 502

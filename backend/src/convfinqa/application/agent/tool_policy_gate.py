@@ -162,7 +162,9 @@ def _validate_predicate(node: exp.Condition) -> None:
         if _is_self_contained_truth_expression(node):
             raise ValueError("self-contained truth predicates are not allowed")
         if not _is_scoped_in(node):
-            raise ValueError("IN predicates must be a finite literal list on row_label or col_label")
+            raise ValueError(
+                "IN predicates must be a finite literal list on row_label or col_label"
+            )
         return
     if isinstance(node, exp.Select):
         raise ValueError("subqueries are not allowed")

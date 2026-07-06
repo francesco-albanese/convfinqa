@@ -102,7 +102,10 @@ def run(
             task=build_task(container.send_message, model),
             evaluators=[turn_accuracy_evaluator],
             run_evaluators=[aggregate_accuracy_evaluator],
-            metadata={"prompt_label": prompt_label, "model": model or settings.llm_model},
+            metadata={
+                "prompt_label": prompt_label,
+                "model": model or settings.llm_model,
+            },
         )
     finally:
         try:

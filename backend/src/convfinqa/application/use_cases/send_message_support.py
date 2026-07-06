@@ -80,6 +80,7 @@ async def resolve_system_prompt(
     )
     return compiled_prompt.text, prompt_ref
 
+
 SUSPICIOUS_BOUNDARY_REASONS = frozenset(
     {PROTECTED_INTERNALS_REASON, ROLE_CHANGE_REASON}
 )
@@ -150,12 +151,8 @@ async def guard_user_turn(
             document_id=document.id,
             model=model,
             action=injection_decision.action.value,
-            families=(
-                finding.family.value for finding in injection_decision.findings
-            ),
-            surfaces=(
-                finding.surface.value for finding in injection_decision.findings
-            ),
+            families=(finding.family.value for finding in injection_decision.findings),
+            surfaces=(finding.surface.value for finding in injection_decision.findings),
         )
     if injection_decision.action == PromptInjectionAction.BLOCK:
         refusal = await suspicious_refusal(

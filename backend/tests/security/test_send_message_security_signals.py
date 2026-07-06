@@ -5,6 +5,7 @@ import pytest
 
 from convfinqa.adapters.observability.langfuse_client import NoOpLangfuseClient
 from convfinqa.application.agent.replay import execute_and_replay_tools
+from convfinqa.application.agent.stream_events import StreamEvent, TextDelta
 from convfinqa.application.security_signals import (
     DOMAIN_BOUNDARY_BLOCKED,
     OUTPUT_GUARD_BLOCKED,
@@ -18,7 +19,6 @@ from convfinqa.application.security_signals import (
 from convfinqa.application.suspicious_attempt_throttle import (
     SUSPICIOUS_ACTIVITY_REFUSAL,
 )
-from convfinqa.application.agent.stream_events import StreamEvent, TextDelta
 from tests.fakes.llm import FakeLLMPort
 from tests.security.fakes import (
     USER_ID,

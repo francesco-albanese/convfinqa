@@ -99,9 +99,9 @@ async def test_sync_chat_concurrent_returns_409(
                 "/api/v1/chat",
                 headers={"X-User-Id": SEEDED_USER_UUID},
                 json={
-                "message": "again, about the document",
-                "conversation_id": conversation_id,
-            },
+                    "message": "again, about the document",
+                    "conversation_id": conversation_id,
+                },
             )
             return response.status_code, response.json()
 

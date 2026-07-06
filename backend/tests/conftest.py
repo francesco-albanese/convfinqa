@@ -75,9 +75,7 @@ def schema(database_url: str) -> None:
         "script_location",
         escape_configparser_percent(str(PROJECT_ROOT / "backend" / "alembic")),
     )
-    config.set_main_option(
-        "sqlalchemy.url", escape_configparser_percent(database_url)
-    )
+    config.set_main_option("sqlalchemy.url", escape_configparser_percent(database_url))
     command.upgrade(config, "head")
 
 
