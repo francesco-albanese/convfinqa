@@ -144,6 +144,7 @@ class UserOrm(Base):
 class RateLimitOrm(Base):
     __tablename__ = "rate_limit"
 
+    scope: Mapped[str] = mapped_column(Text, nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", name="fk_rate_limit_user_id", ondelete="CASCADE"),
@@ -158,7 +159,7 @@ class RateLimitOrm(Base):
     )
 
     __table_args__ = (
-        PrimaryKeyConstraint("user_id", "window_start", name="pk_rate_limit"),
+        PrimaryKeyConstraint("scope", "user_id", "window_start", name="pk_rate_limit"),
         Index("ix_rate_limit_expires_at", "expires_at"),
     )
 

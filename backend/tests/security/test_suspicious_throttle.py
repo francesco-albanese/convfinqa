@@ -3,7 +3,10 @@ from typing import cast
 
 import pytest
 
-from convfinqa.application.suspicious_attempt_throttle import SuspiciousAttemptThrottle
+from convfinqa.application.suspicious_attempt_throttle import (
+    SUSPICIOUS_ATTEMPT_RATE_LIMIT_SCOPE,
+    SuspiciousAttemptThrottle,
+)
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from tests.security.fakes import USER_ID, FakeRateLimit
 
@@ -49,7 +52,17 @@ async def test_attempts_in_same_window_share_window_start() -> None:
     await throttle.register_blocked_attempt(USER_ID, now=base)
     await throttle.register_blocked_attempt(USER_ID, now=base + timedelta(seconds=90))
 
-    (_, first_window, first_expiry), (_, second_window, _) = rate_limit.calls
+    (
+        (first_scope, _, first_window, first_expiry),
+        (
+            second_scope,
+            _,
+            second_window,
+            _,
+        ),
+    ) = rate_limit.calls
+    assert first_scope == SUSPICIOUS_ATTEMPT_RATE_LIMIT_SCOPE
+    assert second_scope == SUSPICIOUS_ATTEMPT_RATE_LIMIT_SCOPE
     assert first_window == second_window
     assert first_window == datetime(2026, 7, 5, 12, 0, 0, tzinfo=UTC)
     assert first_expiry == first_window + timedelta(seconds=600)
@@ -72,5 +85,5 @@ async def test_attempts_in_later_window_start_a_fresh_count() -> None:
     await throttle.register_blocked_attempt(USER_ID, now=base)
     await throttle.register_blocked_attempt(USER_ID, now=base + timedelta(seconds=600))
 
-    (_, first_window, _), (_, second_window, _) = rate_limit.calls
+    (_, _, first_window, _), (_, _, second_window, _) = rate_limit.calls
     assert second_window == first_window + timedelta(seconds=600)
