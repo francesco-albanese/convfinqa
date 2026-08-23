@@ -9,10 +9,12 @@ import typer
 
 from convfinqa.entrypoints.cli.eval import eval_app
 from convfinqa.entrypoints.cli.prompts import prompts_app
+from convfinqa.entrypoints.cli.security import security_app
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 app.add_typer(prompts_app, name="prompts")
 app.add_typer(eval_app, name="eval")
+app.add_typer(security_app, name="security")
 
 CLI_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 
