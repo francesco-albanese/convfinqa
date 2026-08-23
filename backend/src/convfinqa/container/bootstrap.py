@@ -7,6 +7,9 @@ from convfinqa.adapters.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
+from convfinqa.adapters.persistence.sqlalchemy.security_campaign_fixtures_repo import (
+    SqlAlchemySecurityCampaignFixturesRepository,
+)
 from convfinqa.adapters.prompts.local_file import LocalFilePromptProvider
 from convfinqa.config import Settings
 from convfinqa.container.container import Container
@@ -22,6 +25,9 @@ from convfinqa.domain.ports.llm import LLMPort
 from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
+from convfinqa.domain.ports.security_campaign_fixtures import (
+    SecurityCampaignFixturesPort,
+)
 from convfinqa.domain.ports.session import SessionPort
 from convfinqa.logging import get_logger
 
@@ -52,6 +58,7 @@ def bootstrap_application(
             "identity. Do NOT run in this state in production.",
         )
     cache, rate_limit = build_pg_adapters(session_factory)
+    campaign_fixtures = SqlAlchemySecurityCampaignFixturesRepository(session_factory)
     (
         send_message,
         list_documents,
@@ -90,6 +97,7 @@ def bootstrap_application(
         observability=observability,
         cache=cache,
         rate_limit=rate_limit,
+        campaign_fixtures=campaign_fixtures,
         session=session,
     )
 
@@ -104,6 +112,7 @@ def for_testing(
     rate_limit: RateLimitPort | None = None,
     observability: ObservabilityPort | None = None,
     prompt_provider: PromptProviderPort | None = None,
+    campaign_fixtures: SecurityCampaignFixturesPort | None = None,
 ) -> Container:
     resolved_observability: ObservabilityPort
     if observability is None:
@@ -123,6 +132,11 @@ def for_testing(
     resolved_cache: CachePort = cache if cache is not None else pg_cache
     resolved_rate_limit: RateLimitPort = (
         rate_limit if rate_limit is not None else pg_rate_limit
+    )
+    resolved_campaign_fixtures: SecurityCampaignFixturesPort = (
+        campaign_fixtures
+        if campaign_fixtures is not None
+        else SqlAlchemySecurityCampaignFixturesRepository(session_factory)
     )
     (
         send_message,
@@ -161,5 +175,6 @@ def for_testing(
         observability=resolved_observability,
         cache=resolved_cache,
         rate_limit=resolved_rate_limit,
+        campaign_fixtures=resolved_campaign_fixtures,
         session=session,
     )

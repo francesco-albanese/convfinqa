@@ -19,6 +19,9 @@ from convfinqa.domain.ports.observability import ObservabilityPort
 from convfinqa.domain.ports.prompts import PromptProviderPort
 from convfinqa.domain.ports.rate_limit import RateLimitPort
 from convfinqa.domain.ports.repository import ConversationRepository, DocumentRepository
+from convfinqa.domain.ports.security_campaign_fixtures import (
+    SecurityCampaignFixturesPort,
+)
 from convfinqa.domain.ports.session import SessionPort
 
 
@@ -42,4 +45,5 @@ class Container:
     observability: ObservabilityPort
     cache: CachePort
     rate_limit: RateLimitPort
+    campaign_fixtures: SecurityCampaignFixturesPort
     session: SessionPort | None = None
