@@ -2,6 +2,13 @@
 
 Date: 30-05-2026
 
+Status: Superseded on 23-08-2026 by the local-only project decision.
+
+The hosted sandbox, AWS authentication, paid-provider smoke test, and deployment
+workflow described below are retired historical context. Active CI uses the
+deterministic local Playwright browser-integration suite with local PostgreSQL
+and FastAPI. It requires no AWS credentials, hosted sandbox, or paid provider.
+
 The test vocabulary must distinguish mocked browser integration tests from live End-to-end tests. Live End-to-end tests prove the deployed sandbox path with real auth, backend, persistence, streaming, and LLM integration; the existing route-intercepted Playwright suite remains valuable, but it must not be treated as proof that the deployed product works.
 
 ## Context
