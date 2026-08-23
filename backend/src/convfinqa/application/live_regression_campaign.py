@@ -26,8 +26,11 @@ from convfinqa.domain.ports.repository import ConversationRepository
 from convfinqa.domain.ports.security_campaign_fixtures import (
     SecurityCampaignFixturesPort,
 )
+from convfinqa.logging import get_logger
 
 LIVE_CAMPAIGN_ENV_VAR = "CONVFINQA_RUN_LIVE_SECURITY_CAMPAIGN"
+
+LOGGER = get_logger("convfinqa.security.live_campaign")
 
 
 class LiveCampaignNotConfirmedError(RuntimeError):
@@ -169,12 +172,14 @@ class LiveRegressionCampaignRunner:
         self, cases: tuple[LiveCampaignCase, ...] = REPRESENTATIVE_CASES
     ) -> LiveCampaignReport:
         documents_by_id = {case.document.id: case.document for case in cases}
-        for document in documents_by_id.values():
-            await self._campaign_fixtures.upsert_document(document)
-
+        upserted_document_ids: list[str] = []
         outcomes: list[LiveCampaignCaseOutcome] = []
         stop_reason: str | None = None
         try:
+            for document in documents_by_id.values():
+                await self._campaign_fixtures.upsert_document(document)
+                upserted_document_ids.append(document.id)
+
             for model in self._config.models:
                 for case in cases:
                     if stop_reason is not None:
@@ -183,8 +188,8 @@ class LiveRegressionCampaignRunner:
                     outcome, stop_reason = await self._run_case(model, case)
                     outcomes.append(outcome)
         finally:
-            for document_id in documents_by_id:
-                await self._campaign_fixtures.delete_document(document_id)
+            for document_id in upserted_document_ids:
+                await self._delete_fixture_document_safely(document_id)
 
         return LiveCampaignReport(
             outcomes=tuple(outcomes),
@@ -192,6 +197,20 @@ class LiveRegressionCampaignRunner:
             tokens_used=self._tokens_used,
             stopped_early_reason=stop_reason,
         )
+
+    async def _delete_fixture_document_safely(self, document_id: str) -> None:
+        try:
+            await self._campaign_fixtures.delete_document(document_id)
+        except Exception as exc:
+            LOGGER.log(
+                logging.WARNING,
+                "security_campaign_fixture_cleanup_failed",
+                extra={
+                    "exc_type": exc.__class__.__name__,
+                    "exc_message": str(exc) or exc.__class__.__name__,
+                    "document_id": document_id,
+                },
+            )
 
     def _skipped(
         self, case: LiveCampaignCase, model: str, reason: str
@@ -216,6 +235,7 @@ class LiveRegressionCampaignRunner:
 
         stop_reason: str | None = None
         case_passed = True
+        guardrail_judgment_failed = False
         turns_executed = 0
         turn_details: list[str] = []
         all_events: list[str] = []
@@ -230,15 +250,32 @@ class LiveRegressionCampaignRunner:
                     turn_details.append("token cap reached before this turn")
                     break
 
-                await self._sleep(self._config.pace_seconds)
-                turn_result = await self._run_turn(
-                    model=model, conversation_id=conversation.id, turn=turn
-                )
+                try:
+                    await self._sleep(self._config.pace_seconds)
+                    turn_result = await self._run_turn(
+                        model=model, conversation_id=conversation.id, turn=turn
+                    )
+                except Exception as exc:
+                    case_passed = False
+                    turn_details.append(f"unexpected_error:{type(exc).__name__}:{exc}")
+                    LOGGER.log(
+                        logging.WARNING,
+                        "security_campaign_turn_failed",
+                        extra={
+                            "exc_type": exc.__class__.__name__,
+                            "exc_message": str(exc) or exc.__class__.__name__,
+                            "case_id": case.id,
+                            "model": model,
+                        },
+                    )
+                    break
+
                 turns_executed += 1
                 all_events.extend(turn_result.events)
                 turn_details.append(turn_result.detail)
                 if not turn_result.passed:
                     case_passed = False
+                    guardrail_judgment_failed = True
                 if turn_result.rate_limited:
                     stop_reason = "provider_rate_limited"
                     break
@@ -247,11 +284,12 @@ class LiveRegressionCampaignRunner:
 
         if not case_passed:
             status = OutcomeStatus.FAILED
-            self._security_signals.security_regression_failed(
-                suite="live_provider_campaign",
-                attack_family=case.category.value,
-                detail=f"{case.id}:{model}:{turn_details[-1] if turn_details else 'unknown'}",
-            )
+            if guardrail_judgment_failed:
+                self._security_signals.security_regression_failed(
+                    suite="live_provider_campaign",
+                    attack_family=case.category.value,
+                    detail=f"{case.id}:{model}:{turn_details[-1] if turn_details else 'unknown'}",
+                )
         elif turns_executed < len(case.turns):
             status = OutcomeStatus.SKIPPED
         else:

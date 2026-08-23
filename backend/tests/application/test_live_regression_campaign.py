@@ -124,12 +124,18 @@ class FakeCampaignFixtures:
     by_id: dict[str, Document]
     upserted_ids: list[str] = field(default_factory=list[str])
     deleted_ids: list[str] = field(default_factory=list[str])
+    fail_upsert_for: frozenset[str] = frozenset()
+    fail_delete_for: frozenset[str] = frozenset()
 
     async def upsert_document(self, document: Document) -> None:
+        if document.id in self.fail_upsert_for:
+            raise RuntimeError(f"upsert failed for {document.id}")
         self.by_id[document.id] = document
         self.upserted_ids.append(document.id)
 
     async def delete_document(self, document_id: str) -> None:
+        if document_id in self.fail_delete_for:
+            raise RuntimeError(f"delete failed for {document_id}")
         self.by_id.pop(document_id, None)
         self.deleted_ids.append(document_id)
 
@@ -357,7 +363,9 @@ async def test_provider_rate_limit_stops_the_campaign() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cleanup_happens_even_when_a_turn_errors() -> None:
+async def test_unexpected_turn_error_fails_only_that_case_and_keeps_the_report() -> (
+    None
+):
     async def boom(seconds: float) -> None:
         del seconds
         raise RuntimeError("pacing sleep exploded")
@@ -367,12 +375,102 @@ async def test_cleanup_happens_even_when_a_turn_errors() -> None:
         llm, documents={BENIGN_DOC.id: BENIGN_DOC}, sleep=boom
     )
 
-    with pytest.raises(RuntimeError):
-        await runner.run(cases=(compliant_leak_case("TOKEN_A"),))
+    report = await runner.run(cases=(compliant_leak_case("TOKEN_A"),))
 
+    outcome = report.outcomes[0]
+    assert outcome.status == OutcomeStatus.FAILED
+    assert "unexpected_error:RuntimeError" in outcome.detail
     assert convs.created_ids == convs.deleted_ids
     assert len(convs.created_ids) == 1
     assert fixtures.deleted_ids == [BENIGN_DOC.id]
+
+
+@pytest.mark.asyncio
+async def test_unexpected_turn_error_does_not_abort_later_cases() -> None:
+    calls = 0
+
+    async def boom_once(seconds: float) -> None:
+        nonlocal calls
+        del seconds
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("pacing sleep exploded")
+
+    llm = FakeLLMPort()
+    runner, _convs, _fixtures = build_runner(
+        llm, documents={BENIGN_DOC.id: BENIGN_DOC}, sleep=boom_once
+    )
+    cases = (compliant_leak_case("TOKEN_A"), blocked_case())
+
+    report = await runner.run(cases=cases)
+
+    assert report.outcomes[0].status == OutcomeStatus.FAILED
+    assert report.outcomes[1].status == OutcomeStatus.PASSED
+
+
+@pytest.mark.asyncio
+async def test_partial_upsert_failure_cleans_up_already_upserted_documents() -> None:
+    second_doc = Document(
+        id="live-campaign-test-second",
+        ticker="LCTB2",
+        year=2024,
+        page=1,
+        title="Second Fixture",
+        pre_text="Costs fell.",
+        post_text="Margins improved.",
+        table_data={"revenue": [50]},
+        column_order=("fy2024",),
+    )
+    llm = FakeLLMPort()
+    runner, _convs, fixtures = build_runner(
+        llm, documents={BENIGN_DOC.id: BENIGN_DOC, second_doc.id: second_doc}
+    )
+    fixtures.fail_upsert_for = frozenset({second_doc.id})
+    second_case = LiveCampaignCase(
+        id="second-case",
+        category=AttackCategory.DOCUMENT,
+        description="second fixture document, whose upsert fails",
+        document=second_doc,
+        turns=(LiveCampaignTurn(text="Summarize the document."),),
+    )
+
+    with pytest.raises(RuntimeError):
+        await runner.run(cases=(compliant_leak_case("TOKEN_A"), second_case))
+
+    assert fixtures.upserted_ids == [BENIGN_DOC.id]
+    assert fixtures.deleted_ids == [BENIGN_DOC.id]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_document_delete_does_not_strand_the_rest_of_cleanup() -> None:
+    second_doc = Document(
+        id="live-campaign-test-second",
+        ticker="LCTB2",
+        year=2024,
+        page=1,
+        title="Second Fixture",
+        pre_text="Costs fell.",
+        post_text="Margins improved.",
+        table_data={"revenue": [50]},
+        column_order=("fy2024",),
+    )
+    llm = FakeLLMPort()
+    runner, _convs, fixtures = build_runner(
+        llm, documents={BENIGN_DOC.id: BENIGN_DOC, second_doc.id: second_doc}
+    )
+    fixtures.fail_delete_for = frozenset({BENIGN_DOC.id})
+    second_case = LiveCampaignCase(
+        id="second-case",
+        category=AttackCategory.DOCUMENT,
+        description="second fixture document",
+        document=second_doc,
+        turns=(LiveCampaignTurn(text="Summarize the document."),),
+    )
+
+    await runner.run(cases=(compliant_leak_case("TOKEN_A"), second_case))
+
+    assert second_doc.id in fixtures.deleted_ids
+    assert BENIGN_DOC.id not in fixtures.deleted_ids
 
 
 @pytest.mark.asyncio
