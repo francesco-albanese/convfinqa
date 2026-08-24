@@ -41,7 +41,7 @@ def bootstrap_application(
     observability = init_langfuse(settings)
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
-    llm: LLMPort = LiteLLMAdapter(
+    llm = LiteLLMAdapter(
         model=settings.llm_model,
         request_timeout_seconds=settings.llm_request_timeout_seconds,
         max_output_tokens=settings.llm_max_output_tokens,
@@ -52,11 +52,13 @@ def bootstrap_application(
     prompt_provider = build_prompt_provider(settings)
     session = build_session(settings, user_lookup)
     if session is None:
-        _log.warning(
-            "Cognito session disabled: COGNITO_USER_POOL_ID or COGNITO_CLIENT_ID "
-            "not set. Auth middleware is bypassed; X-User-Id header is trusted as "
-            "identity. Do NOT run in this state in production.",
-        )
+        if settings.model_dump()["environment"] == "local":
+            _log.info("Local auth enabled; X-User-Id is trusted as identity.")
+        else:
+            _log.warning(
+                "Hosted auth is not configured. X-User-Id is trusted as identity. "
+                "Do NOT run in this state in production.",
+            )
     cache, rate_limit = build_pg_adapters(session_factory)
     campaign_fixtures = SqlAlchemySecurityCampaignFixturesRepository(session_factory)
     (

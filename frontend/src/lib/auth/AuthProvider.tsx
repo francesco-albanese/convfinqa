@@ -15,6 +15,7 @@ export type AuthContextValue = {
 	userId: string | null;
 	email: string | null;
 	status: AuthStatus;
+	mode: "local" | "remote";
 	signIn: () => void;
 	signOut: () => Promise<void>;
 };
@@ -22,6 +23,7 @@ export type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+	const [mode, setMode] = useState<"local" | "remote">("remote");
 	const [userId, setUserId] = useState<string | null>(null);
 	const [email, setEmail] = useState<string | null>(null);
 	const [status, setStatus] = useState<AuthStatus>("loading");
@@ -48,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					};
 					setUserId(data.user_id);
 					setEmail(data.email);
+					setMode(
+						res.headers.get("X-Auth-Mode") === "local" ? "local" : "remote",
+					);
 					setStatus("authed");
 				} else {
 					setStatus("unauthed");
@@ -62,19 +67,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const signIn = useCallback(() => {
-		window.location.href = "/api/auth/login";
-	}, []);
+		window.location.href = mode === "local" ? "/app" : "/api/auth/login";
+	}, [mode]);
 
 	const signOut = useCallback(async () => {
-		await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+		if (mode === "remote") {
+			await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+		}
 		setUserId(null);
 		setEmail(null);
 		setStatus("unauthed");
-	}, []);
+	}, [mode]);
 
 	const value = useMemo<AuthContextValue>(
-		() => ({ userId, email, status, signIn, signOut }),
-		[userId, email, status, signIn, signOut],
+		() => ({ userId, email, status, mode, signIn, signOut }),
+		[userId, email, status, mode, signIn, signOut],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

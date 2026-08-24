@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_anonymous/sign-in")({
 });
 
 function SignInPage() {
-	const { signIn } = useAuth();
+	const { mode, signIn } = useAuth();
 	const [redirecting, setRedirecting] = useState(false);
 
 	if (redirecting) {
@@ -90,12 +90,14 @@ function SignInPage() {
 							disabled={redirecting}
 							className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-input font-medium text-foreground text-sm hover:bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
 						>
-							<GoogleGlyph />
-							Continue with Google
+							{mode === "remote" ? <GoogleGlyph /> : null}
+							{mode === "local" ? "Continue locally" : "Continue with Google"}
 						</button>
 
 						<p className="text-center text-[11px] text-muted-foreground">
-							secured by AWS Cognito · SSO via Google OAuth 2.0
+							{mode === "local"
+								? "local development session"
+								: "secured by AWS Cognito · SSO via Google OAuth 2.0"}
 						</p>
 					</div>
 				</section>

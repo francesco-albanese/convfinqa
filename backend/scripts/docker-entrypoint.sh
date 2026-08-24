@@ -7,6 +7,7 @@ fi
 
 alembic upgrade head
 python -m convfinqa.adapters.persistence.documents_seeder
+python -m convfinqa.adapters.persistence.local_user_seeder
 
 # exec replaces the shell with uvicorn so SIGTERM from `docker stop` reaches
 # uvicorn directly (PID 1) for graceful shutdown. --host/--port hard-coded:

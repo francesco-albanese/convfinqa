@@ -45,8 +45,23 @@ describe("live e2e settings", () => {
 			baseUrl: "https://sandbox.example.test",
 			email: "e2e@example.test",
 			password: "password",
+			localAuth: false,
 			authStatePath: "custom-auth-state.json",
 			documentId: "doc-123",
+		});
+	});
+
+	it("allows local auth without hosted credentials", () => {
+		runtimeEnv.E2E_BASE_URL = "http://localhost:5173/";
+		runtimeEnv.E2E_LOCAL_AUTH = "1";
+		delete runtimeEnv.E2E_EMAIL;
+		delete runtimeEnv.E2E_PASSWORD;
+
+		expect(getLiveE2eSettings()).toMatchObject({
+			baseUrl: "http://localhost:5173",
+			email: "",
+			password: "",
+			localAuth: true,
 		});
 	});
 });
