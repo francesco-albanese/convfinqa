@@ -6,7 +6,7 @@ runner = CliRunner()
 
 
 def test_chat_help_lists_documented_options() -> None:
-    result = runner.invoke(app, ["chat", "--help"])
+    result = runner.invoke(app, ["chat", "--help"], terminal_width=120)
 
     assert result.exit_code == 0
     assert "--user-id" in result.output

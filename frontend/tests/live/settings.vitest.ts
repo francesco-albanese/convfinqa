@@ -13,6 +13,7 @@ function resetEnv(): void {
 }
 
 function setRequiredEnv(): void {
+	delete runtimeEnv.E2E_LOCAL_AUTH;
 	runtimeEnv.E2E_BASE_URL = "https://sandbox.example.test/";
 	runtimeEnv.E2E_EMAIL = "e2e@example.test";
 	runtimeEnv.E2E_PASSWORD = "password";

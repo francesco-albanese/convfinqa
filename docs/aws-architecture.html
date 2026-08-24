@@ -303,10 +303,10 @@ flowchart LR
     frontend["frontend-unit<br/>Biome · Vitest · build"]
     browser["frontend-browser-integration<br/>PostgreSQL · FastAPI · Playwright"]
 
-    event --> changes
-    event --> backend
-    event --> frontend
-    changes --> browser
+    event --&gt; changes
+    event --&gt; backend
+    event --&gt; frontend
+    changes --&gt; browser
 </pre>
   <div class="diagram-caption">Local-only checks. No AWS credentials, Terraform commands, provider calls, or deployment jobs.</div>
 </div>
