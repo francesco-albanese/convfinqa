@@ -1,29 +1,30 @@
 # convfinqa
 
-ConvFinQA is a chatbot application that sends user's questions to an LLM, loads the relevant document into the context and returns a response related to the context provided.
+ConvFinQA is a local-first conversational financial QA application over the
+ConvFinQA dataset. It provides a FastAPI streaming backend, React/Vite UI,
+PostgreSQL persistence, and Bedrock inference through LiteLLM.
 
-## Brief context of original ConvFinQA
+## Run locally
 
-ConvFinQA is a benchmark dataset of ~3,900 multi-turn conversational Q&A dialogues over semi-structured financial documents, requiring chained numerical reasoning across turns to answer questions like percentage changes, sums, and comparisons derived from earnings reports.
+```bash
+make up
+```
 
-Earlier work on the [dataset](./data/convfinqa_dataset.json) used an intra document retriever to select relevant sentences and table rows before passing them to the model. This constraint was necessary due to the much smaller context window of models available at that time.
+Open <http://localhost:5173>. The application and authentication run locally;
+Bedrock uses your existing AWS profile in `eu-west-2` for inference only. No AWS
+infrastructure is deployed. See [the local run guide](./docs/how-to-run-the-app.md).
 
-Modern LLMs have a context window size that allows for the full document to be loaded in the context window, without any chunking, which should simplify the overall logic and improve the accuracy of responses.
+## Dataset
 
-## CLI + UI
+The [ConvFinQA dataset](./data/convfinqa_dataset.json) contains roughly 3,900
+multi-turn dialogues over semi-structured financial documents. Questions often
+require chained numerical reasoning across tables and narrative text.
 
-The app provides both a CLI and a simple UI to chat with the LLM. It requires populating ENV variables for chatting. [.env file based on the .env.example](./.env.example)
+## Stack
 
-## Tech stack
+- Python 3.13, FastAPI, SQLAlchemy, PostgreSQL
+- React 19, Vite, TypeScript
+- LiteLLM behind a hexagonal `LLMPort`
+- Pytest, Vitest, and Playwright
 
-- python 3.13+
-- `uv` package manager
-- LiteLLM used as an LLM router to quickly switch to different model providers with a unified structure
-- Pydantic validation and tools
-- FastAPI with streaming
-- `typer` CLI
-- `Next.js` typescript app for the UI
-
-## Software architecture
-
-The system is implemented with [hexagonal architecture](./docs/hexagonal.md)
+The system follows [hexagonal architecture](./docs/hexagonal.md).

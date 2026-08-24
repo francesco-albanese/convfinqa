@@ -1,13 +1,10 @@
-.PHONY: up down aws-creds seed-docs
+.PHONY: up down seed-docs
 
-up: ## Build and start the dockerised stack (Postgres + app + auth + frontend)
-	docker compose up -d --build
+up: ## Build and start the local stack (Postgres + app + frontend)
+	docker compose up -d --build --remove-orphans
 
-down: ## Stop and remove the dockerised stack
+down: ## Stop and remove the local stack
 	docker compose down
 
-aws-creds: ## Refresh STS credentials into .aws.env (uses AWS_PROFILE or sandbox-admin)
-	aws configure export-credentials --profile $${AWS_PROFILE:-sandbox-admin} --format env-no-export > .aws.env
-
-seed-docs: ## Seed the documents table from data/convfinqa_dataset.json (idempotent)
+seed-docs: ## Seed the local documents table (idempotent)
 	uv run python backend/scripts/seed_documents.py

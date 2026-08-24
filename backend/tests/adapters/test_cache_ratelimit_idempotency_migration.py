@@ -29,6 +29,27 @@ def test_migration_downgrade_drops_all_three_tables_then_upgrade_recreates(
         command.upgrade(config, "head")
 
 
+@pytest.mark.usefixtures("schema")
+def test_rate_limit_scope_migration_backfills_existing_counters(
+    database_url: str,
+) -> None:
+    config = AlembicConfig(str(PROJECT_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(PROJECT_ROOT / "backend" / "alembic"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    user_id = uuid.uuid4()
+    window_start = datetime.now(UTC)
+
+    try:
+        command.downgrade(config, "0011_conversations_title")
+        asyncio.run(_insert_legacy_rate_limit(database_url, user_id, window_start))
+        command.upgrade(config, "head")
+
+        scope = asyncio.run(_rate_limit_scope(database_url, user_id, window_start))
+        assert scope == "suspicious_attempt"
+    finally:
+        command.upgrade(config, "head")
+
+
 async def test_rate_limit_cascade_deletes_on_user_delete(
     engine: AsyncEngine,
 ) -> None:
@@ -50,10 +71,13 @@ async def test_rate_limit_cascade_deletes_on_user_delete(
         )
         await conn.execute(
             text(
-                "INSERT INTO rate_limit (user_id, window_start, count, expires_at) "
-                "VALUES (CAST(:user_id AS uuid), :window_start, 1, :expires_at)"
+                "INSERT INTO rate_limit "
+                "(scope, user_id, window_start, count, expires_at) "
+                "VALUES (:scope, CAST(:user_id AS uuid), :window_start, "
+                "1, :expires_at)"
             ),
             {
+                "scope": "suspicious_attempt",
                 "user_id": str(user_id),
                 "window_start": window_start,
                 "expires_at": expires_at,
@@ -129,6 +153,60 @@ async def test_idempotency_keys_cascade_deletes_on_user_delete(
         ).scalar()
 
     assert count == 0, "idempotency_key rows must cascade-delete with the user"
+
+
+async def _insert_legacy_rate_limit(
+    url: str, user_id: uuid.UUID, window_start: datetime
+) -> None:
+    engine = create_async_engine(url, poolclass=NullPool, future=True)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO users (id, cognito_sub, email) "
+                    "VALUES (CAST(:id AS uuid), :sub, :email)"
+                ),
+                {
+                    "id": str(user_id),
+                    "sub": f"legacy-{user_id.hex}",
+                    "email": f"legacy-{user_id.hex}@example.com",
+                },
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO rate_limit "
+                    "(user_id, window_start, count, expires_at) "
+                    "VALUES (CAST(:user_id AS uuid), :window_start, 2, :expires_at)"
+                ),
+                {
+                    "user_id": str(user_id),
+                    "window_start": window_start,
+                    "expires_at": window_start + timedelta(hours=1),
+                },
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _rate_limit_scope(
+    url: str, user_id: uuid.UUID, window_start: datetime
+) -> str:
+    engine = create_async_engine(url, poolclass=NullPool, future=True)
+    try:
+        async with engine.connect() as conn:
+            scope = (
+                await conn.execute(
+                    text(
+                        "SELECT scope FROM rate_limit "
+                        "WHERE user_id = CAST(:user_id AS uuid) "
+                        "AND window_start = :window_start"
+                    ),
+                    {"user_id": str(user_id), "window_start": window_start},
+                )
+            ).scalar_one()
+            return str(scope)
+    finally:
+        await engine.dispose()
 
 
 async def _tables_exist(url: str) -> tuple[bool, bool, bool]:

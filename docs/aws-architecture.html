@@ -293,30 +293,22 @@ stateDiagram-v2
   <div class="diagram-caption">Three lifecycle states for the convfinqa stack.</div>
 </div>
 
-<h3 id="flow-cicd">2.6 CI/CD pipeline</h3>
+<h3 id="flow-cicd">2.6 Local CI pipeline</h3>
 <div class="diagram">
 <pre class="mermaid">
 flowchart LR
-    PR["PR opened or updated"]
-    push["Push to main"]
-    dispatch["workflow_dispatch"]
-    plan["terraform-plan<br/>(comments on PR)"]
-    apply["terraform-apply"]
-    mig["migrations<br/>(ECS RunTask: alembic upgrade head)"]
-    be["backend-deploy<br/>(docker build → ECR → update-service)"]
-    fe["frontend-deploy<br/>(pnpm build → s3 sync → invalidate)"]
-    auth["auth-lambda-deploy<br/>(esbuild → update-function-code × 5)"]
-    destroy["compute-destroy<br/>(targeted destroy)"]
+    event["PR, push to main,<br/>or workflow_dispatch"]
+    changes["detect-changes"]
+    backend["backend-quality<br/>Ruff · Pyright · pytest"]
+    frontend["frontend-unit<br/>Biome · Vitest · build"]
+    browser["frontend-browser-integration<br/>PostgreSQL · FastAPI · Playwright"]
 
-    PR --> plan
-    push --> apply
-    apply --> mig
-    mig --> be
-    push --> fe
-    push --> auth
-    dispatch --> destroy
+    event --&gt; changes
+    event --&gt; backend
+    event --&gt; frontend
+    changes --&gt; browser
 </pre>
-  <div class="diagram-caption">Job dependency graph. Migrations gate backend-deploy; frontend and auth-lambda deploy in parallel.</div>
+  <div class="diagram-caption">Local-only checks. No AWS credentials, Terraform commands, provider calls, or deployment jobs.</div>
 </div>
 
 </main>

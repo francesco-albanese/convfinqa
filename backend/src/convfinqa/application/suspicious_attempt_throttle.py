@@ -8,6 +8,7 @@ SUSPICIOUS_ACTIVITY_REFUSAL = (
     "Too many requests were blocked by safety policies in a short period. "
     "Please wait a few minutes before trying again."
 )
+SUSPICIOUS_ATTEMPT_RATE_LIMIT_SCOPE = "suspicious_attempt"
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +40,12 @@ class SuspiciousAttemptThrottle:
             raise ValueError("now must be timezone-aware to keep windows UTC-aligned")
         window_start = self._window_start(moment)
         expires_at = window_start + timedelta(seconds=self._window_seconds * 2)
-        attempts = await self._rate_limit.increment(user_id, window_start, expires_at)
+        attempts = await self._rate_limit.increment(
+            SUSPICIOUS_ATTEMPT_RATE_LIMIT_SCOPE,
+            user_id,
+            window_start,
+            expires_at,
+        )
         return ThrottleDecision(
             throttled=attempts > self._max_attempts, attempts=attempts
         )

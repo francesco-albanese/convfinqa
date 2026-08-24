@@ -37,7 +37,13 @@ def current_user_id(request: Request) -> str:
 
 
 def current_user_email(request: Request) -> str | None:
-    return getattr(request.state, "current_user_email", None)
+    middleware_email: str | None = getattr(request.state, "current_user_email", None)
+    if middleware_email is not None:
+        return middleware_email
+    container: Container = request.app.state.container
+    if container.session is None:
+        return request.headers.get("X-User-Email")
+    return None
 
 
 def get_container(request: Request) -> Container:

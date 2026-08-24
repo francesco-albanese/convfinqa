@@ -2,10 +2,17 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthProvider";
 
-function meOk(userId = "user-uuid-1", email = "user@test.com") {
+function meOk(
+	userId = "user-uuid-1",
+	email = "user@test.com",
+	mode: "local" | "remote" = "remote",
+) {
 	return new Response(JSON.stringify({ user_id: userId, email }), {
 		status: 200,
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			...(mode === "local" ? { "X-Auth-Mode": "local" } : {}),
+		},
 	});
 }
 
@@ -20,6 +27,30 @@ function renderUseAuth() {
 describe("AuthProvider / useAuth — session check", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
+		vi.unstubAllEnvs();
+	});
+
+	it("detects a local identity from the session response", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				meOk(
+					"00000000-0000-4000-8000-000000000001",
+					"local@convfinqa.test",
+					"local",
+				),
+			);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const { result } = renderUseAuth();
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("authed");
+		});
+		expect(result.current.userId).toBe("00000000-0000-4000-8000-000000000001");
+		expect(result.current.email).toBe("local@convfinqa.test");
+		expect(result.current.mode).toBe("local");
+		expect(fetchMock).toHaveBeenCalledWith("/api/v1/me", undefined);
 	});
 
 	it("starts as loading then resolves to authed when /api/v1/me returns 200", async () => {
@@ -109,6 +140,36 @@ describe("AuthProvider / useAuth — signIn", () => {
 });
 
 describe("AuthProvider / useAuth — signOut", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+		vi.unstubAllEnvs();
+	});
+
+	it("signs out locally without calling the remote logout", async () => {
+		let capturedHref = "";
+		vi.stubGlobal("location", {
+			get href() {
+				return capturedHref;
+			},
+			set href(value: string) {
+				capturedHref = value;
+			},
+		});
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(meOk(undefined, undefined, "local"));
+		vi.stubGlobal("fetch", fetchMock);
+		const { result } = renderUseAuth();
+
+		await waitFor(() => expect(result.current.status).toBe("authed"));
+		await act(async () => result.current.signOut());
+		expect(result.current.status).toBe("unauthed");
+
+		act(() => result.current.signIn());
+		expect(capturedHref).toBe("/app");
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
 	it("POSTs to /api/auth/logout and sets status to unauthed", async () => {
 		const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();

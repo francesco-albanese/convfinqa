@@ -1,21 +1,24 @@
 # convfinqa — AWS Architecture & Decisions
 
-Canonical reference for how the convfinqa portfolio app is deployed to AWS: stack choice, decision lineage, runtime flows, disqualified alternatives, operational runbook. Designed to be re-read on demand by both the author and AI agents that touch infrastructure.
+Historical reference for the retired AWS deployment design: stack choice, decision lineage, runtime flows, disqualified alternatives, and operational notes. Designed to preserve prior decisions without implying that the project is deployed.
 
-- **Status**: implemented in Terraform; sandbox apply/verification is still required for new infrastructure changes
+- **Status**: dormant reference only; the project is local-only as of 2026-08-23
+- **Deployment policy**: GitHub Actions never plans, applies, deploys, destroys, or assumes an AWS role
 - **Project**: convfinqa portfolio
 - **Reference repo**: `../francescoalbanese-dev-infra`
-- **Diagrams**: see [`aws-architecture.html`](./aws-architecture.html) for rendered Mermaid sequence/flow diagrams (top-level architecture, sign-up/sign-in flows, streaming chat, Aurora cold-start, lifecycle, CI/CD job graph).
+- **Diagrams**: see [`aws-architecture.html`](./aws-architecture.html) for rendered Mermaid sequence/flow diagrams (historical AWS architecture plus the active local CI graph).
 
 ---
 
 ## 1. Executive summary & cost
 
-The convfinqa app is a streaming LLM-powered financial QA SPA. It runs on AWS with cost as the dominant constraint and a "tear it down between showings" lifecycle.
+The convfinqa app is a streaming LLM-powered financial QA SPA operated locally.
+The retired AWS design treated cost as the dominant constraint and proposed a
+"tear it down between showings" lifecycle.
 
-### The stack in one paragraph
+### The retired stack in one paragraph
 
-A React/Vite SPA served from **S3 behind a single CloudFront distribution**. The same CloudFront domain (for example `convfinqa-sandbox.francescoalbanese.dev` in sandbox) routes `/api/v1/*` to a **FastAPI service on ECS Express Mode** (Fargate-backed, auto-wired ALB) and `/api/auth/*` to a **TypeScript Lambda BFF** that handles the Cognito + Google OAuth flow and sets HTTPOnly + Secure cookies. Persistence is **Aurora Serverless v2 (Postgres-compatible) scaled to 0 ACU when idle**; cache, rate-limit, and idempotency live in the same Aurora cluster as Postgres tables. Secrets are in **SSM Parameter Store**. DNS records are written by convfinqa terraform via a cross-account provider into the parent `francescoalbanese.dev` zone owned by `../francescoalbanese-dev-infra`. Everything is one Terraform stack split into modules so that `terraform destroy -target=module.compute` drops the monthly cost to ~$1-2 when not actively shown.
+The design would have served a React/Vite SPA from **S3 behind a single CloudFront distribution**. The same CloudFront domain would have routed `/api/v1/*` to **FastAPI on ECS Express Mode** and `/api/auth/*` to a **TypeScript Lambda BFF**. Aurora Serverless v2 would have provided persistence, SSM Parameter Store would have held secrets, and cross-account Terraform would have managed DNS. None of these services is an active runtime or CI dependency.
 
 ### Cost at a glance
 
@@ -193,9 +196,8 @@ ALB can authenticate users against a Cognito User Pool natively (it sets `AWSELB
 
 ECS task role + Lambda execution role get scoped `ssm:GetParameters` on `arn:aws:ssm:<region>:<account>:parameter/convfinqa/<env>/*` and `kms:Decrypt` on the AWS-managed key for SSM.
 
-Live e2e runners read `E2E_EMAIL` and `E2E_PASSWORD` from those non-production
-parameters with `aws ssm get-parameter`; Terraform outputs only the parameter
-names, never the secret value.
+The retired live-deployment test design read `E2E_EMAIL` and `E2E_PASSWORD`
+from these parameters. Active CI does not read AWS parameters or run this test.
 
 Upgrade path: move to Secrets Manager when DB credential rotation becomes a real requirement (post-portfolio).
 
@@ -262,25 +264,22 @@ Upgrade path: move to Secrets Manager when DB credential rotation becomes a real
 - Sensitive-data mask: a global Langfuse `mask=` function plus FastAPI header filtering drops Cookies, Authorization headers, JWT-shape strings, and credential-named keys. Everything else (user text, tool args, system prompt, reasoning signatures, full wire history) flows.
 - Single Langfuse project across environments, tagged via the `environment` trace attribute. Tests set `LANGFUSE_ENABLED=false` so the SDK is a no-op; the OTLP exporter is also disabled in test config.
 
-### 3.10 CI/CD decision
+### 3.10 Local CI decision
 
-**Status**: Decided
+**Status**: Decided and active
 
-**Lineage:** One GitHub Actions workflow with path-filtered jobs. Migrations run as a one-shot Fargate task *before* the service update so a bad migration blocks the deploy instead of half-applying.
+**Lineage:** The AWS deployment workflow was retired when the project became local-only. CI now proves code quality and local integration without credentials, cloud infrastructure, or provider calls.
 
-**Chose:** Single workflow `.github/workflows/deploy.yml`, GitHub OIDC into the existing IAM deploy role, jobs gated by path-filter.
+**Chose:** One active workflow, `.github/workflows/frontend.yml` (named `local-ci`), triggered by pull requests, pushes to `main`, and manual dispatch. Terraform remains dormant source and is not reachable from GitHub Actions.
 
 **Job topology**
 
 | Job | Trigger | What it does |
 | --- | --- | --- |
-| `terraform-plan` | PR touching `terraform/**` | Validates + plans; comments the plan on the PR. |
-| `terraform-apply` | Push to main, if `terraform/**` changed | Applies. Cross-account state assume via existing OIDC role. |
-| `migrations` | After `terraform-apply`, if `backend/alembic/**` or persistence code changed | `aws ecs run-task` launches a one-shot Fargate task running `alembic upgrade head`. Failure blocks downstream. |
-| `backend-deploy` | After `migrations`, if `backend/**` changed | Docker build → ECR push (tag = git SHA) → `aws ecs update-service`. Rolling deploy: 200% max, 50% min. |
-| `frontend-deploy` | Parallel; `frontend/**` changed | `pnpm install` + `pnpm build` → `aws s3 sync` → CloudFront invalidate `/index.html` and `/`. |
-| `auth-lambda-deploy` | `auth-lambda/**` changed | `pnpm install` + esbuild → `aws lambda update-function-code` for all five functions. |
-| `compute-destroy` | `workflow_dispatch` only | Runs `terraform destroy -target=module.compute -target=module.keepalive`. The "go on holiday" button. |
+| `detect-changes` | Every run | Determines whether backend or frontend paths changed. |
+| `backend-quality` | Every run | Installs locked dependencies, then runs Ruff format/lint, Pyright, and all backend tests. |
+| `frontend-unit` | Every run | Installs locked dependencies, then runs Biome, Vitest, and the production build. |
+| `frontend-browser-integration` | Backend or frontend changed | Starts PostgreSQL and FastAPI locally, applies migrations, and runs deterministic Playwright integration tests. |
 
 ### 3.11 API URL convention decision
 
@@ -456,15 +455,16 @@ Each flow includes a sequence diagram and a numbered text equivalent. Every inte
 
 ### 4.5 Tear-down / restore flow
 
-1. **Running → Holiday**: trigger the `compute-destroy` GitHub Actions job (workflow_dispatch). Runs `terraform destroy -target=module.compute -target=module.keepalive`. ECS service, ALB, Lambda BFF zip, SSM params for the compute layer disappear. Aurora pauses naturally because no client is connected. Edge + DNS + data remain.
-2. **Holiday → Running**: `git push` to trigger normal CI, or run `terraform apply` manually. ECS Express auto-wires ALB+task again. App is live in ~5 minutes.
-3. **Anything → Dead**: full `terraform destroy`. Take an Aurora snapshot first if data matters. DNS records and ACM cert are removed; if you reapply later, the cert revalidation costs only the DNS-validation wait (~1-2 min).
+This flow is historical. No GitHub workflow manages AWS infrastructure. The
+repository is operated locally and no restore or deployment action is expected.
+Any future Terraform command would require a new explicit deployment decision
+and must be run manually outside CI.
 
-### 4.6 CI/CD pipeline flow
+### 4.6 Historical deployment sequencing
 
-**Why migrations gate backend-deploy**
-
-Running `alembic upgrade head` as a one-shot Fargate task *before* the service update means a failed migration fails the workflow without rolling out the new image. The old image keeps running on the existing schema until you fix the migration. This is the safest sequencing for a single-task service that cannot orchestrate its own multi-step deploy.
+The retired design ran `alembic upgrade head` before updating the service so a
+failed migration could not roll out a new image. Active local CI instead applies
+migrations to its disposable PostgreSQL service before Playwright runs.
 
 ---
 
@@ -557,7 +557,8 @@ Facts gathered from AWS docs, AWS blog posts, and engineering write-ups during t
 
 ## 7. Operational runbook
 
-Verification checks once the stack is applied, plus the three lifecycle levers.
+Historical verification checks retained for reference. They are not active
+project instructions and require a new deployment decision before use.
 
 ### End-to-end verification checks
 
@@ -574,10 +575,9 @@ Verification checks once the stack is applied, plus the three lifecycle levers.
 
 | Goal | Command | Result |
 | --- | --- | --- |
-| Stand up the stack | `terraform apply` (or merge to main triggers CI) | All modules applied. Live in ~5 minutes. |
-| Going on holiday | Trigger `compute-destroy` workflow (workflow_dispatch) | ECS+ALB+Lambda BFF removed. Static site still loads. Aurora pauses naturally. Cost ≈ $1-2/mo. |
-| Coming back | `terraform apply` | Compute layer re-created. ECS Express auto-wires ALB+task. Live in ~5 min. |
-| Project dead | `terraform destroy` (full) | Everything gone. Take an Aurora snapshot first if data matters. |
+| Run the project | Follow `docs/how-to-run-the-app.md` | Services run on the local machine. |
+| Validate a change | Run the documented local quality and browser suites | No AWS credentials or infrastructure required. |
+| Change deployment policy | Record a new explicit decision before any Terraform command | AWS remains dormant until then. |
 
 ### Unresolved questions (carry-overs from the design phase)
 
@@ -601,7 +601,7 @@ Verification checks once the stack is applied, plus the three lifecycle levers.
 | **ECS Express Mode** | ECS deployment mode (re:Invent 2025) that auto-wires Fargate + ALB + cert + scaling + networking with sensible defaults. |
 | **JWKS** | JSON Web Key Set. The public key set published by Cognito at `/.well-known/jwks.json` that lets you validate JWT signatures offline. |
 | **OAC** | Origin Access Control. The modern way (2022+) for CloudFront to access a private S3 bucket. Replaces OAI. |
-| **OIDC** | OpenID Connect. (1) The protocol Cognito uses for the Google federation; (2) the trust mechanism GitHub Actions uses to assume the AWS deploy role without long-lived keys. |
+| **OIDC** | OpenID Connect. Used by the historical Cognito and GitHub deploy designs; active GitHub Actions does not assume an AWS role. |
 | **pg_cron** | Postgres extension that schedules SQL as cron jobs inside the database itself. Aurora supports it natively. We use it for nightly TTL sweeps on cache/rate-limit tables. |
 | **PKCE** | Proof Key for Code Exchange. The OAuth code flow extension used by public clients (our SPA → Cognito) to prevent code interception. |
 | **Post-Confirmation Lambda Trigger** | Cognito User Pool trigger that fires once when a user is confirmed (after Google federation completes). Used to create the matching `users` row in Postgres. |
@@ -619,8 +619,8 @@ Verification checks once the stack is applied, plus the three lifecycle levers.
 | `backend/src/convfinqa/entrypoints/api/sse.py` | SSE streaming surface. Must remain compatible with ALB long-lived response forwarding (idle timeout, no buffering). |
 | `backend/src/convfinqa/application/use_cases/send_message.py` | Per-conversation lock semantics. Implements the advisory-lock-based serialisation referenced in flow 4.3. |
 | `backend/src/convfinqa/domain/ports/` | The hexagonal ports list. Adding `SessionPort`, `CachePort`, `RateLimitPort` means new files here. |
-| `terraform/environmental/` | Existing bootstrap stack (OIDC + IAM only). The module split lives here. |
-| `terraform/environmental/iam-github-actions.tf` | GitHub OIDC role + cross-account assume. New permissions added here as we discover them. |
+| `terraform/environmental/` | Dormant historical AWS infrastructure source. It is not referenced by active CI. |
+| `terraform/environmental/iam-github-actions.tf` | Dormant historical GitHub OIDC role definition. Active CI does not assume it. |
 | `frontend/vite.config.ts` | Dev-time proxy config. Must mirror prod path layout (`/api/v1`, `/api/auth`). |
 | `../francescoalbanese-dev-infra/terraform/environmental/cloudfront.tf` | Reference SPA + CloudFront pattern. |
 | `../francescoalbanese-dev-infra/terraform/environmental/main.tf` | How the parent zone is referenced as a data source via `aws.shared_services` provider — the pattern convfinqa mirrors. |

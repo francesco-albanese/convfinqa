@@ -1,151 +1,78 @@
 # How to run the app
 
-End-to-end walkthrough for booting the chat slice locally and verifying it works.
+The application, PostgreSQL database, and development identity run locally in
+Docker. Chat inference uses Amazon Bedrock through your existing AWS profile;
+this workflow does not deploy AWS infrastructure. Bedrock requests can incur
+normal model usage charges.
 
-Two flows are supported:
+## Prerequisite
 
-- **Container flow** — `make up` builds and runs the app inside Docker alongside Postgres. Closest to production.
-- **Host flow** — `make run` runs uvicorn on your host against compose's Postgres. Faster iteration with `--reload`.
-
-Each step below shows the make target first; the underlying command sits in a "what this runs" callout in case Make is unavailable.
-
-## 1. AWS credentials (Bedrock SSO)
-
-The default `LLM_MODEL` is `bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0`, so the app needs AWS credentials with Bedrock invoke permissions. SSO into the sandbox account:
+Configure a profile with access to the selected Bedrock model. For an SSO
+profile, refresh it before starting:
 
 ```bash
-aws-login
-switch-aws-env sandbox-admin
-AWS_PROFILE=sandbox-admin aws sts get-caller-identity
+aws sso login --profile sandbox-admin
 ```
 
-The `get-caller-identity` call must return the sandbox account/role — if it errors, fix the AWS session before continuing.
+Bedrock runs in `eu-west-2`. The Docker backend sets both `AWS_REGION` and
+`AWS_DEFAULT_REGION` to `eu-west-2`.
 
-### Container flow only — materialise STS credentials
+## Start
 
 ```bash
-make aws-creds
+AWS_PROFILE=sandbox-admin make up
 ```
 
-> **What this runs:** `aws configure export-credentials --profile $${AWS_PROFILE:-sandbox-admin} --format env-no-export > .aws.env`
+This starts PostgreSQL on port 5432, FastAPI on port 8000, and Vite on port
+5173. The backend applies migrations, seeds the dataset and local user, and
+mounts `~/.aws` read-only for Bedrock credentials. Open
+<http://localhost:5173>; local authentication is automatic.
 
-Writes short-lived `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` into `.aws.env` (gitignored). Compose's `app` service loads this via `env_file`. Re-run when the SSO session expires (typically ~1 hour).
-
-The host flow does not need this — `make run` reads credentials from your live `AWS_PROFILE`.
-
-## 2. Environment file
+## Verify
 
 ```bash
-cp .env.example .env
+curl -s http://localhost:8000/healthz
+curl -s http://localhost:5173/api/v1/me
 ```
 
-Edit the environment file with sandbox Cognito values before running the container flow: `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET`, `COGNITO_HOSTED_UI_BASE_URL`, `COGNITO_TOKEN_URL`, and `COGNITO_REVOKE_URL`. The auth and API containers fail fast when these are missing. Other defaults work against compose's Postgres on the host loopback.
+Select a document in the UI and send a question to verify Bedrock streaming.
 
-## 3. Install Python dependencies
+## Host development
 
-```bash
-make sync
-```
-
-> **What this runs:** `uv sync`
-
-## 4. Start the stack
-
-### Container flow
-
-```bash
-make up
-```
-
-> **What this runs:** `docker compose up -d --build`
-
-Builds the app image, starts Postgres, waits for its healthcheck, then starts `convfinqa-app`. The container's entrypoint runs `alembic upgrade head` before booting uvicorn on `0.0.0.0:8000`.
-
-### Host flow
+Start PostgreSQL, migrate, and seed the local user:
 
 ```bash
 docker compose up -d postgres
 uv run alembic upgrade head
-make run
+LOCAL_USER_ID=00000000-0000-4000-8000-000000000001 \
+LOCAL_USER_EMAIL=local@convfinqa.test \
+uv run python -m convfinqa.adapters.persistence.local_user_seeder
+AWS_PROFILE=sandbox-admin AWS_REGION=eu-west-2 AWS_DEFAULT_REGION=eu-west-2 \
+LANGFUSE_ENABLED=false make run
 ```
 
-> **What `make run` runs:** `uv run main`
-
-`docker compose ps` should show postgres as `healthy` before migrations run. `make run` keeps `Settings.api_host` at `127.0.0.1` (loopback) and supports `--reload` if `API_RELOAD=true`.
-
-## 5. Verify
-
-### Health
+In another terminal:
 
 ```bash
-curl -s http://localhost:8000/healthz
-# {"status":"ok"}
+cd frontend
+VITE_LOCAL_USER_ID=00000000-0000-4000-8000-000000000001 \
+VITE_LOCAL_USER_EMAIL=local@convfinqa.test \
+pnpm dev
 ```
-
-### Sync chat
-
-```bash
-curl -s http://localhost:8000/v1/chat \
-  -H "X-User-Id: dev-user" \
-  -H "content-type: application/json" \
-  -d '{"message": "Say hello in five words."}'
-```
-
-Returns an Anthropic-shaped JSON envelope with `id`, `conversation_id`, `content`, `model`, `usage`, and `created_at`. Capture the `conversation_id` to continue the same thread on the next call.
-
-### Streaming chat (Vercel AI SDK v5 UI Message Stream)
-
-```bash
-curl -N http://localhost:8000/v1/chat/stream \
-  -H "X-User-Id: dev-user" \
-  -H "accept: text/event-stream" \
-  -H "content-type: application/json" \
-  -d '{"message": "Stream me a haiku about ledgers."}'
-```
-
-`-N` disables curl's output buffering so SSE frames print as they arrive. The stream ends with `data: [DONE]`.
-
-### CLI REPL
-
-```bash
-make cli ARGS="chat --user-id dev-user"
-```
-
-> **What this runs:** `AWS_PROFILE=sandbox-admin uv run convfinqa chat --user-id dev-user` (set `AWS_PROFILE` in your shell or `.env`).
-
-Type a message and press enter. `/new` resets the conversation; `/exit` (or Ctrl-D) quits.
-
-## 6. Stop the stack
-
-```bash
-make down
-```
-
-> **What this runs:** `docker compose down`
 
 ## Tests
 
 ```bash
 make test
+make frontend-test
+make frontend-browser-integration
 ```
 
-> **What this runs:** `make test-unit` then `make test-integration` (pytest with the `unit` / `integration` markers).
+Tests use local PostgreSQL and deterministic test doubles; they do not call
+Bedrock or deploy infrastructure.
 
-Tests spin up a Postgres testcontainer and run `alembic upgrade head` against it — no need to point them at the docker-compose database.
-
-## No-mock Docker end-to-end smoke
-
-Start the Docker stack, then run the live Playwright smoke against the local
-frontend. This still uses real Cognito Hosted UI auth and the real LLM/provider
-path, so `E2E_EMAIL` and `E2E_PASSWORD` must come from the dedicated
-non-production e2e user.
+## Stop
 
 ```bash
-make up
-cd frontend
-E2E_EMAIL=... E2E_PASSWORD=... pnpm e2e:docker
+make down
 ```
-
-Do not use route interception or fake product systems in this suite. The Docker
-entry point has its own Playwright config so broader local no-mock scenarios can
-be added without expanding the cost-bounded sandbox smoke suite.
