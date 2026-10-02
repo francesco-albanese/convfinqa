@@ -19,7 +19,7 @@ COPY alembic.ini README.md ./
 RUN uv sync --frozen --no-dev
 
 
-FROM python:3.13-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client \
   && rm -rf /var/lib/apt/lists/*
